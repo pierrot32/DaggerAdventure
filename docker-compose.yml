@@ -1,6 +1,8 @@
 services:
   jenkins:
     build: ./jenkins
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "127.0.0.1:8081:8080" # local-only access; public access goes through nginx
       - "50000:50000"

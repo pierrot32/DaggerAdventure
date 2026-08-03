@@ -29,9 +29,10 @@ pipeline {
                       -p 18080:8080 \
                       dagger-backend:ci
 
-                    sleep 3
-                    curl --fail http://localhost:18080/healthz
-                    curl --fail http://localhost:18080/api/hello
+                                        curl --fail --retry 10 --retry-delay 1 --retry-connrefused \
+                                            http://host.docker.internal:18080/healthz
+                                        curl --fail --retry 10 --retry-delay 1 --retry-connrefused \
+                                            http://host.docker.internal:18080/api/hello
 
                     docker stop dagger-backend-ci
                 '''
