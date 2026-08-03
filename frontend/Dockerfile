@@ -7,6 +7,9 @@ RUN npm install
 COPY . .
 RUN npm run build
 
+FROM builder AS checks
+RUN npm run lint
+
 FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
 EXPOSE 80

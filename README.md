@@ -47,12 +47,17 @@ sudo env DOMAIN=jenkins.domain.com \
   EMAIL=email\
   ./nginx/init-letsencrypt.sh
 ```
-3. Uncomment and restart docker containers
+3. Uncomment and restart docker containers and relaunch
+```
+sudo env DOMAIN=jenkins.domain.com \
+  EMAIL=email\
+  ./nginx/init-letsencrypt.sh
+```
 
 # CI/CD
 ## Jenkins
 Build and start Jenkins using docker containers to simulate cloud environment 
-1. Set the Docker socket group ID used by the Jenkins container:
+1. Set the Docker socket group ID used by the Jenkins container (needed to build test docker containers inside Jenkins):
 ```
 export DOCKER_GID=$(getent group docker | cut -d: -f3)
 ```

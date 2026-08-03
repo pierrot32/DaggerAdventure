@@ -4,25 +4,13 @@ pipeline {
     stages {
         stage('Frontend lint and build') {
             steps {
-                sh '''
-                    docker run --rm \
-                      -v "$PWD/frontend:/app" \
-                      -w /app \
-                      node:22-alpine \
-                      sh -c "npm install && npm run lint && npm run build"
-                '''
+                sh 'docker build --target checks -t dagger-frontend-check:ci ./frontend'
             }
         }
 
         stage('Backend checks') {
             steps {
-                sh '''
-                    docker run --rm \
-                      -v "$PWD/backend:/app" \
-                      -w /app \
-                      rust:1.85 \
-                      sh -c "cargo fmt -- --check && cargo check && cargo test"
-                '''
+                sh 'docker build --target checks -t dagger-backend-check:ci ./backend'
             }
         }
 
