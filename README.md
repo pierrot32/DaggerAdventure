@@ -52,9 +52,13 @@ sudo env DOMAIN=jenkins.domain.com \
 # CI/CD
 ## Jenkins
 Build and start Jenkins using docker containers to simulate cloud environment 
-1. sudo docker compose up -d --build
-2. Go to http://localhost:8081/
-3. Find Jenkins admin password in docker container
+1. Set the Docker socket group ID used by the Jenkins container:
+```
+export DOCKER_GID=$(getent group docker | cut -d: -f3)
+```
+2. sudo env DOCKER_GID="$DOCKER_GID" docker compose up -d --build
+3. Go to http://localhost:8081/
+4. Find Jenkins admin password in docker container
 ```
 # Build and launch docker container
 sudo docker compose up -d --build
