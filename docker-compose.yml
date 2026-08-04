@@ -1,16 +1,30 @@
 services:
+  docker:
+    image: docker:27-dind
+    privileged: true
+    restart: unless-stopped
+    environment:
+      DOCKER_TLS_CERTDIR: /certs
+    volumes:
+      - docker-certs:/certs/client
+      - docker-data:/var/lib/docker
+
   jenkins:
     build: ./jenkins
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    depends_on:
+      - docker
+    environment:
+      DOCKER_HOST: tcp://docker:2376
+      DOCKER_CERT_PATH: /certs/client
+      DOCKER_TLS_VERIFY: "1"
     ports:
       - "127.0.0.1:8081:8080" # local-only access; public access goes through nginx
       - "50000:50000"
     volumes:
       - jenkins_home:/var/jenkins_home
-      - /var/run/docker.sock:/var/run/docker.sock
-    group_add:
-      - "${DOCKER_GID:-973}"
+      - docker-certs:/certs/client:ro
 
   nginx:
     image: nginx:alpine
@@ -53,5 +67,7 @@ services:
 
 volumes:
   jenkins_home:
+  docker-certs:
+  docker-data:
   certbot_etc:
   certbot_www:
