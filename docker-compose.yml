@@ -30,8 +30,10 @@ services:
     image: nginx:alpine
     depends_on:
       - jenkins
+      - k3s
     environment:
       - DOMAIN=${DOMAIN}
+      - ARGOCD_DOMAIN=${ARGOCD_DOMAIN}
     ports:
       - "80:80"
       - "443:443"
@@ -65,9 +67,34 @@ services:
         sleep 900;
       done"
 
+  k3s:
+    image: rancher/k3s:v1.31.0-k3s1
+    privileged: true
+    restart: unless-stopped
+    command: server --disable=traefik --tls-san k3s
+    environment:
+      K3S_KUBECONFIG_OUTPUT: /k3s-config/kubeconfig.yaml
+      K3S_KUBECONFIG_MODE: "666"
+    volumes:
+      - k3s_server:/var/lib/rancher/k3s
+      - k3s_config:/k3s-config
+    tmpfs:
+      - /run
+      - /var/run
+
+  argocd:
+    build: ./argo
+    restart: on-failure
+    depends_on:
+      - k3s
+    volumes:
+      - k3s_config:/k3s-config:ro
+
 volumes:
   jenkins_home:
   docker-certs:
   docker-data:
   certbot_etc:
   certbot_www:
+  k3s_server:
+  k3s_config:

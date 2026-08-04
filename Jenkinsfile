@@ -74,7 +74,7 @@ pipeline {
                 '''
             }
         }
-
+ 
         stage('Publish images') {
             steps {
                 withCredentials([usernamePassword(
