@@ -69,9 +69,10 @@ services:
 
   k3s:
     image: rancher/k3s:v1.31.0-k3s1
+    hostname: k3s
     privileged: true
     restart: unless-stopped
-    command: server --disable=traefik --tls-san k3s
+    command: server --disable=traefik --tls-san k3s --node-name k3s
     environment:
       K3S_KUBECONFIG_OUTPUT: /k3s-config/kubeconfig.yaml
       K3S_KUBECONFIG_MODE: "666"

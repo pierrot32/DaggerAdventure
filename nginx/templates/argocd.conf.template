@@ -17,8 +17,8 @@ server {
     http2 on;
     server_name ${ARGOCD_DOMAIN};
 
-    ssl_certificate     /etc/letsencrypt/live/${ARGOCD_DOMAIN}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/${ARGOCD_DOMAIN}/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/${ARGOCD_DOMAIN}-0001/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${ARGOCD_DOMAIN}-0001/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
 
     # Argo CD's gRPC-Web UI needs a generous timeout for long-polling/streaming calls

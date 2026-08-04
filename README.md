@@ -170,6 +170,17 @@ sudo docker compose run --rm --entrypoint \
 sudo docker compose exec nginx nginx -s reload
 ```
 
+**Browser says the site is "not secure" even though the cert step succeeded**
+Check what nginx is actually serving:
+```bash
+curl -sv https://yourdomain.com 2>&1 | grep -E "subject:|issuer:"
+```
+`issuer=CN=localhost` means nginx is still serving the temporary self-signed placeholder — the real request either failed or was rate-limited (check the terminal output from step 5) and never replaced it. Also, if a directory for that exact domain already existed (e.g. from the self-signed step), certbot may save the real certificate under a `<domain>-0001` suffix instead of overwriting it. Check with:
+```bash
+sudo docker compose run --rm --entrypoint "ls /etc/letsencrypt/live/" certbot
+```
+and update the `ssl_certificate`/`ssl_certificate_key` paths in the matching `nginx/templates/*.conf.template` file to match the real directory name. After editing a template, run `sudo docker compose restart nginx` — `docker compose up -d` will **not** restart an already-running container just because a mounted template file changed.
+
 **Let's Encrypt: "too many failed authorizations ... retry after ..."**
 You hit their rate limit after repeated failed attempts (usually because nginx wasn't actually reachable yet). Wait for the time shown in the error, fix the underlying reachability issue (DNS/port-forwarding/nginx crash-loop) first, then retry.
 
