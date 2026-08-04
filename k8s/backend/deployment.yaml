@@ -17,8 +17,16 @@ spec:
         - name: backend
           # image tag is rewritten in-place by the Jenkins "Update GitOps manifests" stage
           image: docker.io/pierrot32/daggeradventure_backend:latest
+          env:
+            - name: DATABASE_PATH
+              value: /data/app.db
+            - name: COOKIE_SECURE
+              value: "true"
           ports:
             - containerPort: 8080
+          volumeMounts:
+            - name: backend-data
+              mountPath: /data
           readinessProbe:
             httpGet:
               path: /healthz
@@ -27,6 +35,10 @@ spec:
             httpGet:
               path: /healthz
               port: 8080
+      volumes:
+        - name: backend-data
+          persistentVolumeClaim:
+            claimName: backend-data
 ---
 apiVersion: v1
 kind: Service
@@ -39,3 +51,15 @@ spec:
   ports:
     - port: 8080
       targetPort: 8080
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backend-data
+  namespace: dagger-adventure
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
