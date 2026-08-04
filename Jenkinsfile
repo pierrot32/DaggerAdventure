@@ -113,34 +113,6 @@ pipeline {
                 }
             }
         }
-
-        stage('Update GitOps manifests') {
-            when {
-                expression { env.BRANCH_NAME == 'main' }
-            }
-            steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'github-credentials',
-                    usernameVariable: 'GIT_USER',
-                    passwordVariable: 'GIT_TOKEN'
-                )]) {
-                    sh '''
-                        set -eu
-                        git config user.email "jenkins-bot@daggeradventure.xyz"
-                        git config user.name "jenkins-bot"
-                        sed -i "s#daggeradventure_backend:.*#daggeradventure_backend:${IMAGE_TAG}#" k8s/backend/deployment.yaml
-                        sed -i "s#daggeradventure_frontend:.*#daggeradventure_frontend:${IMAGE_TAG}#" k8s/frontend/deployment.yaml
-                        git add k8s/backend/deployment.yaml k8s/frontend/deployment.yaml
-                        if ! git diff --cached --quiet; then
-                            git commit -m "chore: deploy ${IMAGE_TAG} [skip ci]"
-                            git push "https://${GIT_USER}:${GIT_TOKEN}@github.com/<you>/DaggerAdventure.git" HEAD:main
-                        else
-                            echo "No manifest changes to commit"
-                        fi
-                    '''
-                }
-            }
-        }
     }
 
     post {
