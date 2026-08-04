@@ -26,7 +26,20 @@ echo "Exposing Argo CD UI on NodePort 30080..."
 kubectl -n argocd patch svc argocd-server \
   -p '{"spec":{"type":"NodePort","ports":[{"name":"http","port":80,"nodePort":30080,"protocol":"TCP"},{"name":"https","port":443,"nodePort":30443,"protocol":"TCP"}]}}'
 
+echo "Installing ingress-nginx (routes the frontend/backend app inside k3s)..."
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.11.3/deploy/static/provider/baremetal/deploy.yaml
+kubectl rollout status deployment/ingress-nginx-controller -n ingress-nginx --timeout=300s
+
+echo "Exposing ingress-nginx on NodePort 30081..."
+kubectl -n ingress-nginx patch svc ingress-nginx-controller \
+  -p '{"spec":{"type":"NodePort","ports":[{"name":"http","port":80,"nodePort":30081,"protocol":"TCP"},{"name":"https","port":443,"nodePort":30444,"protocol":"TCP"}]}}'
+
+echo "Registering the dagger-adventure Argo CD Application (deploys k8s/ from git)..."
+kubectl apply -f /app-dagger-adventure.yaml
+
 echo "Argo CD is ready. Access it through nginx at https://\${ARGOCD_DOMAIN}"
 echo "(run nginx/init-letsencrypt.sh with DOMAIN=\$ARGOCD_DOMAIN once to obtain its certificate)"
 echo "Retrieve the admin password with:"
 echo "  kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d"
+echo "The app itself is reachable through nginx at https://\${APP_DOMAIN} once its ingress is synced"
+echo "(run nginx/init-letsencrypt.sh with DOMAIN=\$APP_DOMAIN once to obtain its certificate)"

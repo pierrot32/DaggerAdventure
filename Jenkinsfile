@@ -13,6 +13,20 @@ pipeline {
     }
 
     stages {
+        stage('Skip GitOps commit-back builds') {
+            steps {
+                script {
+                    // the 'Update GitOps manifests' stage below pushes back to this same
+                    // branch, which would otherwise retrigger this pipeline forever
+                    def msg = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
+                    if (msg.contains('[skip ci]')) {
+                        currentBuild.result = 'NOT_BUILT'
+                        error('Skipping build: automated GitOps manifest commit')
+                    }
+                }
+            }
+        }
+
         stage('Prepare image references') {
             steps {
                 script {
@@ -94,6 +108,34 @@ pipeline {
                             docker tag "${FRONTEND_IMAGE}:${IMAGE_TAG}" "${FRONTEND_IMAGE}:latest"
                             docker push "${BACKEND_IMAGE}:latest"
                             docker push "${FRONTEND_IMAGE}:latest"
+                        fi
+                    '''
+                }
+            }
+        }
+
+        stage('Update GitOps manifests') {
+            when {
+                expression { env.BRANCH_NAME == 'main' }
+            }
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'github-credentials',
+                    usernameVariable: 'GIT_USER',
+                    passwordVariable: 'GIT_TOKEN'
+                )]) {
+                    sh '''
+                        set -eu
+                        git config user.email "jenkins-bot@daggeradventure.xyz"
+                        git config user.name "jenkins-bot"
+                        sed -i "s#daggeradventure_backend:.*#daggeradventure_backend:${IMAGE_TAG}#" k8s/backend/deployment.yaml
+                        sed -i "s#daggeradventure_frontend:.*#daggeradventure_frontend:${IMAGE_TAG}#" k8s/frontend/deployment.yaml
+                        git add k8s/backend/deployment.yaml k8s/frontend/deployment.yaml
+                        if ! git diff --cached --quiet; then
+                            git commit -m "chore: deploy ${IMAGE_TAG} [skip ci]"
+                            git push "https://${GIT_USER}:${GIT_TOKEN}@github.com/<you>/DaggerAdventure.git" HEAD:main
+                        else
+                            echo "No manifest changes to commit"
                         fi
                     '''
                 }

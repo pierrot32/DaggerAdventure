@@ -42,7 +42,7 @@ cp .env.example .env
 Edit `.env`:
 
 ```dotenv
-DOMAIN=jenkins.yourdomain.com
+JENKINS_DOMAIN=jenkins.yourdomain.com
 ARGOCD_DOMAIN=argocd.yourdomain.com
 EMAIL=you@example.com          # used for Let's Encrypt renewal notices
 DDNS_PASSWORD=your_ddns_password  # only needed if using Namecheap DDNS, see below

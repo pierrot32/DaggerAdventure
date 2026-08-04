@@ -32,8 +32,9 @@ services:
       - jenkins
       - k3s
     environment:
-      - DOMAIN=${DOMAIN}
+      - JENKINS_DOMAIN=${JENKINS_DOMAIN}
       - ARGOCD_DOMAIN=${ARGOCD_DOMAIN}
+      - APP_DOMAIN=${APP_DOMAIN}
     ports:
       - "80:80"
       - "443:443"

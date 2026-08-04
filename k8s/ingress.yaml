@@ -1,0 +1,29 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dagger-adventure
+  namespace: dagger-adventure
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+spec:
+  # host must match APP_DOMAIN set in .env / docker-compose (not templated - k8s manifests
+  # are applied verbatim by Argo CD, so keep this in sync manually if the domain changes)
+  ingressClassName: nginx
+  rules:
+    - host: daggeradventure.xyz
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
