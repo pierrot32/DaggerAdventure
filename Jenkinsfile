@@ -103,12 +103,12 @@ pipeline {
                         docker push "${BACKEND_IMAGE}:${IMAGE_TAG}"
                         docker push "${FRONTEND_IMAGE}:${IMAGE_TAG}"
 
-                        if [ "${BRANCH_NAME:-}" = "main" ]; then
-                            docker tag "${BACKEND_IMAGE}:${IMAGE_TAG}" "${BACKEND_IMAGE}:latest"
-                            docker tag "${FRONTEND_IMAGE}:${IMAGE_TAG}" "${FRONTEND_IMAGE}:latest"
-                            docker push "${BACKEND_IMAGE}:latest"
-                            docker push "${FRONTEND_IMAGE}:latest"
-                        fi
+
+                        docker tag "${BACKEND_IMAGE}:${IMAGE_TAG}" "${BACKEND_IMAGE}:latest"
+                        docker tag "${FRONTEND_IMAGE}:${IMAGE_TAG}" "${FRONTEND_IMAGE}:latest"
+                        docker push "${BACKEND_IMAGE}:latest"
+                        docker push "${FRONTEND_IMAGE}:latest"
+
                     '''
                 }
             }
