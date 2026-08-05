@@ -20,3 +20,34 @@ pub fn verify(password: &str, password_hash: &str) -> bool {
         })
         .unwrap_or(false)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hash_then_verify_succeeds() {
+        let hashed = hash("correct-horse").expect("hash should succeed");
+        assert!(verify("correct-horse", &hashed));
+    }
+
+    #[test]
+    fn verify_rejects_wrong_password() {
+        let hashed = hash("correct-horse").expect("hash should succeed");
+        assert!(!verify("wrong-password", &hashed));
+    }
+
+    #[test]
+    fn verify_rejects_malformed_hash() {
+        assert!(!verify("correct-horse", "not-a-valid-hash"));
+    }
+
+    #[test]
+    fn same_password_produces_different_hashes() {
+        let first = hash("correct-horse").expect("hash should succeed");
+        let second = hash("correct-horse").expect("hash should succeed");
+        assert_ne!(first, second, "salts should differ between hash calls");
+        assert!(verify("correct-horse", &first));
+        assert!(verify("correct-horse", &second));
+    }
+}
