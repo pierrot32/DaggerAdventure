@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: backend
-          # image tag is rewritten in-place by the Jenkins "Update GitOps manifests" stage
+          # image tag is rewritten in the Jenkins production promotion branch
           image: docker.io/pierrot32/daggeradventure_backend:latest
           env:
             # created out-of-band: kubectl -n dagger-adventure create secret generic

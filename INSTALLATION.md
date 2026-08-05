@@ -173,7 +173,7 @@ Before starting Argo CD, update these repository-specific values:
 
 - `argo/app-dagger-adventure.yaml`: set `repoURL` to this Git repository.
 - `k8s/backend/deployment.yaml` and `k8s/frontend/deployment.yaml`: set image repository paths that Jenkins can publish to.
-- `Jenkinsfile`: confirm the Git push URL used for the GitOps commit-back stage.
+- `Jenkinsfile`: confirm the GitHub remote used by the production promotion stage.
 
 Create the backend and PostgreSQL secrets out of band through the k3s container. They are intentionally not committed to Git:
 
@@ -223,9 +223,10 @@ Complete the Jenkins setup, then:
 1. Add a registry credential with ID `docker-registry`.
 2. Configure `DOCKER_REGISTRY` and `DOCKER_IMAGE_NAMESPACE` in the pipeline job.
 3. Configure the GitHub webhook at `https://jenkins.example.com/github-webhook/`.
-4. Ensure the GitHub credentials used for the GitOps commit-back stage are available to Jenkins.
+4. Add a Jenkins Username/Password credential with ID `github-credentials`. Use a GitHub bot username and a PAT with repository contents read/write and pull-request read/write permissions.
+5. Ensure the repository has `main` and `production` branches and that the GitHub account can push the `jenkins/production-promotion` branch and create or update pull requests.
 
-The pipeline checks, builds, smoke-tests, and publishes the backend and frontend images.
+The pipeline checks, builds, smoke-tests, and publishes the backend and frontend images. Successful builds from `main` update the reusable `jenkins/production-promotion` branch and create or update a pull request targeting `production`. Jenkins does not merge that pull request. Merge it through the normal review or branch-protection workflow to promote the build.
 
 ### 7. Access Argo CD
 
@@ -236,7 +237,9 @@ sudo docker compose exec k3s sh -c "kubectl --kubeconfig /k3s-config/kubeconfig.
   -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d"
 ```
 
-Sign in as `admin`, change the password, and verify that the `dagger-adventure` Application is synchronized. Argo CD reads the manifests from `k8s/` and deploys the application into the `dagger-adventure` namespace.
+Sign in as `admin`, change the password, and verify that the `dagger-adventure` Application is synchronized. Argo CD reads the manifests from `k8s/` on the `production` branch and deploys the application into the `dagger-adventure` namespace.
+
+The Application manifest now targets `production`. For an existing installation, rebuild and rerun the one-shot installer once after the production branch contains this change so the live Argo CD Application is updated:
 
 To rerun the installer after changing [argo/install-argocd.sh](argo/install-argocd.sh):
 

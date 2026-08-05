@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          # image tag is rewritten in-place by the Jenkins "Update GitOps manifests" stage
+          # image tag is rewritten in the Jenkins production promotion branch
           image: docker.io/pierrot32/daggeradventure_frontend:latest
           ports:
             - containerPort: 80
