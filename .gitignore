@@ -10,6 +10,8 @@ frontend/dist-ssr/
 .env
 .env.*
 !.env.example
+.pdf/*
+content/*
 
 # Logs and package-manager debug files
 *.log
