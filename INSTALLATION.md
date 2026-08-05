@@ -48,9 +48,17 @@ DATABASE_URL=postgres://dagger_adventure:<POSTGRES_PASSWORD>@127.0.0.1:5432/dagg
 JWT_SECRET=replace_with_a_long_local_secret
 COOKIE_SECURE=false
 PORT=8080
+# Optional: promote an already registered account without committing its email.
+ADMIN_EMAIL=admin@example.com
 ```
 
 Use the same password as `POSTGRES_PASSWORD` in the root `.env`. Do not commit `backend/.env`.
+
+To create the administrator locally, register the account through the frontend
+with the desired name, email, and password. Then add that email to the ignored
+`backend/.env` as `ADMIN_EMAIL` and restart the backend. The backend promotes
+the matching account after migrations run. The account name and password never
+need to be added to the repository.
 
 ### 4. Run the applications
 
@@ -183,11 +191,31 @@ $KUBECTL create namespace dagger-adventure
 $KUBECTL -n dagger-adventure create secret generic backend-secrets \
   --from-literal=database-url='postgres://<user>:<password>@<host>:5432/<database>' \
   --from-literal=jwt-secret='replace_with_a_long_secret'
+$KUBECTL -n dagger-adventure create secret generic backend-admin-secrets \
+  --from-literal=admin-email='admin@example.com'
 $KUBECTL -n dagger-adventure create secret generic postgres-secrets \
   --from-literal=POSTGRES_PASSWORD='replace_with_a_strong_password'
 ```
 
 Use the actual Kubernetes PostgreSQL service hostname and credentials in the backend `database-url` value.
+
+Register the administrator account through the application before creating
+`backend-admin-secrets`. The value in the example is only a placeholder: set
+the real email from a local shell or password manager, not in a committed
+manifest. The backend uses that email to promote the existing account after
+startup; it does not create an account or store an administrator password from
+Kubernetes configuration.
+
+For an existing deployment, update only the separate admin secret without
+touching database credentials:
+
+```bash
+read -r ADMIN_EMAIL
+printf '%s' "$ADMIN_EMAIL" | $KUBECTL -n dagger-adventure create secret generic backend-admin-secrets \
+  --from-file=admin-email=/dev/stdin \
+  --dry-run=client -o yaml | $KUBECTL apply -f -
+$KUBECTL -n dagger-adventure rollout restart deployment/backend
+```
 
 ### 4. Start the stack
 
