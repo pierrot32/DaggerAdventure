@@ -149,7 +149,11 @@ npm run dev
 
 **Backend:**
 ```bash
+cd .. # repo root
+cp .env.example .env   # if not already done; set POSTGRES_PASSWORD
+docker compose up -d postgres
 cd backend
+# backend/.env is pre-filled for the local postgres service above; adjust if needed
 cargo run
 ```
 

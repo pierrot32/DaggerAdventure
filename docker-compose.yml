@@ -92,6 +92,18 @@ services:
     volumes:
       - k3s_config:/k3s-config:ro
 
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: dagger_adventure
+      POSTGRES_USER: dagger_adventure
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "127.0.0.1:5432:5432" # local-only access; used by `cargo run` during backend development
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
 volumes:
   jenkins_home:
   docker-certs:
@@ -100,3 +112,4 @@ volumes:
   certbot_www:
   k3s_server:
   k3s_config:
+  postgres-data:
