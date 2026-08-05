@@ -6,7 +6,7 @@ use uuid::Uuid;
 use crate::{
     error::AppError,
     models::{LoginRequest, RegisterRequest, User, UserResponse},
-    repository::user_repo,
+    repository::{adventure_repo, user_repo},
     services::password,
     utils::validation,
 };
@@ -49,6 +49,9 @@ pub async fn register(
         })?;
 
     let token = issue_token(&user, jwt_secret)?;
+    adventure_repo::link_pending_invites(pool, &user)
+        .await
+        .map_err(|error| AppError::Internal(error.to_string()))?;
     Ok(AuthResult {
         user: user.into(),
         token,

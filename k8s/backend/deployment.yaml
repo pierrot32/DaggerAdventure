@@ -16,7 +16,7 @@ spec:
       containers:
         - name: backend
           # image tag is rewritten in the Jenkins production promotion branch
-          image: docker.io/pierrot32/daggeradventure_backend:25-425f98637e02
+          image: docker.io/pierrot32/daggeradventure_backend:26-261b23072e20
           env:
             # created out-of-band: kubectl -n dagger-adventure create secret generic
             # backend-secrets --from-literal=database-url=... --from-literal=jwt-secret=...
@@ -33,6 +33,13 @@ spec:
                   key: jwt-secret
             - name: COOKIE_SECURE
               value: "true"
+            # Optional: set to an existing account email to bootstrap admin access.
+            - name: ADMIN_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: admin-email
+                  optional: true
           ports:
             - containerPort: 8080
           readinessProbe:

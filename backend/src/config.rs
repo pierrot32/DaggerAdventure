@@ -6,6 +6,7 @@ pub struct Config {
     pub jwt_secret: String,
     pub cookie_secure: bool,
     pub port: u16,
+    pub admin_email: Option<String>,
 }
 
 impl Config {
@@ -20,6 +21,7 @@ impl Config {
                 .ok()
                 .and_then(|value| value.parse().ok())
                 .unwrap_or(8080),
+            admin_email: env::var("ADMIN_EMAIL").ok(),
         }
     }
 }
