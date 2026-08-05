@@ -16,7 +16,7 @@ spec:
       containers:
         - name: backend
           # image tag is rewritten in the Jenkins production promotion branch
-          image: docker.io/pierrot32/daggeradventure_backend:26-261b23072e20
+          image: docker.io/pierrot32/daggeradventure_backend:27-1288412474a5
           env:
             # created out-of-band: kubectl -n dagger-adventure create secret generic
             # backend-secrets --from-literal=database-url=... --from-literal=jwt-secret=...
@@ -37,7 +37,7 @@ spec:
             - name: ADMIN_EMAIL
               valueFrom:
                 secretKeyRef:
-                  name: backend-secrets
+                  name: backend-admin-secrets
                   key: admin-email
                   optional: true
           ports:
