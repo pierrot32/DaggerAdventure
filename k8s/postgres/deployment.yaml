@@ -1,7 +1,4 @@
-sudo docker compose exec k3s kubectl \
-  --kubeconfig /k3s-config/kubeconfig.yaml \
-  -n argocd annotate application dagger-adventure \
-  argocd.argoproj.io/refresh=hard --overwriteapiVersion: apps/v1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: postgres
