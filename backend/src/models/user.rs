@@ -8,6 +8,8 @@ pub struct User {
     pub email: String,
     pub name: String,
     pub password_hash: String,
+    // 'player' | 'gm' | 'admin', enforced in Rust rather than a DB enum
+    pub role: String,
     pub created_at: DateTime<Utc>,
 }
 
@@ -16,6 +18,7 @@ pub struct UserResponse {
     pub id: Uuid,
     pub email: String,
     pub name: String,
+    pub role: String,
 }
 
 impl From<User> for UserResponse {
@@ -24,6 +27,7 @@ impl From<User> for UserResponse {
             id: user.id,
             email: user.email,
             name: user.name,
+            role: user.role,
         }
     }
 }

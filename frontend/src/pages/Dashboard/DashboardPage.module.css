@@ -1,0 +1,31 @@
+.panel {
+  color: var(--color-text-inverse);
+}
+
+.panel h2 {
+  color: var(--color-text-inverse);
+}
+
+.accessBox {
+  display: flex;
+  gap: var(--space-4);
+  margin: var(--space-6) 0;
+  padding: var(--space-5);
+  background: rgba(244, 238, 228, 0.08);
+  border-radius: var(--radius-md);
+}
+
+.statusDot {
+  flex: 0 0 9px;
+  width: 9px;
+  height: 9px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--color-success);
+}
+
+.accessNote {
+  margin-top: 5px;
+  color: var(--color-muted-inverse);
+  font-size: 13px;
+}
