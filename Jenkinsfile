@@ -101,16 +101,16 @@ pipeline {
                         --fail --retry 10 --retry-delay 1 --retry-connrefused \
                         http://dagger-backend-ci:8080/healthz
                     docker run --rm --network dagger-ci-network curlimages/curl:8.12.1 \
-                        sh -eu -c '
-                            curl --fail --retry 10 --retry-delay 1 --retry-connrefused \
-                                -c /tmp/ci-cookies \
-                                -H "content-type: application/json" \
-                                --data "{\"email\":\"ci@example.com\",\"name\":\"CI User\",\"password\":\"ci-password\"}" \
-                                http://dagger-backend-ci:8080/api/auth/register >/dev/null
-                            curl --fail --retry 10 --retry-delay 1 --retry-connrefused \
-                                -b /tmp/ci-cookies \
-                                http://dagger-backend-ci:8080/api/hello
-                        '
+                        --fail --retry 10 --retry-delay 1 --retry-connrefused \
+                        -c /tmp/ci-cookies \
+                        -H 'content-type: application/json' \
+                        --data '{"email":"ci@example.com","name":"CI User","password":"ci-password"}' \
+                        -o /dev/null \
+                        http://dagger-backend-ci:8080/api/auth/register \
+                        --next \
+                        --fail --retry 10 --retry-delay 1 --retry-connrefused \
+                        -b /tmp/ci-cookies \
+                        http://dagger-backend-ci:8080/api/hello
 
                     docker stop dagger-backend-ci || true
                     docker network rm dagger-ci-network || true
