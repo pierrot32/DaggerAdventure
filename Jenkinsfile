@@ -13,15 +13,37 @@ pipeline {
     }
 
     stages {
-        stage('Skip GitOps commit-back builds') {
+        stage('Skip automated promotion builds') {
             steps {
                 script {
-                    // the 'Update GitOps manifests' stage below pushes back to this same
-                    // branch, which would otherwise retrigger this pipeline forever
+                    // Promotion branch pushes must not start another image build.
                     def msg = sh(script: 'git log -1 --pretty=%B', returnStdout: true).trim()
                     if (msg.contains('[skip ci]')) {
                         currentBuild.result = 'NOT_BUILT'
                         error('Skipping build: automated GitOps manifest commit')
+                    }
+                }
+            }
+        }
+
+        stage('Skip non-main builds') {
+            steps {
+                script {
+                    def sourceBranch = sh(
+                        script: '''
+                            branch="${BRANCH_NAME:-${GIT_BRANCH:-}}"
+                            branch="${branch#origin/}"
+                            if [ -z "$branch" ]; then
+                                branch="$(git branch --show-current)"
+                            fi
+                            printf '%s' "$branch"
+                        ''',
+                        returnStdout: true
+                    ).trim()
+
+                    if (sourceBranch != 'main') {
+                        currentBuild.result = 'NOT_BUILT'
+                        error("Skipping non-main build for branch '${sourceBranch ?: 'unknown'}'")
                     }
                 }
             }
@@ -139,6 +161,131 @@ pipeline {
                         docker push "${FRONTEND_IMAGE}:latest"
 
                     '''
+                }
+            }
+        }
+
+        stage('Promote to production PR') {
+            steps {
+                script {
+                    def sourceBranch = sh(
+                        script: '''
+                            branch="${BRANCH_NAME:-${GIT_BRANCH:-}}"
+                            branch="${branch#origin/}"
+                            if [ -z "$branch" ]; then
+                                branch="$(git branch --show-current)"
+                            fi
+                            printf '%s' "$branch"
+                        ''',
+                        returnStdout: true
+                    ).trim()
+
+                    if (sourceBranch != 'main') {
+                        echo "Skipping production promotion for branch '${sourceBranch ?: 'unknown'}'"
+                        return
+                    }
+
+                    withCredentials([usernamePassword(
+                        credentialsId: 'github-credentials',
+                        usernameVariable: 'GITHUB_USERNAME',
+                        passwordVariable: 'GITHUB_TOKEN'
+                    )]) {
+                        sh '''
+                            set -eu
+
+                            promotion_branch='jenkins/production-promotion'
+                            production_branch='production'
+                            source_commit="$(git rev-parse HEAD)"
+
+                            git fetch origin main production
+                            git checkout -B "$promotion_branch" "$source_commit"
+
+                            replace_image() {
+                                file="$1"
+                                image="$2"
+
+                                if [ "$(grep -Ec '^[[:space:]]+image: ' "$file")" -ne 1 ]; then
+                                    echo "Expected exactly one container image in $file" >&2
+                                    exit 1
+                                fi
+
+                                sed -i -E "s|^([[:space:]]+image: ).*$|\\1${image}|" "$file"
+                            }
+
+                            replace_image k8s/backend/deployment.yaml "${BACKEND_IMAGE}:${IMAGE_TAG}"
+                            replace_image k8s/frontend/deployment.yaml "${FRONTEND_IMAGE}:${IMAGE_TAG}"
+
+                            if git diff --quiet -- k8s/backend/deployment.yaml k8s/frontend/deployment.yaml; then
+                                echo 'Image references did not change; refusing to create an empty promotion PR' >&2
+                                exit 1
+                            fi
+
+                            git config user.name 'jenkins-production-bot'
+                            git config user.email 'jenkins-production-bot@users.noreply.github.com'
+                            git add k8s/backend/deployment.yaml k8s/frontend/deployment.yaml
+                            git commit -m "Promote ${IMAGE_TAG} to production [skip ci]"
+
+                            askpass_file="$(mktemp)"
+                            cleanup() {
+                                rm -f "$askpass_file"
+                            }
+                            trap cleanup EXIT
+                            cat > "$askpass_file" <<'EOF'
+#!/bin/sh
+case "$1" in
+    *Username*) printf '%s\n' "$GITHUB_USERNAME" ;;
+    *Password*) printf '%s\n' "$GITHUB_TOKEN" ;;
+esac
+EOF
+                            chmod 700 "$askpass_file"
+                            export GIT_ASKPASS="$askpass_file"
+                            export GIT_TERMINAL_PROMPT=0
+                            git push --force origin "$promotion_branch"
+
+                            remote_url="$(git config --get remote.origin.url)"
+                            case "$remote_url" in
+                                https://github.com/*) repository="${remote_url#https://github.com/}" ;;
+                                git@github.com:*) repository="${remote_url#git@github.com:}" ;;
+                                *) echo "Unsupported GitHub remote: $remote_url" >&2; exit 1 ;;
+                            esac
+                            repository="${repository%.git}"
+                            owner="${repository%%/*}"
+                            api_url="${GITHUB_API_URL:-https://api.github.com}"
+                            api_base="$api_url/repos/$repository"
+                            pr_title="Promote ${IMAGE_TAG} to production"
+                            pr_body="Promotes source commit ${source_commit} with backend image ${BACKEND_IMAGE}:${IMAGE_TAG} and frontend image ${FRONTEND_IMAGE}:${IMAGE_TAG}. Merge this PR to deploy the tested build through Argo CD."
+                            pr_payload="$(jq -n \
+                                --arg title "$pr_title" \
+                                --arg head "$owner:$promotion_branch" \
+                                --arg base "$production_branch" \
+                                --arg body "$pr_body" \
+                                '{title: $title, head: $head, base: $base, body: $body}')"
+
+                            open_prs="$(curl -fsS \
+                                -u "$GITHUB_USERNAME:$GITHUB_TOKEN" \
+                                -H 'Accept: application/vnd.github+json' \
+                                "$api_base/pulls?state=open&head=$owner:$promotion_branch&base=$production_branch")"
+                            pr_number="$(printf '%s' "$open_prs" | jq -r '.[0].number // empty')"
+
+                            if [ -n "$pr_number" ]; then
+                                curl -fsS -X PATCH \
+                                    -u "$GITHUB_USERNAME:$GITHUB_TOKEN" \
+                                    -H 'Accept: application/vnd.github+json' \
+                                    -H 'Content-Type: application/json' \
+                                    "$api_base/pulls/$pr_number" \
+                                    --data "$pr_payload" >/dev/null
+                                echo "Updated production PR #$pr_number"
+                            else
+                                curl -fsS -X POST \
+                                    -u "$GITHUB_USERNAME:$GITHUB_TOKEN" \
+                                    -H 'Accept: application/vnd.github+json' \
+                                    -H 'Content-Type: application/json' \
+                                    "$api_base/pulls" \
+                                    --data "$pr_payload" >/dev/null
+                                echo 'Created production promotion PR'
+                            fi
+                        '''
+                    }
                 }
             }
         }

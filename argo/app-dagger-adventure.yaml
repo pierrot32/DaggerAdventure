@@ -8,7 +8,7 @@ spec:
   source:
     # replace with this repo's actual clone URL
     repoURL: https://github.com/pierrot32/DaggerAdventure
-    targetRevision: main
+    targetRevision: production
     path: k8s
     directory:
       recurse: true

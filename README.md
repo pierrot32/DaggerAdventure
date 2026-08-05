@@ -28,7 +28,7 @@ For a complete server installation, see [INSTALLATION.md](INSTALLATION.md). This
 
 The frontend talks to the Rust API. The API connects to PostgreSQL, runs pending migrations, and exposes the authentication routes. In a deployed environment, Kubernetes runs the frontend, backend, and PostgreSQL services; the ingress exposes the application. Argo CD watches the Kubernetes manifests and keeps the cluster synchronized with Git.
 
-Jenkins builds the frontend and backend check targets, builds both production images, runs `/healthz` and `/api/hello` smoke tests, and publishes images. The image tags in `k8s/*/deployment.yaml` are then updated for Argo CD to deploy.
+Jenkins builds the frontend and backend check targets, builds both production images, runs `/healthz` and `/api/hello` smoke tests, and publishes immutable images. A successful build from `main` updates one reusable promotion branch with the tested image tags and opens or updates a pull request into `production`. After that pull request is merged, Argo CD deploys the `k8s/` manifests from `production`.
 
 ## Local usage
 
