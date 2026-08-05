@@ -6,6 +6,7 @@ export const useAdventureStore = create((set) => ({
   adventures: [],
   current: null,
   invites: [],
+  pendingInvites: [],
   loading: false,
   error: null,
 
@@ -57,11 +58,30 @@ export const useAdventureStore = create((set) => ({
       const invite = accepted
         ? await adventureApi.acceptInvite(inviteId)
         : await adventureApi.declineInvite(inviteId);
-      set({ loading: false });
+      set((state) => ({
+        pendingInvites: state.pendingInvites.filter((item) => item.id !== inviteId),
+        loading: false,
+      }));
+      if (accepted) await useAdventureStore.getState().fetchAdventures();
       return invite;
     } catch (error) {
       set({ error: error.message, loading: false });
       throw error;
+    }
+  },
+
+  fetchPendingInvites: async () => {
+    try { set({ pendingInvites: await adventureApi.listMyInvites() }); }
+    catch (error) { set({ error: error.message }); }
+  },
+
+  setFear: async (id, fear) => {
+    const previous = useAdventureStore.getState().current;
+    set({ current: { ...previous, fear } });
+    try {
+      set({ current: await adventureApi.updateFear(id, fear) });
+    } catch (error) {
+      set({ current: previous, error: error.message });
     }
   },
 }));

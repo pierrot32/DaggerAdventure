@@ -213,3 +213,127 @@ async fn admin_grants_access_and_invitation_workflow_succeeds() {
         .expect("player should accept their invitation");
     assert_eq!(accepted.status, "accepted");
 }
+
+/// A freshly registered invitee still has the `nothing` access level, so the invite
+/// inbox and the accept/decline actions must not be gated behind `player_only`.
+#[tokio::test]
+#[ignore = "requires DATABASE_URL pointing at a disposable Postgres database"]
+async fn invitee_without_access_level_can_list_and_accept_invites() {
+    let pool = test_pool().await;
+    let jwt_secret = "test-secret";
+    let maker = register_with_level(&pool, jwt_secret, "maker", AccessLevel::AdventureMaker).await;
+    let invited_email = format!("invited-{}@example.com", uuid::Uuid::new_v4());
+
+    let adventure = adventure_repo::create(&pool, maker.id, "Fear Test Table", None)
+        .await
+        .expect("maker should create an adventure");
+    adventure_repo::create_invite(&pool, &maker, adventure.id, &invited_email)
+        .await
+        .expect("maker should create an invite");
+
+    let invited_response = auth_service::register(
+        &pool,
+        jwt_secret,
+        RegisterRequest {
+            email: invited_email,
+            name: "Invited Player".to_owned(),
+            password: "correct-horse".to_owned(),
+        },
+    )
+    .await
+    .expect("invited registration should succeed");
+    let invited = user_repo::find_by_id(&pool, invited_response.user.id)
+        .await
+        .expect("invited lookup should succeed")
+        .expect("invited should exist");
+    assert_eq!(invited.access_level, "nothing");
+
+    let pending = adventure_repo::list_pending_for_user(&pool, &invited)
+        .await
+        .expect("pending invite lookup should succeed");
+    assert_eq!(pending.len(), 1);
+    assert_eq!(pending[0].adventure_name, "Fear Test Table");
+    assert_eq!(pending[0].inviter_name, maker.name);
+
+    let accepted = adventure_repo::accept_invite(&pool, &invited, pending[0].id)
+        .await
+        .expect("invitee should accept without a prior access grant");
+    assert_eq!(accepted.status, "accepted");
+
+    let still_pending = adventure_repo::list_pending_for_user(&pool, &invited)
+        .await
+        .expect("pending invite lookup should succeed");
+    assert!(
+        still_pending.is_empty(),
+        "an answered invite must leave the inbox"
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires DATABASE_URL pointing at a disposable Postgres database"]
+async fn invitee_can_decline_and_only_gm_moves_the_fear_pool() {
+    let pool = test_pool().await;
+    let jwt_secret = "test-secret";
+    let maker = register_with_level(&pool, jwt_secret, "maker", AccessLevel::AdventureMaker).await;
+    let outsider =
+        register_with_level(&pool, jwt_secret, "outsider", AccessLevel::PlayerOnly).await;
+
+    let adventure = adventure_repo::create(&pool, maker.id, "Fear Pool Table", None)
+        .await
+        .expect("maker should create an adventure");
+    assert_eq!(adventure.fear, 0, "a new table starts with no Fear");
+
+    let invite = adventure_repo::create_invite(&pool, &maker, adventure.id, &outsider.email)
+        .await
+        .expect("maker should create an invite");
+    let declined = adventure_repo::decline_invite(&pool, &outsider, invite.id)
+        .await
+        .expect("invitee should decline their invitation");
+    assert_eq!(declined.status, "declined");
+
+    let updated = adventure_repo::update_fear(&pool, &maker, adventure.id, 5)
+        .await
+        .expect("the GM should move the Fear pool");
+    assert_eq!(updated.fear, 5);
+
+    let clamped = adventure_repo::update_fear(&pool, &maker, adventure.id, 99)
+        .await
+        .expect("out of range Fear should clamp rather than fail");
+    assert_eq!(clamped.fear, 12, "Fear caps at 12");
+
+    let forbidden = adventure_repo::update_fear(&pool, &outsider, adventure.id, 1).await;
+    assert!(
+        forbidden.is_err(),
+        "only the adventure creator may change Fear"
+    );
+}
+
+/// Registers a user and bumps them straight to `level` using a bootstrapped admin.
+async fn register_with_level(
+    pool: &sqlx::PgPool,
+    jwt_secret: &str,
+    prefix: &str,
+    level: AccessLevel,
+) -> backend::models::User {
+    let response = auth_service::register(
+        pool,
+        jwt_secret,
+        RegisterRequest {
+            email: format!("{prefix}-{}@example.com", uuid::Uuid::new_v4()),
+            name: format!("{prefix} user"),
+            password: "correct-horse".to_owned(),
+        },
+    )
+    .await
+    .expect("registration should succeed");
+    sqlx::query("UPDATE users SET access_level = $1 WHERE id = $2")
+        .bind(level.as_str())
+        .bind(response.user.id)
+        .execute(pool)
+        .await
+        .expect("access level bootstrap should succeed");
+    user_repo::find_by_id(pool, response.user.id)
+        .await
+        .expect("user lookup should succeed")
+        .expect("user should exist")
+}

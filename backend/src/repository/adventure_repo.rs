@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use crate::{
     error::AppError,
-    models::{Adventure, AdventureInvite, User},
+    models::{Adventure, AdventureInvite, PendingInviteView, User},
 };
 
 pub async fn create(
@@ -16,7 +16,7 @@ pub async fn create(
     let adventure = sqlx::query_as::<_, Adventure>(
         "INSERT INTO adventures (id, creator_id, name, description)
          VALUES ($1, $2, $3, $4)
-         RETURNING id, creator_id, name, description, created_at, updated_at",
+         RETURNING id, creator_id, name, description, fear, created_at, updated_at",
     )
     .bind(Uuid::new_v4())
     .bind(creator_id)
@@ -41,7 +41,7 @@ pub async fn create(
 pub async fn list_visible(pool: &PgPool, user: &User) -> Result<Vec<Adventure>, sqlx::Error> {
     let is_admin = user.access_level == "admin";
     sqlx::query_as::<_, Adventure>(
-        "SELECT DISTINCT a.id, a.creator_id, a.name, a.description, a.created_at, a.updated_at
+        "SELECT DISTINCT a.id, a.creator_id, a.name, a.description, a.fear, a.created_at, a.updated_at
          FROM adventures a
          LEFT JOIN adventure_members m ON m.adventure_id = a.id
          LEFT JOIN adventure_invites i ON i.adventure_id = a.id
@@ -64,7 +64,7 @@ pub async fn find_visible(
 ) -> Result<Option<Adventure>, sqlx::Error> {
     let is_admin = user.access_level == "admin";
     sqlx::query_as::<_, Adventure>(
-        "SELECT DISTINCT a.id, a.creator_id, a.name, a.description, a.created_at, a.updated_at
+        "SELECT DISTINCT a.id, a.creator_id, a.name, a.description, a.fear, a.created_at, a.updated_at
          FROM adventures a
          LEFT JOIN adventure_members m ON m.adventure_id = a.id
          LEFT JOIN adventure_invites i ON i.adventure_id = a.id
@@ -172,6 +172,57 @@ pub async fn list_invites(
     )
     .bind(adventure_id)
     .fetch_all(pool)
+    .await
+    .map_err(AppError::from)
+}
+
+pub async fn list_pending_for_user(
+    pool: &PgPool,
+    user: &User,
+) -> Result<Vec<PendingInviteView>, sqlx::Error> {
+    // Match on email as well as recipient_user_id: invites sent before the account
+    // existed are only linked at registration time.
+    sqlx::query_as::<_, PendingInviteView>(
+        "SELECT i.id, i.adventure_id, a.name AS adventure_name, u.name AS inviter_name,
+                i.recipient_email, i.status, i.created_at
+         FROM adventure_invites i
+         JOIN adventures a ON a.id = i.adventure_id
+         JOIN users u ON u.id = i.inviter_id
+         WHERE i.status = 'pending'
+           AND (i.recipient_user_id = $1 OR lower(i.recipient_email) = lower($2))
+         ORDER BY i.created_at DESC",
+    )
+    .bind(user.id)
+    .bind(&user.email)
+    .fetch_all(pool)
+    .await
+}
+
+pub async fn update_fear(
+    pool: &PgPool,
+    user: &User,
+    adventure_id: Uuid,
+    fear: i32,
+) -> Result<Adventure, AppError> {
+    let fear = fear.clamp(0, 12);
+    let owner = sqlx::query_scalar::<_, Uuid>("SELECT creator_id FROM adventures WHERE id = $1")
+        .bind(adventure_id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Adventure not found".to_owned()))?;
+    if owner != user.id {
+        return Err(AppError::Forbidden(
+            "Only the GM can change the Fear pool".to_owned(),
+        ));
+    }
+    sqlx::query_as::<_, Adventure>(
+        "UPDATE adventures SET fear = $1, updated_at = now()
+         WHERE id = $2
+         RETURNING id, creator_id, name, description, fear, created_at, updated_at",
+    )
+    .bind(fear)
+    .bind(adventure_id)
+    .fetch_one(pool)
     .await
     .map_err(AppError::from)
 }

@@ -4,5 +4,8 @@
 .item p { margin-top: var(--space-2); color: var(--color-muted-inverse); }
 .item a { color: var(--color-accent); white-space: nowrap; }
 .unread { border-left: 3px solid var(--color-accent); }
+.sectionTitle { margin-top: var(--space-7); }
+.invite { border-left: 3px solid var(--color-accent); }
+.inviteActions { display: flex; align-items: center; gap: var(--space-3); }
 .error { color: #ffb4ac; }
 @media (max-width: 600px) { .item { align-items: flex-start; flex-direction: column; } }

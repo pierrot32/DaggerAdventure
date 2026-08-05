@@ -7,6 +7,10 @@ export const linkCharacterToAdventure = (id, adventureId) => request(`/api/chara
   method: 'PATCH',
   body: JSON.stringify({ adventure_id: adventureId }),
 });
+export const updateCharacterStats = (id, stats) => request(`/api/characters/${id}/stats`, {
+  method: 'PATCH',
+  body: JSON.stringify({ stats }),
+});
 export const createCharacter = (payload) => request('/api/characters', {
   method: 'POST',
   body: JSON.stringify(payload),

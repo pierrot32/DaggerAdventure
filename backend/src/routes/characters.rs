@@ -8,7 +8,7 @@ use uuid::Uuid;
 use crate::{
     error::AppError,
     middleware::{access_guard::require_at_least, auth_guard::AuthUser},
-    models::{AccessLevel, Character, CreateCharacterRequest},
+    models::{AccessLevel, Character, CreateCharacterRequest, UpdateCharacterStatsRequest},
     repository::character_repo,
     state::AppState,
     utils::validation,
@@ -56,6 +56,24 @@ pub async fn get(
 ) -> Result<Json<Character>, AppError> {
     require_at_least(&user, AccessLevel::PlayerOnly)?;
     character_repo::find_visible_to_user(&state.db, user.id, character_id)
+        .await?
+        .map(Json)
+        .ok_or_else(|| AppError::NotFound("Character not found".to_owned()))
+}
+
+pub async fn update_stats(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+    Path(character_id): Path<Uuid>,
+    Json(request): Json<UpdateCharacterStatsRequest>,
+) -> Result<Json<Character>, AppError> {
+    require_at_least(&user, AccessLevel::PlayerOnly)?;
+    if !request.stats.is_object() {
+        return Err(AppError::Validation(
+            "Character stats must be an object".to_owned(),
+        ));
+    }
+    character_repo::update_stats(&state.db, user.id, character_id, &request.stats)
         .await?
         .map(Json)
         .ok_or_else(|| AppError::NotFound("Character not found".to_owned()))
