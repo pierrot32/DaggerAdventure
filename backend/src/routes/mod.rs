@@ -21,7 +21,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/auth/me", get(users::me))
         .route("/api/admin/users", get(admin::list_users))
         .route(
-            "/api/admin/users/{target_id}/access-level",
+            "/api/admin/users/:target_id/access-level",
             axum::routing::patch(admin::update_access_level),
         )
         .route("/api/admin/access-audit", get(admin::list_audit_events))
@@ -29,22 +29,22 @@ pub fn router() -> Router<AppState> {
             "/api/adventures",
             get(adventures::list).post(adventures::create),
         )
-        .route("/api/adventures/{adventure_id}", get(adventures::get))
+        .route("/api/adventures/:adventure_id", get(adventures::get))
         .route(
-            "/api/adventures/{adventure_id}/invites",
+            "/api/adventures/:adventure_id/invites",
             get(adventures::list_invites).post(adventures::create_invite),
         )
         .route(
-            "/api/invites/{invite_id}/accept",
+            "/api/invites/:invite_id/accept",
             post(adventures::accept_invite),
         )
         .route(
-            "/api/invites/{invite_id}/decline",
+            "/api/invites/:invite_id/decline",
             post(adventures::decline_invite),
         )
         .route("/api/notifications", get(notifications::list))
         .route(
-            "/api/notifications/{notification_id}/read",
+            "/api/notifications/:notification_id/read",
             post(notifications::mark_read),
         )
 }
