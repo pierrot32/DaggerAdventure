@@ -1,0 +1,4 @@
+.list { display: grid; gap: var(--space-3); margin-top: var(--space-6); }
+.event { display: grid; gap: var(--space-1); padding: var(--space-4); background: rgba(244, 238, 228, 0.06); }
+.event span, .event time { color: var(--color-muted-inverse); font-size: 13px; }
+.error { color: #ffb4ac; }

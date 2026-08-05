@@ -33,6 +33,13 @@ spec:
                   key: jwt-secret
             - name: COOKIE_SECURE
               value: "true"
+            # Optional: set to an existing account email to bootstrap admin access.
+            - name: ADMIN_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: admin-email
+                  optional: true
           ports:
             - containerPort: 8080
           readinessProbe:

@@ -1,0 +1,17 @@
+import { request } from '../../api/client';
+
+// Admin API calls stay isolated from presentation components
+export async function listUsers({ search = '', access_level = '', page = 1, limit = 25 } = {}) {
+  const params = new URLSearchParams({ search, page, limit });
+  if (access_level) params.set('access_level', access_level);
+  return request(`/api/admin/users?${params}`);
+}
+
+export const updateAccessLevel = (userId, access_level) =>
+  request(`/api/admin/users/${userId}/access-level`, {
+    method: 'PATCH',
+    body: JSON.stringify({ access_level }),
+  });
+
+export const listAuditEvents = (page = 1, limit = 50) =>
+  request(`/api/admin/access-audit?page=${page}&limit=${limit}`);

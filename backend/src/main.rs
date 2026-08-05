@@ -18,6 +18,12 @@ async fn main() {
         .await
         .expect("unable to run database migrations");
 
+    if let Some(admin_email) = &config.admin_email {
+        backend::repository::user_repo::bootstrap_admin(&db, admin_email)
+            .await
+            .expect("unable to bootstrap admin account");
+    }
+
     let port = config.port;
     let state = AppState { db, config };
     let app = routes::router().with_state(state);

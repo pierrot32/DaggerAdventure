@@ -1,0 +1,5 @@
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-4); margin-top: var(--space-6); }
+.card { display: block; padding: var(--space-5); background: rgba(244, 238, 228, 0.08); text-decoration: none; }
+.card h3 { color: var(--color-text-inverse); font-size: 24px; }
+.card p { margin-top: var(--space-3); color: var(--color-muted-inverse); line-height: 1.5; }
+.error { color: #ffb4ac; }

@@ -5,6 +5,13 @@ import HomePage from '../pages/Home/HomePage';
 import LoginPage from '../pages/Auth/LoginPage';
 import RegisterPage from '../pages/Auth/RegisterPage';
 import DashboardPage from '../pages/Dashboard/DashboardPage';
+import { ACCESS_LEVELS } from '../utils/permissions';
+import AdminUsersPage from '../features/admin/AdminUsersPage';
+import AdminAuditPage from '../features/admin/AdminAuditPage';
+import AdventureListPage from '../features/adventures/AdventureListPage';
+import AdventureDetailPage from '../features/adventures/AdventureDetailPage';
+import CreateAdventurePage from '../features/adventures/CreateAdventurePage';
+import NotificationsPage from '../features/notifications/NotificationsPage';
 
 // Single source of truth for the route tree - add future Daggerheart feature
 // pages here, nested under AppLayout like DashboardPage
@@ -24,6 +31,30 @@ export default function AppRoutes() {
           </ProtectedRoute>
         )}
       />
+      <Route path="/admin/users" element={(
+        <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.ADMIN]}>
+          <AppLayout><AdminUsersPage /></AppLayout>
+        </ProtectedRoute>
+      )} />
+      <Route path="/admin/audit" element={(
+        <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.ADMIN]}>
+          <AppLayout><AdminAuditPage /></AppLayout>
+        </ProtectedRoute>
+      )} />
+      <Route path="/adventures" element={(
+        <ProtectedRoute><AppLayout><AdventureListPage /></AppLayout></ProtectedRoute>
+      )} />
+      <Route path="/adventures/create" element={(
+        <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.ADVENTURE_MAKER]}>
+          <AppLayout><CreateAdventurePage /></AppLayout>
+        </ProtectedRoute>
+      )} />
+      <Route path="/adventures/:adventureId" element={(
+        <ProtectedRoute><AppLayout><AdventureDetailPage /></AppLayout></ProtectedRoute>
+      )} />
+      <Route path="/notifications" element={(
+        <ProtectedRoute><AppLayout><NotificationsPage /></AppLayout></ProtectedRoute>
+      )} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

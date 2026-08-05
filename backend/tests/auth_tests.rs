@@ -1,5 +1,6 @@
 use backend::{
-    models::{LoginRequest, RegisterRequest},
+    models::{AccessLevel, LoginRequest, RegisterRequest},
+    repository::{admin_repo, adventure_repo, notification_repo, user_repo},
     services::auth_service,
 };
 use sqlx::postgres::PgPoolOptions;
@@ -37,6 +38,7 @@ async fn register_then_login_succeeds() {
     .await
     .expect("registration should succeed");
     assert_eq!(registered.user.email, email);
+    assert_eq!(registered.user.access_level, "nothing");
 
     let logged_in = auth_service::login(
         &pool,
@@ -114,4 +116,100 @@ async fn duplicate_email_registration_is_rejected() {
     .await;
 
     assert!(result.is_err(), "second registration should be rejected");
+}
+
+#[tokio::test]
+#[ignore = "requires DATABASE_URL pointing at a disposable Postgres database"]
+async fn admin_grants_access_and_invitation_workflow_succeeds() {
+    let pool = test_pool().await;
+    let jwt_secret = "test-secret";
+    let admin_email = format!("admin-{}@example.com", uuid::Uuid::new_v4());
+    let maker_email = format!("maker-{}@example.com", uuid::Uuid::new_v4());
+    let invited_email = format!("invited-{}@example.com", uuid::Uuid::new_v4());
+
+    let admin_response = auth_service::register(
+        &pool,
+        jwt_secret,
+        RegisterRequest {
+            email: admin_email,
+            name: "Admin User".to_owned(),
+            password: "correct-horse".to_owned(),
+        },
+    )
+    .await
+    .expect("admin registration should succeed");
+    sqlx::query("UPDATE users SET access_level = 'admin' WHERE id = $1")
+        .bind(admin_response.user.id)
+        .execute(&pool)
+        .await
+        .expect("admin bootstrap should succeed");
+
+    let maker_response = auth_service::register(
+        &pool,
+        jwt_secret,
+        RegisterRequest {
+            email: maker_email,
+            name: "Adventure Maker".to_owned(),
+            password: "correct-horse".to_owned(),
+        },
+    )
+    .await
+    .expect("maker registration should succeed");
+    let admin = user_repo::find_by_id(&pool, admin_response.user.id)
+        .await
+        .expect("admin lookup should succeed")
+        .expect("admin should exist");
+    admin_repo::update_access_level(
+        &pool,
+        &admin,
+        maker_response.user.id,
+        AccessLevel::AdventureMaker,
+    )
+    .await
+    .expect("admin grant should succeed");
+
+    let maker = user_repo::find_by_id(&pool, maker_response.user.id)
+        .await
+        .expect("maker lookup should succeed")
+        .expect("maker should exist");
+    let adventure = adventure_repo::create(
+        &pool,
+        maker.id,
+        "The Lost Temple",
+        Some("A private test adventure"),
+    )
+    .await
+    .expect("maker should create an adventure");
+    let invite = adventure_repo::create_invite(&pool, &maker, adventure.id, &invited_email)
+        .await
+        .expect("maker should create an invite");
+
+    let invited_response = auth_service::register(
+        &pool,
+        jwt_secret,
+        RegisterRequest {
+            email: invited_email,
+            name: "Invited Player".to_owned(),
+            password: "correct-horse".to_owned(),
+        },
+    )
+    .await
+    .expect("invited registration should succeed");
+    assert_eq!(invited_response.user.access_level, "nothing");
+    let invited = user_repo::find_by_id(&pool, invited_response.user.id)
+        .await
+        .expect("invited user lookup should succeed")
+        .expect("invited user should exist");
+    let notifications = notification_repo::list_for_user(&pool, invited.id)
+        .await
+        .expect("notification lookup should succeed");
+    assert_eq!(notifications.len(), 1);
+
+    admin_repo::update_access_level(&pool, &admin, invited.id, AccessLevel::PlayerOnly)
+        .await
+        .expect("admin player grant should succeed");
+    let accepted = adventure_repo::accept_invite(&pool, &invited, invite.id)
+        .await
+        .expect("player should accept their invitation");
+    assert_eq!(accepted.status, "accepted");
 }

@@ -10,6 +10,8 @@ pub enum AppError {
     Validation(String),
     Conflict(String),
     Unauthorized(String),
+    Forbidden(String),
+    NotFound(String),
     Internal(String),
 }
 
@@ -24,6 +26,8 @@ impl IntoResponse for AppError {
             AppError::Validation(message) => (StatusCode::BAD_REQUEST, message),
             AppError::Conflict(message) => (StatusCode::CONFLICT, message),
             AppError::Unauthorized(message) => (StatusCode::UNAUTHORIZED, message),
+            AppError::Forbidden(message) => (StatusCode::FORBIDDEN, message),
+            AppError::NotFound(message) => (StatusCode::NOT_FOUND, message),
             AppError::Internal(message) => {
                 // Never leak internal error details to the client.
                 eprintln!("internal error: {message}");
