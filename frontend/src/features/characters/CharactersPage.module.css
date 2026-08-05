@@ -9,7 +9,7 @@
 .heading h2 { margin-top: var(--space-2); }
 .heading a { text-decoration: none; }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-5); }
-.card, .empty { padding: var(--space-5); border: 1px solid rgba(244, 238, 228, 0.14); border-radius: var(--radius-md); background: rgba(244, 238, 228, 0.07); }
+.card, .empty { padding: var(--space-5); border: 1px solid rgba(244, 238, 228, 0.14); border-radius: var(--radius-md); background: rgba(244, 238, 228, 0.07); text-decoration: none; }
 .card h3 { margin: var(--space-2) 0; color: var(--color-accent); }
 .card p { margin: var(--space-2) 0 0; }
 .description { margin-top: var(--space-4) !important; color: var(--color-muted-inverse); font-size: 14px; }

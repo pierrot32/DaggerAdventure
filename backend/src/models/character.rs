@@ -6,6 +6,8 @@ use uuid::Uuid;
 #[derive(Debug, Deserialize)]
 pub struct CreateCharacterRequest {
     pub adventure_id: Option<Uuid>,
+    #[serde(default)]
+    pub stats: Value,
     pub name: String,
     pub pronouns: String,
     pub description: String,
@@ -27,6 +29,7 @@ pub struct Character {
     pub id: Uuid,
     pub user_id: Uuid,
     pub adventure_id: Option<Uuid>,
+    pub stats: Value,
     pub name: String,
     pub pronouns: String,
     pub description: String,

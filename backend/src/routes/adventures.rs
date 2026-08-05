@@ -15,6 +15,21 @@ use crate::{
     utils::validation,
 };
 
+pub async fn characters(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+    Path(adventure_id): Path<Uuid>,
+) -> Result<Json<Vec<crate::models::Character>>, AppError> {
+    require_at_least(&user, AccessLevel::AdventureMaker)?;
+    let adventure = adventure_repo::find_visible(&state.db, &user, adventure_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Adventure not found".to_owned()))?;
+    if adventure.creator_id != user.id {
+        return Err(AppError::Forbidden("Only the GM can view player characters".to_owned()));
+    }
+    Ok(Json(crate::repository::character_repo::list_for_adventure(&state.db, adventure_id).await?))
+}
+
 pub async fn create(
     State(state): State<AppState>,
     AuthUser(user): AuthUser,

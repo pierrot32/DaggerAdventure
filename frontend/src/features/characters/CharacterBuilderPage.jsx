@@ -71,6 +71,15 @@ export default function CharacterBuilderPage() {
     setState({ loading: false, saving: true, error: '', success: '' });
     try {
       await createCharacter({
+        stats: {
+          proficiency: 1,
+          evasion: selectedClass?.evasion || null,
+          hit_points: { current: selectedClass?.hit_points || 0, max: selectedClass?.hit_points || 0 },
+          stress: { current: 0, max: 6 },
+          hope: { current: 2, max: 6 },
+          armor: { current: 0, max: 0 },
+          thresholds: { major: 0, severe: 0 },
+        },
         name: form.name.trim(), pronouns: form.pronouns.trim(), description: form.description.trim(),
         class_id: form.classId, subclass_id: form.subclassId, ancestry_id: form.ancestryId,
         secondary_ancestry_id: form.secondaryAncestryId || null, community_id: form.communityId,

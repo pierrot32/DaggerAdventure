@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import Button from '../../components/Button/Button';
 import { useAdventureStore } from './adventureStore';
+import { listAdventureCharacters } from './adventureApi';
 import styles from './AdventureDetailPage.module.css';
 
 // Detail page displays a private adventure and lets its creator manage invites
@@ -12,11 +13,17 @@ export default function AdventureDetailPage() {
   const { current, invites, loading, error, fetchAdventure, fetchInvites, invite } = useAdventureStore();
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
+  const [characters, setCharacters] = useState([]);
 
   useEffect(() => { fetchAdventure(adventureId); }, [adventureId, fetchAdventure]);
   useEffect(() => {
     if (current?.id === adventureId && current.creator_id === user?.id) fetchInvites(adventureId);
   }, [adventureId, current, user, fetchInvites]);
+  useEffect(() => {
+    if (current?.id === adventureId && current.creator_id === user?.id) {
+      listAdventureCharacters(adventureId).then(setCharacters).catch(() => setCharacters([]));
+    }
+  }, [adventureId, current, user]);
 
   const submitInvite = async (event) => {
     event.preventDefault();
@@ -49,6 +56,8 @@ export default function AdventureDetailPage() {
           {message && <p className="muted">{message}</p>}
           <h3>Invitations</h3>
           <ul className={styles.invites}>{invites.map((inviteItem) => <li key={inviteItem.id}><span>{inviteItem.recipient_email}</span><span>{inviteItem.status}</span></li>)}</ul>
+          <h3>Player characters</h3>
+          <div className={styles.characters}>{characters.map((character) => <Link to={`/characters/${character.id}`} key={character.id}><strong>{character.name}</strong><span>Level {character.level} · {character.class_id} · player {character.user_id.slice(0, 8)}</span></Link>)}</div>
         </div>
       )}
     </section>

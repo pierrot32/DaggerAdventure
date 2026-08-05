@@ -14,6 +14,7 @@ import CreateAdventurePage from '../features/adventures/CreateAdventurePage';
 import NotificationsPage from '../features/notifications/NotificationsPage';
 import CharactersPage from '../features/characters/CharactersPage';
 import CharacterBuilderPage from '../features/characters/CharacterBuilderPage';
+import CharacterDetailPage from '../features/characters/CharacterDetailPage';
 import BookImportPage from '../features/admin/BookImportPage';
 
 // Single source of truth for the route tree - add future Daggerheart feature
@@ -63,6 +64,9 @@ export default function AppRoutes() {
       )} />
       <Route path="/characters/create" element={(
         <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.PLAYER_ONLY]}><AppLayout><CharacterBuilderPage /></AppLayout></ProtectedRoute>
+      )} />
+      <Route path="/characters/:characterId" element={(
+        <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.PLAYER_ONLY]}><AppLayout><CharacterDetailPage /></AppLayout></ProtectedRoute>
       )} />
       <Route path="/admin/content/books/create" element={(
         <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.ADMIN]}><AppLayout><BookImportPage /></AppLayout></ProtectedRoute>

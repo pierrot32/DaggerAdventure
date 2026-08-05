@@ -1,4 +1,6 @@
-use axum::{Json, extract::State};
+use axum::{Json, extract::{Path, State}};
+use serde::Deserialize;
+use uuid::Uuid;
 
 use crate::{
     error::AppError,
@@ -37,4 +39,51 @@ pub async fn create(
         axum::http::StatusCode::CREATED,
         Json(character_repo::create(&state.db, user.id, &request).await?),
     ))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LinkAdventureRequest {
+    pub adventure_id: Option<Uuid>,
+}
+
+pub async fn get(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+    Path(character_id): Path<Uuid>,
+) -> Result<Json<Character>, AppError> {
+    require_at_least(&user, AccessLevel::PlayerOnly)?;
+    character_repo::find_visible_to_user(&state.db, user.id, character_id)
+        .await?
+        .map(Json)
+        .ok_or_else(|| AppError::NotFound("Character not found".to_owned()))
+}
+
+pub async fn link_adventure(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+    Path(character_id): Path<Uuid>,
+    Json(request): Json<LinkAdventureRequest>,
+) -> Result<Json<Character>, AppError> {
+    require_at_least(&user, AccessLevel::PlayerOnly)?;
+    if let Some(adventure_id) = request.adventure_id {
+        let adventure = crate::repository::adventure_repo::find_visible(&state.db, &user, adventure_id)
+            .await?
+            .ok_or_else(|| AppError::Forbidden("You must belong to that adventure first".to_owned()))?;
+        if adventure.creator_id != user.id {
+            let is_member = sqlx::query_scalar::<_, bool>(
+                "SELECT EXISTS(SELECT 1 FROM adventure_members WHERE adventure_id = $1 AND user_id = $2 AND status = 'accepted')",
+            )
+            .bind(adventure_id)
+            .bind(user.id)
+            .fetch_one(&state.db)
+            .await?;
+            if !is_member {
+                return Err(AppError::Forbidden("You must belong to that adventure first".to_owned()));
+            }
+        }
+    }
+    character_repo::link_to_adventure(&state.db, user.id, character_id, request.adventure_id)
+        .await?
+        .map(Json)
+        .ok_or_else(|| AppError::NotFound("Character not found".to_owned()))
 }
