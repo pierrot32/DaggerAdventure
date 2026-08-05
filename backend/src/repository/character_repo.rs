@@ -61,12 +61,17 @@ pub async fn find_visible_to_user(
     user_id: Uuid,
     character_id: Uuid,
 ) -> Result<Option<Character>, sqlx::Error> {
-    let query = format!(
-        "SELECT {CHARACTER_FIELDS} FROM characters c
+    // Columns must be qualified with c. - characters and adventures share names
+    // (id, name, description, created_at, updated_at), which Postgres rejects as ambiguous.
+    let query =
+        "SELECT c.id, c.user_id, c.adventure_id, c.name, c.pronouns, c.description, c.level,
+        c.class_id, c.subclass_id, c.ancestry_id, c.secondary_ancestry_id, c.community_id, c.traits,
+        c.experiences, c.background_answers, c.connections, c.equipment, c.domain_cards, c.stats,
+        c.created_at, c.updated_at
+         FROM characters c
          LEFT JOIN adventures a ON a.id = c.adventure_id
-         WHERE c.id = $1 AND (c.user_id = $2 OR a.creator_id = $2)"
-    );
-    sqlx::query_as::<_, Character>(&query)
+         WHERE c.id = $1 AND (c.user_id = $2 OR a.creator_id = $2)";
+    sqlx::query_as::<_, Character>(query)
         .bind(character_id)
         .bind(user_id)
         .fetch_optional(pool)

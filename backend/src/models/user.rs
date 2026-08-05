@@ -92,3 +92,34 @@ pub struct LoginRequest {
 pub struct MessageResponse {
     pub message: String,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rank_orders_access_levels() {
+        assert!(AccessLevel::Nothing.rank() < AccessLevel::PlayerOnly.rank());
+        assert!(AccessLevel::PlayerOnly.rank() < AccessLevel::AdventureMaker.rank());
+        assert!(AccessLevel::AdventureMaker.rank() < AccessLevel::Admin.rank());
+    }
+
+    #[test]
+    fn as_str_round_trips_through_from_str() {
+        for level in [
+            AccessLevel::Nothing,
+            AccessLevel::PlayerOnly,
+            AccessLevel::AdventureMaker,
+            AccessLevel::Admin,
+        ] {
+            let parsed: AccessLevel = level.as_str().parse().expect("as_str output should parse");
+            assert_eq!(parsed.rank(), level.rank());
+        }
+    }
+
+    #[test]
+    fn from_str_rejects_unknown_value() {
+        assert!("superadmin".parse::<AccessLevel>().is_err());
+        assert!("".parse::<AccessLevel>().is_err());
+    }
+}

@@ -51,4 +51,52 @@ mod tests {
         assert!(validate_password("short").is_err());
         assert!(validate_password("long-enough").is_ok());
     }
+
+    #[test]
+    fn rejects_email_over_max_length() {
+        let local = "a".repeat(250);
+        let email = format!("{local}@example.com");
+        assert!(normalize_email(&email).is_err());
+    }
+
+    #[test]
+    fn accepts_email_at_max_length() {
+        let local = "a".repeat(254 - "@example.com".len());
+        let email = format!("{local}@example.com");
+        assert_eq!(email.len(), 254);
+        assert!(normalize_email(&email).is_ok());
+    }
+
+    #[test]
+    fn rejects_empty_name() {
+        assert!(validate_name("").is_err());
+        assert!(validate_name("   ").is_err());
+    }
+
+    #[test]
+    fn trims_valid_name() {
+        assert_eq!(validate_name("  Ari  ").unwrap(), "Ari");
+    }
+
+    #[test]
+    fn rejects_name_over_max_length() {
+        let name = "a".repeat(81);
+        assert!(validate_name(&name).is_err());
+    }
+
+    #[test]
+    fn accepts_name_at_max_length() {
+        let name = "a".repeat(80);
+        assert!(validate_name(&name).is_ok());
+    }
+
+    #[test]
+    fn accepts_password_at_min_length() {
+        assert!(validate_password("12345678").is_ok());
+    }
+
+    #[test]
+    fn rejects_password_one_below_min_length() {
+        assert!(validate_password("1234567").is_err());
+    }
 }
