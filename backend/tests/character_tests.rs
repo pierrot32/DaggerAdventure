@@ -99,10 +99,9 @@ async fn owner_creator_and_unrelated_user_visibility() {
     .await
     .expect("character creation should succeed");
 
-    let visible_to_owner =
-        character_repo::find_visible_to_user(&pool, owner.user.id, character.id)
-            .await
-            .expect("query should not fail for the owner");
+    let visible_to_owner = character_repo::find_visible_to_user(&pool, owner.user.id, character.id)
+        .await
+        .expect("query should not fail for the owner");
     assert!(
         visible_to_owner.is_some(),
         "owner should be able to open their own character"

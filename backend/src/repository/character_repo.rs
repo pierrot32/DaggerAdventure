@@ -63,7 +63,8 @@ pub async fn find_visible_to_user(
 ) -> Result<Option<Character>, sqlx::Error> {
     // Columns must be qualified with c. - characters and adventures share names
     // (id, name, description, created_at, updated_at), which Postgres rejects as ambiguous.
-    let query = "SELECT c.id, c.user_id, c.adventure_id, c.name, c.pronouns, c.description, c.level,
+    let query =
+        "SELECT c.id, c.user_id, c.adventure_id, c.name, c.pronouns, c.description, c.level,
         c.class_id, c.subclass_id, c.ancestry_id, c.secondary_ancestry_id, c.community_id, c.traits,
         c.experiences, c.background_answers, c.connections, c.equipment, c.domain_cards, c.stats,
         c.created_at, c.updated_at
