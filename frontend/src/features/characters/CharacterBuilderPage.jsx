@@ -71,14 +71,13 @@ export default function CharacterBuilderPage() {
     setState({ loading: false, saving: true, error: '', success: '' });
     try {
       await createCharacter({
+        // Trackers count marked boxes, so a new character starts unmarked with 2 Hope.
         stats: {
-          proficiency: 1,
-          evasion: selectedClass?.evasion || null,
-          hit_points: { current: selectedClass?.hit_points || 0, max: selectedClass?.hit_points || 0 },
+          hit_points: { current: 0, max: selectedClass?.hit_points || 0 },
           stress: { current: 0, max: 6 },
           hope: { current: 2, max: 6 },
           armor: { current: 0, max: 0 },
-          thresholds: { major: 0, severe: 0 },
+          gold: { handfuls: 1, bags: 0, chest: 0 },
         },
         name: form.name.trim(), pronouns: form.pronouns.trim(), description: form.description.trim(),
         class_id: form.classId, subclass_id: form.subclassId, ancestry_id: form.ancestryId,

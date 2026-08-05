@@ -32,6 +32,10 @@ pub fn router() -> Router<AppState> {
         )
         .route("/api/characters/:character_id", get(characters::get))
         .route(
+            "/api/characters/:character_id/stats",
+            axum::routing::patch(characters::update_stats),
+        )
+        .route(
             "/api/characters/:character_id/adventure",
             axum::routing::patch(characters::link_adventure),
         )
@@ -54,6 +58,11 @@ pub fn router() -> Router<AppState> {
             "/api/adventures/:adventure_id/invites",
             get(adventures::list_invites).post(adventures::create_invite),
         )
+        .route(
+            "/api/adventures/:adventure_id/fear",
+            axum::routing::patch(adventures::update_fear),
+        )
+        .route("/api/invites", get(adventures::my_invites))
         .route(
             "/api/invites/:invite_id/accept",
             post(adventures::accept_invite),

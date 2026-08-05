@@ -9,3 +9,5 @@ export const listInvites = (id) => request(`/api/adventures/${id}/invites`);
 export const createInvite = (id, email) => request(`/api/adventures/${id}/invites`, { method: 'POST', body: JSON.stringify({ email }) });
 export const acceptInvite = (id) => request(`/api/invites/${id}/accept`, { method: 'POST' });
 export const declineInvite = (id) => request(`/api/invites/${id}/decline`, { method: 'POST' });
+export const listMyInvites = () => request('/api/invites');
+export const updateFear = (id, fear) => request(`/api/adventures/${id}/fear`, { method: 'PATCH', body: JSON.stringify({ fear }) });

@@ -9,6 +9,7 @@ use crate::{
     middleware::{access_guard::require_at_least, auth_guard::AuthUser},
     models::{
         AccessLevel, Adventure, AdventureInvite, CreateAdventureRequest, CreateInviteRequest,
+        PendingInviteView, UpdateFearRequest,
     },
     repository::adventure_repo,
     state::AppState,
@@ -101,7 +102,7 @@ pub async fn accept_invite(
     AuthUser(user): AuthUser,
     Path(invite_id): Path<Uuid>,
 ) -> Result<Json<AdventureInvite>, AppError> {
-    require_at_least(&user, AccessLevel::PlayerOnly)?;
+    // The invitation itself is the authorization to join; playing still needs PlayerOnly.
     Ok(Json(
         adventure_repo::accept_invite(&state.db, &user, invite_id).await?,
     ))
@@ -112,8 +113,28 @@ pub async fn decline_invite(
     AuthUser(user): AuthUser,
     Path(invite_id): Path<Uuid>,
 ) -> Result<Json<AdventureInvite>, AppError> {
-    require_at_least(&user, AccessLevel::PlayerOnly)?;
     Ok(Json(
         adventure_repo::decline_invite(&state.db, &user, invite_id).await?,
+    ))
+}
+
+pub async fn my_invites(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+) -> Result<Json<Vec<PendingInviteView>>, AppError> {
+    Ok(Json(
+        adventure_repo::list_pending_for_user(&state.db, &user).await?,
+    ))
+}
+
+pub async fn update_fear(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+    Path(adventure_id): Path<Uuid>,
+    Json(request): Json<UpdateFearRequest>,
+) -> Result<Json<Adventure>, AppError> {
+    require_at_least(&user, AccessLevel::AdventureMaker)?;
+    Ok(Json(
+        adventure_repo::update_fear(&state.db, &user, adventure_id, request.fear).await?,
     ))
 }

@@ -10,7 +10,7 @@ import styles from './AdventureDetailPage.module.css';
 export default function AdventureDetailPage() {
   const { adventureId } = useParams();
   const { user } = useAuth();
-  const { current, invites, loading, error, fetchAdventure, fetchInvites, invite } = useAdventureStore();
+  const { current, invites, loading, error, fetchAdventure, fetchInvites, invite, setFear } = useAdventureStore();
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
   const [characters, setCharacters] = useState([]);
@@ -48,6 +48,20 @@ export default function AdventureDetailPage() {
       {error && <p className={styles.error}>{error}</p>}
       {isCreator && (
         <div className={styles.manage}>
+          <h3>Fear pool</h3>
+          <div className={styles.fear}>
+            {Array.from({ length: 12 }, (_, index) => (
+              <button
+                type="button"
+                key={index}
+                className={index < (current.fear || 0) ? styles.fearFilled : styles.fearSlot}
+                aria-label={`Set Fear to ${index + 1}`}
+                onClick={() => setFear(adventureId, index + 1 === current.fear ? index : index + 1)}
+              />
+            ))}
+            <span className={styles.fearValue}>{current.fear || 0} / 12</span>
+          </div>
+
           <h3>Invite a player</h3>
           <form onSubmit={submitInvite} className={styles.inviteForm}>
             <input required type="email" placeholder="player@example.com" value={email} onChange={(event) => setEmail(event.target.value)} />

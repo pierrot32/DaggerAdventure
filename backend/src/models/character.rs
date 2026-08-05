@@ -24,6 +24,11 @@ pub struct CreateCharacterRequest {
     pub domain_cards: Value,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct UpdateCharacterStatsRequest {
+    pub stats: Value,
+}
+
 #[derive(Debug, Serialize, sqlx::FromRow)]
 pub struct Character {
     pub id: Uuid,

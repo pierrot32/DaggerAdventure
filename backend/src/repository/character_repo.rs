@@ -110,6 +110,24 @@ pub async fn link_to_adventure(
         .await
 }
 
+pub async fn update_stats(
+    pool: &PgPool,
+    user_id: Uuid,
+    character_id: Uuid,
+    stats: &serde_json::Value,
+) -> Result<Option<Character>, sqlx::Error> {
+    let query = format!(
+        "UPDATE characters SET stats = $1, updated_at = now()
+         WHERE id = $2 AND user_id = $3 RETURNING {CHARACTER_FIELDS}"
+    );
+    sqlx::query_as::<_, Character>(&query)
+        .bind(stats)
+        .bind(character_id)
+        .bind(user_id)
+        .fetch_optional(pool)
+        .await
+}
+
 pub async fn list_for_user(pool: &PgPool, user_id: Uuid) -> Result<Vec<Character>, sqlx::Error> {
     let query = format!(
         "SELECT {CHARACTER_FIELDS} FROM characters
