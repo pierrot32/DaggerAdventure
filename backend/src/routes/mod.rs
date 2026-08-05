@@ -1,6 +1,8 @@
 pub mod admin;
 pub mod adventures;
 pub mod auth;
+pub mod characters;
+pub mod content;
 pub mod notifications;
 pub mod users;
 
@@ -19,6 +21,15 @@ pub fn router() -> Router<AppState> {
         .route("/api/auth/login", post(auth::login))
         .route("/api/auth/logout", post(auth::logout))
         .route("/api/auth/me", get(users::me))
+        .route(
+            "/api/content/character-creation",
+            get(content::get_character_creation_book),
+        )
+        .route("/api/content/books/import", post(content::import_book))
+        .route(
+            "/api/characters",
+            get(characters::list).post(characters::create),
+        )
         .route("/api/admin/users", get(admin::list_users))
         .route(
             "/api/admin/users/:target_id/access-level",

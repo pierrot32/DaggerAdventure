@@ -12,6 +12,9 @@ import AdventureListPage from '../features/adventures/AdventureListPage';
 import AdventureDetailPage from '../features/adventures/AdventureDetailPage';
 import CreateAdventurePage from '../features/adventures/CreateAdventurePage';
 import NotificationsPage from '../features/notifications/NotificationsPage';
+import CharactersPage from '../features/characters/CharactersPage';
+import CharacterBuilderPage from '../features/characters/CharacterBuilderPage';
+import BookImportPage from '../features/admin/BookImportPage';
 
 // Single source of truth for the route tree - add future Daggerheart feature
 // pages here, nested under AppLayout like DashboardPage
@@ -55,6 +58,16 @@ export default function AppRoutes() {
       <Route path="/notifications" element={(
         <ProtectedRoute><AppLayout><NotificationsPage /></AppLayout></ProtectedRoute>
       )} />
+      <Route path="/characters" element={(
+        <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.PLAYER_ONLY]}><AppLayout><CharactersPage /></AppLayout></ProtectedRoute>
+      )} />
+      <Route path="/characters/create" element={(
+        <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.PLAYER_ONLY]}><AppLayout><CharacterBuilderPage /></AppLayout></ProtectedRoute>
+      )} />
+      <Route path="/admin/content/books/create" element={(
+        <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.ADMIN]}><AppLayout><BookImportPage /></AppLayout></ProtectedRoute>
+      )} />
+      <Route path="/admin/content/import" element={<Navigate to="/admin/content/books/create" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

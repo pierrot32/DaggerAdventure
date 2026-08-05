@@ -14,9 +14,11 @@ export default function AppLayout({ children }) {
         <span className={styles.brand}>DAGGER ADVENTURE</span>
         <nav className={styles.nav}>
           <Link to="/adventures">Adventures</Link>
+          <Link to="/characters">Characters</Link>
           {canCreateAdventure(user) && <Link to="/adventures/create">Create</Link>}
           {canManageUsers(user) && <Link to="/admin/users">Admin</Link>}
           {canManageUsers(user) && <Link to="/admin/audit">Audit</Link>}
+          {canManageUsers(user) && <Link to="/admin/content/books/create">Create book</Link>}
           <Link to="/notifications">Notifications</Link>
           <span className={styles.muted}>{user?.name}</span>
           <Button variant="text" onClick={logout}>Sign out</Button>

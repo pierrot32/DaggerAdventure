@@ -1,0 +1,11 @@
+.page { max-width: 720px; }
+.page h2 { margin-top: var(--space-2); }
+.page > p:not(.eyebrow) { margin-top: var(--space-3); }
+.form { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-5); margin-top: var(--space-7); }
+.drop { display: flex; flex-direction: column; align-items: center; justify-content: center; width: min(100%, 600px); min-height: 180px; padding: var(--space-5); border: 1px dashed var(--color-border); border-radius: var(--radius-md); background: rgba(244, 238, 228, .07); color: var(--color-text-inverse); text-align: center; cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+.drop:hover, .dragging { border-color: var(--color-accent); background: rgba(201, 157, 99, .14); }
+.dropTitle { color: var(--color-accent); font-family: var(--font-serif); font-size: 22px; }
+.dropHint { margin-top: var(--space-2); color: var(--color-muted-inverse); font-size: 13px; }
+.drop input { display: none; }
+.error { color: #f0a59d; }
+.message { color: #9cc9a7; }
