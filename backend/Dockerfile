@@ -5,6 +5,7 @@ RUN rustup component add rustfmt
 
 COPY Cargo.toml Cargo.lock* ./
 COPY src ./src
+COPY migrations ./migrations
 
 RUN cargo fmt -- --check && cargo check && cargo test
 
@@ -13,6 +14,7 @@ WORKDIR /app
 
 COPY Cargo.toml Cargo.lock* ./
 COPY src ./src
+COPY migrations ./migrations
 
 RUN cargo build --release
 
