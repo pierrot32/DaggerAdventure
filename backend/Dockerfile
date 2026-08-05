@@ -1,4 +1,4 @@
-FROM rust:1.85 AS checks
+FROM rust:1.97 AS checks
 WORKDIR /app
 
 RUN rustup component add rustfmt
@@ -8,7 +8,7 @@ COPY src ./src
 
 RUN cargo fmt -- --check && cargo check && cargo test
 
-FROM rust:1.85 AS builder
+FROM rust:1.97 AS builder
 WORKDIR /app
 
 COPY Cargo.toml Cargo.lock* ./
