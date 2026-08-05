@@ -48,17 +48,20 @@ DATABASE_URL=postgres://dagger_adventure:<POSTGRES_PASSWORD>@127.0.0.1:5432/dagg
 JWT_SECRET=replace_with_a_long_local_secret
 COOKIE_SECURE=false
 PORT=8080
-# Optional: promote an already registered account without committing its email.
-ADMIN_EMAIL=admin@example.com
 ```
 
 Use the same password as `POSTGRES_PASSWORD` in the root `.env`. Do not commit `backend/.env`.
 
 To create the administrator locally, register the account through the frontend
-with the desired name, email, and password. Then add that email to the ignored
-`backend/.env` as `ADMIN_EMAIL` and restart the backend. The backend promotes
-the matching account after migrations run. The account name and password never
-need to be added to the repository.
+with the desired name, email, and password. Then start the backend with the
+email passed directly in the shell command:
+
+```bash
+ADMIN_EMAIL='your-admin-email@example.com' cargo run
+```
+
+The backend promotes the matching account after migrations run. The account
+name, password, and email do not need to be added to the repository.
 
 ### 4. Run the applications
 
@@ -186,7 +189,7 @@ Before starting Argo CD, update these repository-specific values:
 Create the backend and PostgreSQL secrets out of band through the k3s container. They are intentionally not committed to Git:
 
 ```bash
-KUBECTL="sudo docker compose exec -T k3s kubectl --kubeconfig /k3s-config/kubeconfig.yaml"
+KUBECTL="docker compose exec -T k3s kubectl --kubeconfig /k3s-config/kubeconfig.yaml"
 $KUBECTL create namespace dagger-adventure
 $KUBECTL -n dagger-adventure create secret generic backend-secrets \
   --from-literal=database-url='postgres://<user>:<password>@<host>:5432/<database>' \
@@ -207,21 +210,27 @@ startup; it does not create an account or store an administrator password from
 Kubernetes configuration.
 
 For an existing deployment, update only the separate admin secret without
-touching database credentials:
+touching database credentials. Replace the placeholder email directly in the
+command; do not commit the command to Git. Run the complete pipeline below
+together. Do not run the final `apply -f -` line by itself because it waits
+for YAML input forever:
 
 ```bash
-read -r ADMIN_EMAIL
-printf '%s' "$ADMIN_EMAIL" | $KUBECTL -n dagger-adventure create secret generic backend-admin-secrets \
-  --from-file=admin-email=/dev/stdin \
-  --dry-run=client -o yaml | $KUBECTL apply -f -
-$KUBECTL -n dagger-adventure rollout restart deployment/backend
+docker compose exec -T k3s sh -c \
+  "kubectl --kubeconfig /k3s-config/kubeconfig.yaml \
+    -n dagger-adventure create secret generic backend-admin-secrets \
+    --from-literal=admin-email='your-admin-email@example.com' \
+    --dry-run=client -o yaml | \
+   kubectl --kubeconfig /k3s-config/kubeconfig.yaml apply -f -"
+docker compose exec -T k3s kubectl --kubeconfig /k3s-config/kubeconfig.yaml \
+  -n dagger-adventure rollout restart deployment/backend
 ```
 
 ### 4. Start the stack
 
 ```bash
-sudo docker compose up -d --build
-sudo docker compose ps
+docker compose up -d --build
+docker compose ps
 ```
 
 The `argocd` container is a one-shot installer and should exit with status 0 after it completes. The k3s cluster may take several minutes to initialize.
@@ -243,7 +252,7 @@ Certificates are renewed by the `certbot` service every 12 hours.
 Open `https://jenkins.example.com` or `http://localhost:8081` on the server. Retrieve the initial password with:
 
 ```bash
-sudo docker compose exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+docker compose exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
 ```
 
 Complete the Jenkins setup, then:
@@ -261,7 +270,7 @@ The pipeline checks, builds, smoke-tests, and publishes the backend and frontend
 Open `https://argocd.example.com`. Retrieve the initial admin password with:
 
 ```bash
-sudo docker compose exec k3s sh -c "kubectl --kubeconfig /k3s-config/kubeconfig.yaml \
+docker compose exec k3s sh -c "kubectl --kubeconfig /k3s-config/kubeconfig.yaml \
   -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d"
 ```
 
@@ -272,7 +281,7 @@ The Application manifest now targets `production`. For an existing installation,
 To rerun the installer after changing [argo/install-argocd.sh](argo/install-argocd.sh):
 
 ```bash
-sudo docker compose up -d --build argocd
+docker compose up -d --build argocd
 ```
 
 ## Troubleshooting
@@ -282,13 +291,13 @@ sudo docker compose up -d --build argocd
 Nginx cannot start when its configured certificate path does not exist. Check the certificate directories:
 
 ```bash
-sudo docker compose run --rm --entrypoint "ls /etc/letsencrypt/live/" certbot
+docker compose run --rm --entrypoint "ls /etc/letsencrypt/live/" certbot
 ```
 
 If Certbot created a suffixed directory such as `example.com-0001`, update the matching file in `nginx/templates/` and restart nginx:
 
 ```bash
-sudo docker compose restart nginx
+docker compose restart nginx
 ```
 
 A normal `docker compose up -d` does not restart an already-running nginx container when only a mounted template changes.
@@ -308,9 +317,9 @@ curl -sv https://app.example.com 2>&1 | grep -E "subject:|issuer:"
 Check the cluster nodes, pods, and service endpoints:
 
 ```bash
-sudo docker compose exec k3s kubectl get nodes -o wide
-sudo docker compose exec k3s kubectl get pods -A -o wide
-sudo docker compose exec k3s kubectl -n dagger-adventure get endpoints
+docker compose exec k3s kubectl get nodes -o wide
+docker compose exec k3s kubectl get pods -A -o wide
+docker compose exec k3s kubectl -n dagger-adventure get endpoints
 ```
 
 A service without endpoints usually means its pods are not ready or are scheduled on an unavailable node.
@@ -320,5 +329,5 @@ A service without endpoints usually means its pods are not ready or are schedule
 Clean up containers from removed or renamed Compose services:
 
 ```bash
-sudo docker compose up -d --remove-orphans
+docker compose up -d --remove-orphans
 ```
