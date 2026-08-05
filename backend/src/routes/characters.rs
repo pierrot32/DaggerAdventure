@@ -1,4 +1,7 @@
-use axum::{Json, extract::{Path, State}};
+use axum::{
+    Json,
+    extract::{Path, State},
+};
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -66,9 +69,12 @@ pub async fn link_adventure(
 ) -> Result<Json<Character>, AppError> {
     require_at_least(&user, AccessLevel::PlayerOnly)?;
     if let Some(adventure_id) = request.adventure_id {
-        let adventure = crate::repository::adventure_repo::find_visible(&state.db, &user, adventure_id)
-            .await?
-            .ok_or_else(|| AppError::Forbidden("You must belong to that adventure first".to_owned()))?;
+        let adventure =
+            crate::repository::adventure_repo::find_visible(&state.db, &user, adventure_id)
+                .await?
+                .ok_or_else(|| {
+                    AppError::Forbidden("You must belong to that adventure first".to_owned())
+                })?;
         if adventure.creator_id != user.id {
             let is_member = sqlx::query_scalar::<_, bool>(
                 "SELECT EXISTS(SELECT 1 FROM adventure_members WHERE adventure_id = $1 AND user_id = $2 AND status = 'accepted')",
@@ -78,7 +84,9 @@ pub async fn link_adventure(
             .fetch_one(&state.db)
             .await?;
             if !is_member {
-                return Err(AppError::Forbidden("You must belong to that adventure first".to_owned()));
+                return Err(AppError::Forbidden(
+                    "You must belong to that adventure first".to_owned(),
+                ));
             }
         }
     }

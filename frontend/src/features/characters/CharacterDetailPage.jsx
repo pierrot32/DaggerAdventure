@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import Button from '../../components/Button/Button';
 import { listAdventures } from '../adventures/adventureApi';
 import { getCharacter, linkCharacterToAdventure } from './characterApi';
 import styles from './CharacterDetailPage.module.css';
