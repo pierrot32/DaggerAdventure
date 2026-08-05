@@ -38,13 +38,13 @@ export default function CharactersPage() {
             </div>
           )}
           {characters.map((character) => (
-            <article className={styles.card} key={character.id}>
+              <Link className={styles.card} to={`/characters/${character.id}`} key={character.id}>
               <p className="eyebrow">LEVEL {character.level}</p>
               <h3>{character.name}</h3>
               <p>{character.pronouns}</p>
               <p className="muted">{character.class_id} · {character.ancestry_id} · {character.community_id}</p>
               <p className={styles.description}>{character.description}</p>
-            </article>
+              </Link>
           ))}
         </div>
       )}
