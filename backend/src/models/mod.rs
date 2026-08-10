@@ -1,17 +1,20 @@
 pub mod admin;
 pub mod adventure;
+pub mod ai;
 pub mod character;
 pub mod content;
 pub mod notification;
 pub mod user;
 
 pub use admin::{
-    AccessAuditEvent, AdminUser, UpdateAccessLevelRequest, UserListQuery, UserListResponse,
+    AccessAuditEvent, AdminUser, UpdateAccessLevelRequest, UpdateAiGenerationRequest,
+    UserListQuery, UserListResponse,
 };
 pub use adventure::{
     Adventure, AdventureInvite, CreateAdventureRequest, CreateInviteRequest, PendingInviteView,
     UpdateFearRequest,
 };
+pub use ai::{GenerateRequest, GenerateResponse};
 pub use character::{Character, CreateCharacterRequest, UpdateCharacterStatsRequest};
 pub use content::{ImportBookRequest, SourceBook};
 pub use notification::Notification;

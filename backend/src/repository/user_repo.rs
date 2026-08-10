@@ -13,7 +13,7 @@ pub async fn create(
     sqlx::query_as::<_, User>(
         "INSERT INTO users (id, email, name, password_hash)
          VALUES ($1, $2, $3, $4)
-         RETURNING id, email, name, password_hash, access_level, created_at",
+         RETURNING id, email, name, password_hash, access_level, ai_generation_enabled, created_at",
     )
     .bind(id)
     .bind(email)
@@ -25,7 +25,7 @@ pub async fn create(
 
 pub async fn find_by_email(pool: &PgPool, email: &str) -> Result<Option<User>, sqlx::Error> {
     sqlx::query_as::<_, User>(
-        "SELECT id, email, name, password_hash, access_level, created_at
+        "SELECT id, email, name, password_hash, access_level, ai_generation_enabled, created_at
          FROM users WHERE lower(email) = lower($1)",
     )
     .bind(email)
@@ -35,7 +35,7 @@ pub async fn find_by_email(pool: &PgPool, email: &str) -> Result<Option<User>, s
 
 pub async fn find_by_id(pool: &PgPool, id: Uuid) -> Result<Option<User>, sqlx::Error> {
     sqlx::query_as::<_, User>(
-        "SELECT id, email, name, password_hash, access_level, created_at
+        "SELECT id, email, name, password_hash, access_level, ai_generation_enabled, created_at
          FROM users WHERE id = $1",
     )
     .bind(id)

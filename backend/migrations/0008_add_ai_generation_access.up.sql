@@ -1,0 +1,2 @@
+ALTER TABLE users
+    ADD COLUMN ai_generation_enabled BOOLEAN NOT NULL DEFAULT FALSE;

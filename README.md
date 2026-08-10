@@ -48,9 +48,13 @@ DATABASE_URL=postgres://dagger_adventure:change_me_locally@127.0.0.1:5432/dagger
 JWT_SECRET=replace_with_a_long_local_secret
 COOKIE_SECURE=false
 PORT=8080
+OPENAI_API_KEY=replace_with_your_openai_key
+OPENAI_MODEL=gpt-5.6-luna
 ```
 
 The backend loads this file with `dotenvy`, connects to PostgreSQL, and applies migrations on startup.
+The OpenAI key is read only by the backend and is never exposed to the frontend. Keep it in the
+untracked `backend/.env` file locally or in the Kubernetes Secret described below.
 
 ### Run the backend
 
@@ -69,6 +73,7 @@ The API listens on `http://localhost:8080` by default. Useful endpoints are:
 | `POST /api/auth/logout` | Clear the authentication cookie. |
 | `GET /api/auth/me` | Return the current authenticated user. |
 | `GET /api/hello` | Authenticated API smoke-test endpoint. |
+| `POST /api/ai/generate` | Generate character material for an admin or explicitly granted account. |
 
 ### Run the frontend
 

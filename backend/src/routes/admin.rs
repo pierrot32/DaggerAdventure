@@ -8,7 +8,10 @@ use uuid::Uuid;
 use crate::{
     error::AppError,
     middleware::{access_guard::require_at_least, auth_guard::AuthUser},
-    models::{AccessLevel, UpdateAccessLevelRequest, UserListQuery, UserListResponse},
+    models::{
+        AccessLevel, UpdateAccessLevelRequest, UpdateAiGenerationRequest, UserListQuery,
+        UserListResponse,
+    },
     repository::admin_repo,
     state::AppState,
 };
@@ -45,6 +48,18 @@ pub async fn update_access_level(
     require_at_least(&actor, AccessLevel::Admin)?;
     let user =
         admin_repo::update_access_level(&state.db, &actor, target_id, request.access_level).await?;
+    Ok(Json(user))
+}
+
+pub async fn update_ai_generation_access(
+    State(state): State<AppState>,
+    AuthUser(actor): AuthUser,
+    Path(target_id): Path<Uuid>,
+    Json(request): Json<UpdateAiGenerationRequest>,
+) -> Result<Json<crate::models::AdminUser>, AppError> {
+    require_at_least(&actor, AccessLevel::Admin)?;
+    let user =
+        admin_repo::update_ai_generation_access(&state.db, target_id, request.enabled).await?;
     Ok(Json(user))
 }
 

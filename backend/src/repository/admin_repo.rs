@@ -18,7 +18,7 @@ pub async fn list_users(
     let pattern = format!("%{}%", search.trim().to_lowercase());
 
     let users = sqlx::query_as::<_, AdminUser>(
-        "SELECT id, email, name, access_level, created_at
+        "SELECT id, email, name, access_level, ai_generation_enabled, created_at
          FROM users
          WHERE ($1 = '' OR lower(email) LIKE $2 OR lower(name) LIKE $2)
            AND ($3::text IS NULL OR access_level = $3)
@@ -62,7 +62,7 @@ pub async fn update_access_level(
 
     let mut transaction = pool.begin().await?;
     let target = sqlx::query_as::<_, AdminUser>(
-        "SELECT id, email, name, access_level, created_at
+        "SELECT id, email, name, access_level, ai_generation_enabled, created_at
          FROM users WHERE id = $1 FOR UPDATE",
     )
     .bind(target_id)
@@ -102,7 +102,7 @@ pub async fn update_access_level(
     .await?;
 
     let updated = sqlx::query_as::<_, AdminUser>(
-        "SELECT id, email, name, access_level, created_at
+        "SELECT id, email, name, access_level, ai_generation_enabled, created_at
          FROM users WHERE id = $1",
     )
     .bind(target_id)
@@ -111,6 +111,31 @@ pub async fn update_access_level(
 
     transaction.commit().await?;
     Ok(updated)
+}
+
+pub async fn update_ai_generation_access(
+    pool: &PgPool,
+    target_id: Uuid,
+    enabled: bool,
+) -> Result<AdminUser, AppError> {
+    let result = sqlx::query("UPDATE users SET ai_generation_enabled = $1 WHERE id = $2")
+        .bind(enabled)
+        .bind(target_id)
+        .execute(pool)
+        .await?;
+
+    if result.rows_affected() != 1 {
+        return Err(AppError::NotFound("User not found".to_owned()));
+    }
+
+    sqlx::query_as::<_, AdminUser>(
+        "SELECT id, email, name, access_level, ai_generation_enabled, created_at
+         FROM users WHERE id = $1",
+    )
+    .bind(target_id)
+    .fetch_one(pool)
+    .await
+    .map_err(AppError::from)
 }
 
 pub async fn list_audit_events(

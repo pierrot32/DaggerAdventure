@@ -32,6 +32,17 @@ export const useAdminStore = create((set, get) => ({
     }
   },
 
+  changeAiGenerationAccess: async (userId, enabled) => {
+    set({ loading: true, error: null });
+    try {
+      const updated = await adminApi.updateAiGenerationAccess(userId, enabled);
+      set({ users: get().users.map((user) => user.id === updated.id ? updated : user), loading: false });
+    } catch (error) {
+      set({ error: error.message, loading: false });
+      throw error;
+    }
+  },
+
   fetchAudit: async () => {
     set({ loading: true, error: null });
     try {

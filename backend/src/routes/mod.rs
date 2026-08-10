@@ -1,5 +1,6 @@
 pub mod admin;
 pub mod adventures;
+pub mod ai;
 pub mod auth;
 pub mod characters;
 pub mod content;
@@ -45,6 +46,11 @@ pub fn router() -> Router<AppState> {
             axum::routing::patch(admin::update_access_level),
         )
         .route("/api/admin/access-audit", get(admin::list_audit_events))
+        .route(
+            "/api/admin/users/:target_id/ai-generation",
+            axum::routing::patch(admin::update_ai_generation_access),
+        )
+        .route("/api/ai/generate", post(ai::generate))
         .route(
             "/api/adventures",
             get(adventures::list).post(adventures::create),

@@ -53,6 +53,7 @@ pub struct User {
     pub name: String,
     pub password_hash: String,
     pub access_level: String,
+    pub ai_generation_enabled: bool,
     pub created_at: DateTime<Utc>,
 }
 
@@ -62,6 +63,7 @@ pub struct UserResponse {
     pub email: String,
     pub name: String,
     pub access_level: String,
+    pub ai_generation_enabled: bool,
 }
 
 impl From<User> for UserResponse {
@@ -71,6 +73,7 @@ impl From<User> for UserResponse {
             email: user.email,
             name: user.name,
             access_level: user.access_level,
+            ai_generation_enabled: user.ai_generation_enabled,
         }
     }
 }

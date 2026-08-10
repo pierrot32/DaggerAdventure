@@ -18,6 +18,7 @@ export default function AppLayout({ children }) {
           {canCreateAdventure(user) && <Link to="/adventures/create">Create</Link>}
           {canManageUsers(user) && <Link to="/admin/users">Admin</Link>}
           {canManageUsers(user) && <Link to="/admin/audit">Audit</Link>}
+          {canManageUsers(user) && <Link to="/admin/ai">AI lab</Link>}
           {canManageUsers(user) && <Link to="/admin/content/books/create">Create book</Link>}
           <Link to="/notifications">Notifications</Link>
           <span className={styles.muted}>{user?.name}</span>
