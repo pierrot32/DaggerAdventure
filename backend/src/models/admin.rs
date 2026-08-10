@@ -17,12 +17,18 @@ pub struct UpdateAccessLevelRequest {
     pub access_level: AccessLevel,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct UpdateAiGenerationRequest {
+    pub enabled: bool,
+}
+
 #[derive(Debug, Serialize, sqlx::FromRow)]
 pub struct AdminUser {
     pub id: Uuid,
     pub email: String,
     pub name: String,
     pub access_level: String,
+    pub ai_generation_enabled: bool,
     pub created_at: DateTime<Utc>,
 }
 

@@ -16,10 +16,11 @@ spec:
       containers:
         - name: backend
           # image tag is rewritten in the Jenkins production promotion branch
-          image: docker.io/pierrot32/daggeradventure_backend:35-79af20c7be02
+          image: docker.io/pierrot32/daggeradventure_backend:36-a65ab3f2fbd1
           env:
             # created out-of-band: kubectl -n dagger-adventure create secret generic
-            # backend-secrets --from-literal=database-url=... --from-literal=jwt-secret=...
+            # backend-secrets --from-literal=database-url=... --from-literal=jwt-secret=... \
+            #   --from-literal=openai-api-key=...
             # (not managed by GitOps)
             - name: DATABASE_URL
               valueFrom:
@@ -31,6 +32,14 @@ spec:
                 secretKeyRef:
                   name: backend-secrets
                   key: jwt-secret
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: openai-api-key
+                  optional: true
+            - name: OPENAI_MODEL
+              value: "gpt-5.6-luna"
             - name: COOKIE_SECURE
               value: "true"
             # Optional: set to an existing account email to bootstrap admin access.

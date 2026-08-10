@@ -13,5 +13,11 @@ export const updateAccessLevel = (userId, access_level) =>
     body: JSON.stringify({ access_level }),
   });
 
+export const updateAiGenerationAccess = (userId, enabled) =>
+  request(`/api/admin/users/${userId}/ai-generation`, {
+    method: 'PATCH',
+    body: JSON.stringify({ enabled }),
+  });
+
 export const listAuditEvents = (page = 1, limit = 50) =>
   request(`/api/admin/access-audit?page=${page}&limit=${limit}`);

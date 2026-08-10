@@ -7,6 +7,8 @@ pub struct Config {
     pub cookie_secure: bool,
     pub port: u16,
     pub admin_email: Option<String>,
+    pub openai_api_key: Option<String>,
+    pub openai_model: String,
 }
 
 impl Config {
@@ -22,6 +24,10 @@ impl Config {
                 .and_then(|value| value.parse().ok())
                 .unwrap_or(8080),
             admin_email: env::var("ADMIN_EMAIL").ok(),
+            openai_api_key: env::var("OPENAI_API_KEY")
+                .ok()
+                .filter(|value| !value.trim().is_empty()),
+            openai_model: env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-5.6-luna".to_owned()),
         }
     }
 }

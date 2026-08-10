@@ -12,6 +12,7 @@ pub enum AppError {
     Unauthorized(String),
     Forbidden(String),
     NotFound(String),
+    ServiceUnavailable(String),
     Internal(String),
 }
 
@@ -28,6 +29,7 @@ impl IntoResponse for AppError {
             AppError::Unauthorized(message) => (StatusCode::UNAUTHORIZED, message),
             AppError::Forbidden(message) => (StatusCode::FORBIDDEN, message),
             AppError::NotFound(message) => (StatusCode::NOT_FOUND, message),
+            AppError::ServiceUnavailable(message) => (StatusCode::SERVICE_UNAVAILABLE, message),
             AppError::Internal(message) => {
                 // Never leak internal error details to the client.
                 eprintln!("internal error: {message}");

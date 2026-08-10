@@ -48,9 +48,13 @@ DATABASE_URL=postgres://dagger_adventure:<POSTGRES_PASSWORD>@127.0.0.1:5432/dagg
 JWT_SECRET=replace_with_a_long_local_secret
 COOKIE_SECURE=false
 PORT=8080
+OPENAI_API_KEY=replace_with_your_openai_key
+OPENAI_MODEL=gpt-5.6-luna
 ```
 
 Use the same password as `POSTGRES_PASSWORD` in the root `.env`. Do not commit `backend/.env`.
+The OpenAI key stays in this backend-only file. Do not put it in frontend environment variables,
+browser code, a Dockerfile, or a committed manifest.
 
 To create the administrator locally, register the account through the frontend
 with the desired name, email, and password. Then start the backend with the
@@ -193,7 +197,8 @@ KUBECTL="docker compose exec -T k3s kubectl --kubeconfig /k3s-config/kubeconfig.
 $KUBECTL create namespace dagger-adventure
 $KUBECTL -n dagger-adventure create secret generic backend-secrets \
   --from-literal=database-url='postgres://<user>:<password>@<host>:5432/<database>' \
-  --from-literal=jwt-secret='replace_with_a_long_secret'
+  --from-literal=jwt-secret='replace_with_a_long_secret' \
+  --from-literal=openai-api-key='paste_the_key_without_committing_it'
 $KUBECTL -n dagger-adventure create secret generic backend-admin-secrets \
   --from-literal=admin-email='admin@example.com'
 $KUBECTL -n dagger-adventure create secret generic postgres-secrets \
