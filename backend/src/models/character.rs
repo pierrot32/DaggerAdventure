@@ -33,9 +33,44 @@ pub struct CreateCharacterRequest {
     pub traits: Value,
     pub experiences: Value,
     pub background_answers: Value,
+    #[serde(default)]
+    pub background_story: String,
+    #[serde(default)]
+    pub background_notes: String,
+    #[serde(default)]
+    pub family_members: Value,
     pub connections: Value,
     pub equipment: Value,
     pub domain_cards: Value,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateCharacterRequest {
+    pub name: String,
+    pub pronouns: String,
+    pub description: String,
+    #[serde(default)]
+    pub size: String,
+    #[serde(default)]
+    pub height: String,
+    #[serde(default)]
+    pub weight: String,
+    #[serde(default)]
+    pub eye_color: String,
+    #[serde(default)]
+    pub hair_color: String,
+    #[serde(default)]
+    pub skin_color: String,
+    #[serde(default)]
+    pub look_description: String,
+    pub experiences: Value,
+    pub equipment: Value,
+    #[serde(default)]
+    pub background_story: String,
+    #[serde(default)]
+    pub background_notes: String,
+    #[serde(default)]
+    pub family_members: Value,
 }
 
 #[derive(Debug, Deserialize)]
@@ -68,6 +103,9 @@ pub struct Character {
     pub traits: Value,
     pub experiences: Value,
     pub background_answers: Value,
+    pub background_story: String,
+    pub background_notes: String,
+    pub family_members: Value,
     pub connections: Value,
     pub equipment: Value,
     pub domain_cards: Value,

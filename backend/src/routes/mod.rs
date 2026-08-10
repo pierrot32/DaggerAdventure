@@ -33,7 +33,9 @@ pub fn router() -> Router<AppState> {
         )
         .route(
             "/api/characters/:character_id",
-            get(characters::get).delete(characters::delete),
+            get(characters::get)
+                .put(characters::update)
+                .delete(characters::delete),
         )
         .route(
             "/api/characters/:character_id/stats",

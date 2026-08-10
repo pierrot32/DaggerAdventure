@@ -18,7 +18,9 @@ pub use ai::{
     AiGenerationLog, GenerateCharacterRequest, GenerateCharacterResponse, GenerateRequest,
     GenerateResponse,
 };
-pub use character::{Character, CreateCharacterRequest, UpdateCharacterStatsRequest};
+pub use character::{
+    Character, CreateCharacterRequest, UpdateCharacterRequest, UpdateCharacterStatsRequest,
+};
 pub use content::{ImportBookRequest, SourceBook};
 pub use notification::Notification;
 pub use user::{AccessLevel, LoginRequest, MessageResponse, RegisterRequest, User, UserResponse};

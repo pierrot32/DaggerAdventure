@@ -8,7 +8,10 @@ use uuid::Uuid;
 use crate::{
     error::AppError,
     middleware::{access_guard::require_at_least, auth_guard::AuthUser},
-    models::{AccessLevel, Character, CreateCharacterRequest, UpdateCharacterStatsRequest},
+    models::{
+        AccessLevel, Character, CreateCharacterRequest, UpdateCharacterRequest,
+        UpdateCharacterStatsRequest,
+    },
     repository::character_repo,
     state::AppState,
     utils::validation,
@@ -40,6 +43,8 @@ pub async fn create(
     request.hair_color = request.hair_color.trim().to_owned();
     request.skin_color = request.skin_color.trim().to_owned();
     request.look_description = request.look_description.trim().to_owned();
+    request.background_story = request.background_story.trim().to_owned();
+    request.background_notes = request.background_notes.trim().to_owned();
     if request.pronouns.is_empty() || request.description.is_empty() {
         return Err(AppError::Validation(
             "Pronouns and description are required".to_owned(),
@@ -49,6 +54,44 @@ pub async fn create(
         axum::http::StatusCode::CREATED,
         Json(character_repo::create(&state.db, user.id, &request).await?),
     ))
+}
+
+pub async fn update(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+    Path(character_id): Path<Uuid>,
+    Json(mut request): Json<UpdateCharacterRequest>,
+) -> Result<Json<Character>, AppError> {
+    require_at_least(&user, AccessLevel::PlayerOnly)?;
+    request.name = validation::validate_name(&request.name)?;
+    request.pronouns = request.pronouns.trim().to_owned();
+    request.description = request.description.trim().to_owned();
+    request.size = request.size.trim().to_owned();
+    request.height = request.height.trim().to_owned();
+    request.weight = request.weight.trim().to_owned();
+    request.eye_color = request.eye_color.trim().to_owned();
+    request.hair_color = request.hair_color.trim().to_owned();
+    request.skin_color = request.skin_color.trim().to_owned();
+    request.look_description = request.look_description.trim().to_owned();
+    request.background_story = request.background_story.trim().to_owned();
+    request.background_notes = request.background_notes.trim().to_owned();
+    if request.pronouns.is_empty() || request.description.is_empty() {
+        return Err(AppError::Validation(
+            "Pronouns and description are required".to_owned(),
+        ));
+    }
+    if !request.experiences.is_array()
+        || !request.equipment.is_object()
+        || !request.family_members.is_array()
+    {
+        return Err(AppError::Validation(
+            "Experiences, equipment, and family members must use valid JSON shapes".to_owned(),
+        ));
+    }
+    character_repo::update(&state.db, user.id, character_id, &request)
+        .await?
+        .map(Json)
+        .ok_or_else(|| AppError::NotFound("Character not found".to_owned()))
 }
 
 #[derive(Debug, Deserialize)]

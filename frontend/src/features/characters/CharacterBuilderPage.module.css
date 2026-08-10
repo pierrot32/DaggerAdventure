@@ -51,6 +51,12 @@
 .prompts { margin-bottom: var(--space-5); padding: var(--space-4); background: var(--color-surface-muted); }
 .prompts strong { color: var(--color-text); }
 .prompts p { margin: var(--space-3) 0 0; color: var(--color-muted); font-size: 13px; }
+.familySection { grid-column: 1 / -1; padding-top: var(--space-2); }
+.familySection > p { margin: var(--space-2) 0 var(--space-4); }
+.familyRow { display: grid; grid-template-columns: minmax(130px, .7fr) minmax(120px, .8fr) minmax(180px, 1.5fr) auto; gap: var(--space-2); margin-top: var(--space-3); }
+.familyRow input, .familyRow select { min-width: 0; }
+.removeButton { align-self: center; padding: 6px 8px; border: 1px solid var(--color-border); background: transparent; color: var(--color-muted); cursor: pointer; }
+.removeButton:hover { border-color: var(--color-danger); color: var(--color-danger); }
 .actions { display: flex; justify-content: flex-end; gap: var(--space-4); margin-top: var(--space-7); padding-top: var(--space-5); border-top: 1px solid var(--color-border); }
 .error { margin-top: var(--space-5); color: var(--color-danger); }
 .notice { max-width: 650px; padding: var(--space-7); border: 1px solid rgba(244, 238, 228, .14); background: rgba(244, 238, 228, .07); }
@@ -69,6 +75,8 @@
   .content { padding: var(--space-4); }
   .formGrid, .traits { grid-template-columns: 1fr; }
   .full, .detailPanel { grid-column: auto; }
+  .familySection { grid-column: auto; }
+  .familyRow { grid-template-columns: 1fr; }
   .sidebar { grid-template-columns: repeat(2, 1fr); }
   .aiToolbar { align-items: flex-start; flex-direction: column; }
 }
