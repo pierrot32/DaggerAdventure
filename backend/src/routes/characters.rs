@@ -68,6 +68,18 @@ pub async fn get(
         .ok_or_else(|| AppError::NotFound("Character not found".to_owned()))
 }
 
+pub async fn delete(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+    Path(character_id): Path<Uuid>,
+) -> Result<axum::http::StatusCode, AppError> {
+    require_at_least(&user, AccessLevel::PlayerOnly)?;
+    if !character_repo::delete_for_user(&state.db, user.id, character_id).await? {
+        return Err(AppError::NotFound("Character not found".to_owned()));
+    }
+    Ok(axum::http::StatusCode::NO_CONTENT)
+}
+
 pub async fn update_stats(
     State(state): State<AppState>,
     AuthUser(user): AuthUser,

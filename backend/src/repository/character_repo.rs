@@ -148,3 +148,16 @@ pub async fn list_for_user(pool: &PgPool, user_id: Uuid) -> Result<Vec<Character
         .fetch_all(pool)
         .await
 }
+
+pub async fn delete_for_user(
+    pool: &PgPool,
+    user_id: Uuid,
+    character_id: Uuid,
+) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query("DELETE FROM characters WHERE id = $1 AND user_id = $2")
+        .bind(character_id)
+        .bind(user_id)
+        .execute(pool)
+        .await?;
+    Ok(result.rows_affected() == 1)
+}

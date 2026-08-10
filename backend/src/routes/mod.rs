@@ -31,7 +31,10 @@ pub fn router() -> Router<AppState> {
             "/api/characters",
             get(characters::list).post(characters::create),
         )
-        .route("/api/characters/:character_id", get(characters::get))
+        .route(
+            "/api/characters/:character_id",
+            get(characters::get).delete(characters::delete),
+        )
         .route(
             "/api/characters/:character_id/stats",
             axum::routing::patch(characters::update_stats),

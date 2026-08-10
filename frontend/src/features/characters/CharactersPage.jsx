@@ -1,21 +1,35 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Button from '../../components/Button/Button';
-import { listCharacters } from './characterApi';
+import { deleteCharacter, listCharacters } from './characterApi';
 import styles from './CharactersPage.module.css';
 
 export default function CharactersPage() {
   const [characters, setCharacters] = useState([]);
-  const [state, setState] = useState({ loading: true, error: '' });
+  const [state, setState] = useState({ loading: true, deletingId: '', error: '' });
 
   useEffect(() => {
     listCharacters()
       .then((items) => {
         setCharacters(items);
-        setState({ loading: false, error: '' });
+        setState({ loading: false, deletingId: '', error: '' });
       })
-      .catch((error) => setState({ loading: false, error: error.message }));
+      .catch((error) => setState({ loading: false, deletingId: '', error: error.message }));
   }, []);
+
+  const handleDelete = async (event, character) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!window.confirm(`Delete ${character.name}? This cannot be undone.`)) return;
+    setState((current) => ({ ...current, deletingId: character.id, error: '' }));
+    try {
+      await deleteCharacter(character.id);
+      setCharacters((current) => current.filter((item) => item.id !== character.id));
+      setState((current) => ({ ...current, deletingId: '', error: '' }));
+    } catch (error) {
+      setState((current) => ({ ...current, deletingId: '', error: error.message }));
+    }
+  };
 
   return (
     <section>
@@ -38,13 +52,16 @@ export default function CharactersPage() {
             </div>
           )}
           {characters.map((character) => (
-              <Link className={styles.card} to={`/characters/${character.id}`} key={character.id}>
+            <article className={styles.card} key={character.id}>
+              <Link className={styles.cardLink} to={`/characters/${character.id}`}>
               <p className="eyebrow">LEVEL {character.level}</p>
               <h3>{character.name}</h3>
               <p>{character.pronouns}</p>
               <p className="muted">{character.class_id} · {character.ancestry_id} · {character.community_id}</p>
               <p className={styles.description}>{character.description}</p>
               </Link>
+              <div className={styles.cardActions}><button type="button" className={styles.deleteButton} disabled={state.deletingId === character.id} onClick={(event) => handleDelete(event, character)}>{state.deletingId === character.id ? 'Deleting...' : 'Delete character'}</button></div>
+            </article>
           ))}
         </div>
       )}
