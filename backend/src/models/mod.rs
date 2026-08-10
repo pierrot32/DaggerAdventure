@@ -14,7 +14,10 @@ pub use adventure::{
     Adventure, AdventureInvite, CreateAdventureRequest, CreateInviteRequest, PendingInviteView,
     UpdateFearRequest,
 };
-pub use ai::{GenerateRequest, GenerateResponse};
+pub use ai::{
+    AiGenerationLog, GenerateCharacterRequest, GenerateCharacterResponse, GenerateRequest,
+    GenerateResponse,
+};
 pub use character::{Character, CreateCharacterRequest, UpdateCharacterStatsRequest};
 pub use content::{ImportBookRequest, SourceBook};
 pub use notification::Notification;

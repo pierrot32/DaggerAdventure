@@ -81,6 +81,10 @@
 .cards p { color: var(--color-muted-inverse); font-size: 13px; line-height: 1.5; }
 
 .description { max-width: 900px; color: var(--color-muted-inverse); line-height: 1.6; }
+.descriptionText { color: var(--color-muted-inverse); line-height: 1.6; }
+.appearanceGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); margin-top: var(--space-5); }
+.appearanceGrid .field { padding: 0; border: 0; }
+.lookDescription { margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid rgba(244, 238, 228, 0.14); color: var(--color-muted-inverse); line-height: 1.6; white-space: pre-wrap; }
 .error { color: #ffb4ac; }
 
 @media (max-width: 900px) {
@@ -90,5 +94,6 @@
 }
 @media (max-width: 560px) {
   .identity, .traits, .thresholds, .statLine { grid-template-columns: 1fr 1fr; }
+  .appearanceGrid { grid-template-columns: 1fr 1fr; }
   .topBar { align-items: flex-start; flex-direction: column; }
 }

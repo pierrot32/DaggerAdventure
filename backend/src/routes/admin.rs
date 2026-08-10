@@ -12,7 +12,7 @@ use crate::{
         AccessLevel, UpdateAccessLevelRequest, UpdateAiGenerationRequest, UserListQuery,
         UserListResponse,
     },
-    repository::admin_repo,
+    repository::{admin_repo, ai_repo},
     state::AppState,
 };
 
@@ -76,4 +76,19 @@ pub async fn list_audit_events(
     )
     .await?;
     Ok(Json(events))
+}
+
+pub async fn list_ai_logs(
+    State(state): State<AppState>,
+    AuthUser(actor): AuthUser,
+    Query(query): Query<AuditQuery>,
+) -> Result<Json<Vec<crate::models::AiGenerationLog>>, AppError> {
+    require_at_least(&actor, AccessLevel::Admin)?;
+    let logs = ai_repo::list_logs(
+        &state.db,
+        query.page.unwrap_or(1),
+        query.limit.unwrap_or(25),
+    )
+    .await?;
+    Ok(Json(logs))
 }

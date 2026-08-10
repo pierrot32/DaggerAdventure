@@ -228,6 +228,19 @@ export default function CharacterDetailPage() {
             </div>
           </Panel>
 
+          <Panel title="Character description">
+            <p className={styles.descriptionText}>{character.description || '—'}</p>
+            <div className={styles.appearanceGrid}>
+              <Field label="Size" value={character.size} />
+              <Field label="Height" value={character.height} />
+              <Field label="Weight" value={character.weight} />
+              <Field label="Eyes" value={character.eye_color} />
+              <Field label="Hair" value={character.hair_color} />
+              <Field label="Skin" value={character.skin_color} />
+            </div>
+            <p className={styles.lookDescription}>{character.look_description || 'No additional look details recorded.'}</p>
+          </Panel>
+
           <Panel title="Active weapons">
             <p className={styles.hint}>Proficiency {derived.proficiency}</p>
             <WeaponRow title="Primary" weapon={primary} fallback={equipment.primary} />
@@ -269,7 +282,6 @@ export default function CharacterDetailPage() {
         </div>
       </div>
 
-      {character.description && <p className={styles.description}>{character.description}</p>}
     </section>
   );
 }

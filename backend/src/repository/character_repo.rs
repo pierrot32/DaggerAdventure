@@ -3,7 +3,8 @@ use uuid::Uuid;
 
 use crate::models::{Character, CreateCharacterRequest};
 
-const CHARACTER_FIELDS: &str = "id, user_id, adventure_id, name, pronouns, description, level,
+const CHARACTER_FIELDS: &str = "id, user_id, adventure_id, name, pronouns, description, size,
+    height, weight, eye_color, hair_color, skin_color, look_description, level,
     class_id, subclass_id, ancestry_id, secondary_ancestry_id, community_id, traits,
     experiences, background_answers, connections, equipment, domain_cards, stats, created_at, updated_at";
 
@@ -14,10 +15,11 @@ pub async fn create(
 ) -> Result<Character, sqlx::Error> {
     let query = format!(
         "INSERT INTO characters
-         (id, user_id, adventure_id, name, pronouns, description, class_id, subclass_id,
+         (id, user_id, adventure_id, name, pronouns, description, size, height, weight,
+          eye_color, hair_color, skin_color, look_description, class_id, subclass_id,
           ancestry_id, secondary_ancestry_id, community_id, traits, experiences,
           background_answers, connections, equipment, domain_cards, stats)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
          RETURNING {CHARACTER_FIELDS}"
     );
     sqlx::query_as::<_, Character>(&query)
@@ -27,6 +29,13 @@ pub async fn create(
         .bind(&request.name)
         .bind(&request.pronouns)
         .bind(&request.description)
+        .bind(&request.size)
+        .bind(&request.height)
+        .bind(&request.weight)
+        .bind(&request.eye_color)
+        .bind(&request.hair_color)
+        .bind(&request.skin_color)
+        .bind(&request.look_description)
         .bind(&request.class_id)
         .bind(&request.subclass_id)
         .bind(&request.ancestry_id)
@@ -65,6 +74,7 @@ pub async fn find_visible_to_user(
     // (id, name, description, created_at, updated_at), which Postgres rejects as ambiguous.
     let query =
         "SELECT c.id, c.user_id, c.adventure_id, c.name, c.pronouns, c.description, c.level,
+        c.size, c.height, c.weight, c.eye_color, c.hair_color, c.skin_color, c.look_description,
         c.class_id, c.subclass_id, c.ancestry_id, c.secondary_ancestry_id, c.community_id, c.traits,
         c.experiences, c.background_answers, c.connections, c.equipment, c.domain_cards, c.stats,
         c.created_at, c.updated_at

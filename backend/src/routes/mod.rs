@@ -46,11 +46,13 @@ pub fn router() -> Router<AppState> {
             axum::routing::patch(admin::update_access_level),
         )
         .route("/api/admin/access-audit", get(admin::list_audit_events))
+        .route("/api/admin/ai-logs", get(admin::list_ai_logs))
         .route(
             "/api/admin/users/:target_id/ai-generation",
             axum::routing::patch(admin::update_ai_generation_access),
         )
         .route("/api/ai/generate", post(ai::generate))
+        .route("/api/ai/character", post(ai::generate_character))
         .route(
             "/api/adventures",
             get(adventures::list).post(adventures::create),
