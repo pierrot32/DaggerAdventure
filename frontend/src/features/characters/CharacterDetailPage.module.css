@@ -73,6 +73,10 @@
 
 .inventory { display: grid; gap: var(--space-2); padding: 0; margin: 0; list-style: none; }
 .inventory li { padding-bottom: 4px; border-bottom: 1px solid rgba(244, 238, 228, 0.14); color: var(--color-muted-inverse); }
+.familyList { display: grid; gap: var(--space-3); padding: 0; margin: 0; list-style: none; }
+.familyList li { display: grid; gap: 4px; padding-bottom: var(--space-3); border-bottom: 1px solid rgba(244, 238, 228, 0.14); }
+.familyList strong { color: var(--color-text-inverse); font-size: 14px; }
+.familyList span { color: var(--color-muted-inverse); font-size: 13px; line-height: 1.5; }
 
 .cards { display: grid; gap: var(--space-3); }
 .cards article { display: grid; gap: 4px; padding: var(--space-3); background: rgba(20, 18, 16, 0.45); }
@@ -86,6 +90,23 @@
 .appearanceGrid .field { padding: 0; border: 0; }
 .lookDescription { margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid rgba(244, 238, 228, 0.14); color: var(--color-muted-inverse); line-height: 1.6; white-space: pre-wrap; }
 .error { color: #ffb4ac; }
+.editActions { display: flex; justify-content: flex-end; gap: var(--space-2); }
+.editButton, .cancelButton, .textButton, .removeButton { padding: 8px 12px; border: 1px solid var(--color-accent); background: var(--color-accent); color: #1b1713; font: inherit; cursor: pointer; }
+.cancelButton, .textButton, .removeButton { border-color: rgba(244, 238, 228, 0.3); background: transparent; color: var(--color-text-inverse); }
+.editButton:disabled { cursor: wait; opacity: .6; }
+.editor { display: grid; gap: var(--space-4); padding: var(--space-5); border: 1px solid var(--color-accent); background: rgba(244, 238, 228, 0.08); }
+.editor h3 { font-size: 22px; }
+.editorSection { display: grid; gap: var(--space-3); padding-top: var(--space-4); border-top: 1px solid rgba(244, 238, 228, 0.16); }
+.editorSection h4 { color: var(--color-accent); font-size: 15px; }
+.editorGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.editField { display: grid; gap: 5px; color: var(--color-muted-inverse); font-size: 11px; text-transform: uppercase; }
+.editField:first-child:has(textarea), .editField:has(textarea) { grid-column: 1 / -1; }
+.editField input, .editField textarea, .editorRow input, .familyEditRow input, .familyEditRow select { width: 100%; padding: 9px; border: 1px solid rgba(244, 238, 228, 0.25); background: rgba(20, 18, 16, 0.55); color: var(--color-text-inverse); font: inherit; }
+.editField textarea { min-height: 100px; resize: vertical; }
+.editorRow, .familyEditRow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: var(--space-2); align-items: center; }
+.familyEditRow { grid-template-columns: minmax(130px, .7fr) minmax(120px, .8fr) minmax(180px, 1.5fr) auto; }
+.editorRow .quantity { max-width: 80px; }
+.textButton:hover, .cancelButton:hover, .removeButton:hover { border-color: var(--color-accent); color: var(--color-accent); }
 
 @media (max-width: 900px) {
   .columns { grid-template-columns: 1fr; }
@@ -96,4 +117,7 @@
   .identity, .traits, .thresholds, .statLine { grid-template-columns: 1fr 1fr; }
   .appearanceGrid { grid-template-columns: 1fr 1fr; }
   .topBar { align-items: flex-start; flex-direction: column; }
+  .editorGrid, .familyEditRow { grid-template-columns: 1fr; }
+  .editorRow { grid-template-columns: 1fr auto; }
+  .editorRow .quantity { max-width: none; }
 }

@@ -50,6 +50,9 @@ const CHARACTER_FIELDS: &[&str] = &[
     "ancestry_id",
     "secondary_ancestry_id",
     "community_id",
+    "background_story",
+    "background_notes",
+    "family_members",
 ];
 
 pub async fn generate_character(
@@ -134,8 +137,8 @@ pub async fn generate_character(
         .into_iter()
         .filter(|(field, value)| {
             requested_fields.contains(&field.as_str())
-                && value.is_string()
-                && valid_choice(field, value, &options)
+                && ((value.is_string() && valid_choice(field, value, &options))
+                    || (field == "family_members" && valid_family_members(value)))
         })
         .collect::<serde_json::Map<String, Value>>();
     if filtered.is_empty() {
@@ -147,6 +150,23 @@ pub async fn generate_character(
     Ok(Json(GenerateCharacterResponse {
         values: Value::Object(filtered),
     }))
+}
+
+fn valid_family_members(value: &Value) -> bool {
+    value.as_array().is_some_and(|members| {
+        members.len() <= 20
+            && members.iter().all(|member| {
+                member
+                    .get("relation")
+                    .and_then(Value::as_str)
+                    .is_some_and(|value| !value.trim().is_empty())
+                    && member
+                        .get("name")
+                        .and_then(Value::as_str)
+                        .is_some_and(|value| !value.trim().is_empty())
+                    && member.get("details").and_then(Value::as_str).is_some()
+            })
+    })
 }
 
 fn valid_choice(field: &str, value: &Value, options: &Value) -> bool {

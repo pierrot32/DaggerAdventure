@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { listAdventures } from '../adventures/adventureApi';
 import {
-  getCharacter, getCharacterCreationBook, linkCharacterToAdventure, updateCharacterStats,
+  getCharacter, getCharacterCreationBook, linkCharacterToAdventure, updateCharacter, updateCharacterStats,
 } from './characterApi';
 import {
   GOLD_LIMITS, TRAIT_ACTIONS, TRAIT_IDS, deriveSheet, normalizeStats,
@@ -22,6 +22,30 @@ const titleize = (input) => String(input || '')
 
 // Clicking the box you already stopped on clears it, otherwise fill up to it.
 const nextTrackValue = (current, index) => (index + 1 === current ? index : index + 1);
+const familyRelations = [
+  'Friend', "Friend's family", 'Father', 'Mother', 'Brother', 'Sister', 'Step-father', 'Step-mother',
+  'Step-brother', 'Step-sister', 'Grandfather', 'Grandmother', 'Uncle', 'Aunt', 'Cousin', 'Child',
+  'Spouse or partner', 'Other',
+];
+
+const withoutGoldInventory = (inventory) => (Array.isArray(inventory) ? inventory : [])
+  .filter((item) => !/gold/i.test(typeof item === 'string' ? item : item?.name || ''));
+const editableInventory = (inventory) => withoutGoldInventory(inventory).map((item, index) => typeof item === 'string'
+  ? { id: `inventory-${index}`, name: item, quantity: 1 }
+  : { id: item.id || `inventory-${index}`, name: item.name || item.id || '', quantity: item.quantity || 1 });
+
+const editableCharacter = (value) => ({
+  name: value.name || '', pronouns: value.pronouns || '', description: value.description || '',
+  size: value.size || '', height: value.height || '', weight: value.weight || '', eye_color: value.eye_color || '',
+  hair_color: value.hair_color || '', skin_color: value.skin_color || '', look_description: value.look_description || '',
+  experiences: Array.isArray(value.experiences) ? value.experiences.map((item) => (typeof item === 'string' ? { name: item, modifier: 2 } : { ...item })) : [],
+  equipment: {
+    ...(value.equipment || {}),
+    inventory: editableInventory(value.equipment?.inventory),
+  },
+  background_story: value.background_story || '', background_notes: value.background_notes || '',
+  family_members: Array.isArray(value.family_members) ? value.family_members.map((member) => ({ ...member })) : [],
+});
 
 export default function CharacterDetailPage() {
   const { characterId } = useParams();
@@ -30,6 +54,8 @@ export default function CharacterDetailPage() {
   const [stats, setStats] = useState(null);
   const [adventures, setAdventures] = useState([]);
   const [selectedAdventure, setSelectedAdventure] = useState('');
+  const [editForm, setEditForm] = useState(null);
+  const [editing, setEditing] = useState(false);
   const [state, setState] = useState({ loading: true, saving: false, error: '' });
 
   useEffect(() => {
@@ -40,6 +66,7 @@ export default function CharacterDetailPage() {
     ])
       .then(([nextCharacter, nextAdventures, nextBook]) => {
         setCharacter(nextCharacter);
+        setEditForm(editableCharacter(nextCharacter));
         setAdventures(nextAdventures);
         setBook(nextBook);
         setSelectedAdventure(nextCharacter.adventure_id || '');
@@ -67,6 +94,53 @@ export default function CharacterDetailPage() {
 
   const setTrack = (key, next) => persist({ ...stats, [key]: { ...stats[key], current: next } });
   const setGold = (key, next) => persist({ ...stats, gold: { ...stats.gold, [key]: next } });
+
+  const beginEditing = () => {
+    setEditForm(editableCharacter(character));
+    setEditing(true);
+  };
+  const updateEditField = (field, value) => setEditForm((current) => ({ ...current, [field]: value }));
+  const updateEquipmentField = (field, value) => setEditForm((current) => ({ ...current, equipment: { ...current.equipment, [field]: value } }));
+  const updateExperience = (index, value) => setEditForm((current) => ({
+    ...current,
+    experiences: current.experiences.map((experience, experienceIndex) => experienceIndex === index ? { ...experience, name: value } : experience),
+  }));
+  const addExperience = () => setEditForm((current) => ({ ...current, experiences: [...current.experiences, { name: '', modifier: 2 }] }));
+  const removeExperience = (index) => setEditForm((current) => ({ ...current, experiences: current.experiences.filter((_, experienceIndex) => experienceIndex !== index) }));
+  const updateInventoryItem = (index, field, value) => setEditForm((current) => ({
+    ...current,
+    equipment: { ...current.equipment, inventory: current.equipment.inventory.map((item, itemIndex) => itemIndex === index ? { ...item, [field]: value } : item) },
+  }));
+  const addInventoryItem = () => setEditForm((current) => ({
+    ...current,
+    equipment: { ...current.equipment, inventory: [...current.equipment.inventory, { id: `custom-${Date.now()}`, name: '', quantity: 1 }] },
+  }));
+  const removeInventoryItem = (index) => setEditForm((current) => ({
+    ...current,
+    equipment: { ...current.equipment, inventory: current.equipment.inventory.filter((_, itemIndex) => itemIndex !== index) },
+  }));
+  const updateFamilyMember = (index, field, value) => setEditForm((current) => ({
+    ...current,
+    family_members: current.family_members.map((member, memberIndex) => memberIndex === index ? { ...member, [field]: value } : member),
+  }));
+  const addFamilyMember = () => setEditForm((current) => ({ ...current, family_members: [...current.family_members, { id: `family-${Date.now()}`, relation: 'Friend', name: '', details: '' }] }));
+  const removeFamilyMember = (index) => setEditForm((current) => ({ ...current, family_members: current.family_members.filter((_, memberIndex) => memberIndex !== index) }));
+  const saveCharacter = async () => {
+    setState((current) => ({ ...current, saving: true, error: '' }));
+    try {
+      const updated = await updateCharacter(characterId, {
+        ...editForm,
+        experiences: editForm.experiences.filter((experience) => experience.name.trim()),
+        equipment: { ...editForm.equipment, inventory: editableInventory(editForm.equipment.inventory) },
+      });
+      setCharacter(updated);
+      setEditForm(editableCharacter(updated));
+      setEditing(false);
+      setState({ loading: false, saving: false, error: '' });
+    } catch (error) {
+      setState({ loading: false, saving: false, error: error.message });
+    }
+  };
 
   const updateAdventure = async (event) => {
     const adventureId = event.target.value || null;
@@ -104,6 +178,13 @@ export default function CharacterDetailPage() {
         </div>
       </div>
       {state.error && <p className={styles.error}>{state.error}</p>}
+      <div className={styles.editActions}>
+        {!editing ? <button type="button" className={styles.editButton} onClick={beginEditing}>Edit character</button> : <>
+          <button type="button" className={styles.cancelButton} onClick={() => { setEditForm(editableCharacter(character)); setEditing(false); }}>Cancel</button>
+          <button type="button" className={styles.editButton} disabled={state.saving} onClick={saveCharacter}>{state.saving ? 'Saving...' : 'Save character'}</button>
+        </>}
+      </div>
+      {editing && <CharacterEditor form={editForm} updateField={updateEditField} updateEquipmentField={updateEquipmentField} updateExperience={updateExperience} addExperience={addExperience} removeExperience={removeExperience} updateInventoryItem={updateInventoryItem} addInventoryItem={addInventoryItem} removeInventoryItem={removeInventoryItem} updateFamilyMember={updateFamilyMember} addFamilyMember={addFamilyMember} removeFamilyMember={removeFamilyMember} />}
 
       <header className={styles.nameplate}>
         <div className={styles.classBlock}>
@@ -258,12 +339,21 @@ export default function CharacterDetailPage() {
 
           <Panel title="Inventory">
             <ul className={styles.inventory}>
-              {[equipment.potion, ...(equipment.inventory || [])].filter(Boolean).map((item, index) => (
+              {[equipment.potion, ...withoutGoldInventory(equipment.inventory)].filter(Boolean).map((item, index) => (
                 <li key={typeof item === 'string' ? `${item}-${index}` : item.id}>
                   {typeof item === 'string' ? titleize(item) : item.name || item.id}
                 </li>
               ))}
             </ul>
+          </Panel>
+
+          <Panel title="Background">
+            {character.background_story && <p className={styles.descriptionText}>{character.background_story}</p>}
+            {character.background_notes && <p className={styles.lookDescription}>{character.background_notes}</p>}
+            {(character.family_members || []).length > 0 && <ul className={styles.familyList}>
+              {character.family_members.map((member, index) => <li key={member.id || `${member.relation}-${index}`}><strong>{member.name || 'Unnamed'} · {member.relation || 'Other'}</strong><span>{member.details || 'No details recorded.'}</span></li>)}
+            </ul>}
+            {!character.background_story && !character.background_notes && !(character.family_members || []).length && <p className="muted">No background details recorded.</p>}
           </Panel>
 
           {(character.domain_cards || []).length > 0 && (
@@ -284,6 +374,46 @@ export default function CharacterDetailPage() {
 
     </section>
   );
+}
+
+function CharacterEditor({ form, updateField, updateEquipmentField, updateExperience, addExperience, removeExperience, updateInventoryItem, addInventoryItem, removeInventoryItem, updateFamilyMember, addFamilyMember, removeFamilyMember }) {
+  const input = (label, field, type = 'input') => <label className={styles.editField}><span>{label}</span>{type === 'textarea' ? <textarea value={form[field]} onChange={(event) => updateField(field, event.target.value)} /> : <input value={form[field]} onChange={(event) => updateField(field, event.target.value)} />}</label>;
+  return <section className={styles.editor}>
+    <h3>Edit character</h3>
+    <div className={styles.editorGrid}>
+      {input('Name', 'name')}{input('Pronouns', 'pronouns')}{input('Description', 'description', 'textarea')}
+      {input('Size', 'size')}{input('Height', 'height')}{input('Weight', 'weight')}{input('Eye color', 'eye_color')}{input('Hair color', 'hair_color')}{input('Skin color', 'skin_color')}{input('Look description', 'look_description', 'textarea')}
+    </div>
+    <div className={styles.editorSection}>
+      <h4>Active equipment</h4>
+      <div className={styles.editorGrid}>
+        <label className={styles.editField}><span>Primary weapon</span><input value={form.equipment.primary || ''} onChange={(event) => updateEquipmentField('primary', event.target.value)} /></label>
+        <label className={styles.editField}><span>Secondary weapon</span><input value={form.equipment.secondary || ''} onChange={(event) => updateEquipmentField('secondary', event.target.value)} /></label>
+        <label className={styles.editField}><span>Armor</span><input value={form.equipment.armor || ''} onChange={(event) => updateEquipmentField('armor', event.target.value)} /></label>
+      </div>
+    </div>
+    <div className={styles.editorSection}>
+      <h4>Experiences</h4>
+      {form.experiences.map((experience, index) => <div className={styles.editorRow} key={index}><input value={experience.name || ''} onChange={(event) => updateExperience(index, event.target.value)} placeholder="Experience" /><button type="button" className={styles.removeButton} onClick={() => removeExperience(index)}>Remove</button></div>)}
+      <button type="button" className={styles.textButton} onClick={addExperience}>Add experience</button>
+    </div>
+    <div className={styles.editorSection}>
+      <h4>Inventory</h4>
+      {form.equipment.inventory.map((item, index) => <div className={styles.editorRow} key={item.id || index}><input value={item.name} onChange={(event) => updateInventoryItem(index, 'name', event.target.value)} placeholder="Item" /><input className={styles.quantity} type="number" min="1" value={item.quantity} onChange={(event) => updateInventoryItem(index, 'quantity', Number(event.target.value) || 1)} aria-label="Quantity" /><button type="button" className={styles.removeButton} onClick={() => removeInventoryItem(index)}>Remove</button></div>)}
+      <button type="button" className={styles.textButton} onClick={addInventoryItem}>Add inventory item</button>
+    </div>
+    <div className={styles.editorSection}>
+      <h4>Background</h4>
+      <div className={styles.editorGrid}>{input('Background story', 'background_story', 'textarea')}{input('Background notes', 'background_notes', 'textarea')}</div>
+      {form.family_members.map((member, index) => <div className={styles.familyEditRow} key={member.id || index}>
+        <select value={member.relation || 'Other'} onChange={(event) => updateFamilyMember(index, 'relation', event.target.value)}>{familyRelations.map((relation) => <option value={relation} key={relation}>{relation}</option>)}</select>
+        <input value={member.name || ''} onChange={(event) => updateFamilyMember(index, 'name', event.target.value)} placeholder="Name" />
+        <input value={member.details || ''} onChange={(event) => updateFamilyMember(index, 'details', event.target.value)} placeholder="Specific details" />
+        <button type="button" className={styles.removeButton} onClick={() => removeFamilyMember(index)}>Remove</button>
+      </div>)}
+      <button type="button" className={styles.textButton} onClick={addFamilyMember}>Add family member</button>
+    </div>
+  </section>;
 }
 
 function Field({ label, value }) {

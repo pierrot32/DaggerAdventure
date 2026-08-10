@@ -12,6 +12,10 @@ export const updateCharacterStats = (id, stats) => request(`/api/characters/${id
   method: 'PATCH',
   body: JSON.stringify({ stats }),
 });
+export const updateCharacter = (id, payload) => request(`/api/characters/${id}`, {
+  method: 'PUT',
+  body: JSON.stringify(payload),
+});
 export const createCharacter = (payload) => request('/api/characters', {
   method: 'POST',
   body: JSON.stringify(payload),
