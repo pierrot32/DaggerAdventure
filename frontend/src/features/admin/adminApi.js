@@ -21,3 +21,6 @@ export const updateAiGenerationAccess = (userId, enabled) =>
 
 export const listAuditEvents = (page = 1, limit = 50) =>
   request(`/api/admin/access-audit?page=${page}&limit=${limit}`);
+
+export const listAiLogs = (page = 1, limit = 50) =>
+  request(`/api/admin/ai-logs?page=${page}&limit=${limit}`);

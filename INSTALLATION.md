@@ -92,6 +92,10 @@ The API applies all pending migrations when it starts. Check that it is alive wi
 curl http://localhost:8080/healthz
 ```
 
+The character builder's AI controls use `POST /api/ai/character`; admins can review
+the exact compact requests and model answers at the AI logs page. The `0010_create_ai_generation_logs`
+migration creates this history automatically. Logs may contain character details, so keep admin access restricted.
+
 ## Local tests
 
 Backend formatting, compilation, and unit tests:

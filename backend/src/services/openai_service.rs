@@ -32,6 +32,19 @@ struct ChatMessageResponse {
 }
 
 pub async fn generate(config: &Config, prompt: &str) -> Result<String, AppError> {
+    generate_with_system_prompt(
+        config,
+        "You are a concise, imaginative assistant for a Daggerheart character builder. Help create names, backstories, motives, relationships, and other character details. Follow the user's request and format the result clearly.",
+        prompt,
+    )
+    .await
+}
+
+pub async fn generate_with_system_prompt(
+    config: &Config,
+    system_prompt: &str,
+    prompt: &str,
+) -> Result<String, AppError> {
     let api_key = config.openai_api_key.as_deref().ok_or_else(|| {
         AppError::ServiceUnavailable("AI generation is not configured".to_owned())
     })?;
@@ -42,7 +55,7 @@ pub async fn generate(config: &Config, prompt: &str) -> Result<String, AppError>
         messages: [
             ChatMessage {
                 role: "system",
-                content: "You are a concise, imaginative assistant for a Daggerheart character builder. Help create names, backstories, motives, relationships, and other character details. Follow the user's request and format the result clearly.",
+                content: system_prompt,
             },
             ChatMessage {
                 role: "user",

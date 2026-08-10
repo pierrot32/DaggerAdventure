@@ -11,6 +11,20 @@ pub struct CreateCharacterRequest {
     pub name: String,
     pub pronouns: String,
     pub description: String,
+    #[serde(default)]
+    pub size: String,
+    #[serde(default)]
+    pub height: String,
+    #[serde(default)]
+    pub weight: String,
+    #[serde(default)]
+    pub eye_color: String,
+    #[serde(default)]
+    pub hair_color: String,
+    #[serde(default)]
+    pub skin_color: String,
+    #[serde(default)]
+    pub look_description: String,
     pub class_id: String,
     pub subclass_id: String,
     pub ancestry_id: String,
@@ -38,6 +52,13 @@ pub struct Character {
     pub name: String,
     pub pronouns: String,
     pub description: String,
+    pub size: String,
+    pub height: String,
+    pub weight: String,
+    pub eye_color: String,
+    pub hair_color: String,
+    pub skin_color: String,
+    pub look_description: String,
     pub level: i32,
     pub class_id: String,
     pub subclass_id: String,

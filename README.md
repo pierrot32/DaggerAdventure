@@ -74,6 +74,8 @@ The API listens on `http://localhost:8080` by default. Useful endpoints are:
 | `GET /api/auth/me` | Return the current authenticated user. |
 | `GET /api/hello` | Authenticated API smoke-test endpoint. |
 | `POST /api/ai/generate` | Generate character material for an admin or explicitly granted account. |
+| `POST /api/ai/character` | Generate only unlocked character fields using the current locked context. |
+| `GET /api/admin/ai-logs` | Admin-only request and response history for AI generation. |
 
 ### Run the frontend
 

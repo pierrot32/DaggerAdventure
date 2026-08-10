@@ -33,6 +33,13 @@ pub async fn create(
     request.name = validation::validate_name(&request.name)?;
     request.pronouns = request.pronouns.trim().to_owned();
     request.description = request.description.trim().to_owned();
+    request.size = request.size.trim().to_owned();
+    request.height = request.height.trim().to_owned();
+    request.weight = request.weight.trim().to_owned();
+    request.eye_color = request.eye_color.trim().to_owned();
+    request.hair_color = request.hair_color.trim().to_owned();
+    request.skin_color = request.skin_color.trim().to_owned();
+    request.look_description = request.look_description.trim().to_owned();
     if request.pronouns.is_empty() || request.description.is_empty() {
         return Err(AppError::Validation(
             "Pronouns and description are required".to_owned(),

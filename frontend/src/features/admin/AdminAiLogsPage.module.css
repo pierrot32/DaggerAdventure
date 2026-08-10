@@ -1,0 +1,32 @@
+.list {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}
+
+.entry {
+  border: 1px solid rgba(244, 238, 228, 0.14);
+  background: rgba(244, 238, 228, 0.06);
+}
+
+.entry summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  cursor: pointer;
+  color: var(--color-text-inverse);
+}
+
+.entry summary span { display: grid; gap: var(--space-1); }
+.entry summary small, .entry summary time { color: var(--color-muted-inverse); font-size: 12px; }
+.payloads { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); padding: 0 var(--space-4) var(--space-4); }
+.payloads > div { min-width: 0; }
+.payloads pre { max-height: 360px; margin: var(--space-2) 0 0; padding: var(--space-3); overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: rgba(0, 0, 0, 0.22); color: var(--color-text-inverse); font: 12px/1.5 monospace; }
+.error { color: #ffb4ac; }
+
+@media (max-width: 760px) {
+  .entry summary { align-items: flex-start; flex-direction: column; }
+  .payloads { grid-template-columns: 1fr; }
+}
