@@ -33,5 +33,15 @@ pub async fn import_book(
             "A book import needs an id, title, version, and object content".to_owned(),
         ));
     }
+    let has_trait_proposals = request
+        .content
+        .get("character_creation")
+        .and_then(|creation| creation.get("trait_proposals"))
+        .is_some_and(serde_json::Value::is_object);
+    if !has_trait_proposals {
+        return Err(AppError::Validation(
+            "The book must include character_creation.trait_proposals".to_owned(),
+        ));
+    }
     Ok(Json(content_repo::import_book(&state.db, &request).await?))
 }

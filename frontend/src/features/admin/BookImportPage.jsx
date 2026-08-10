@@ -41,8 +41,8 @@ export default function BookImportPage() {
   return (
     <section className={styles.page}>
       <p className="eyebrow">CONTENT LIBRARY</p>
-      <h2>Create a Daggerheart book</h2>
-      <p className="muted">Drop a book JSON file here to add or update its content in the library.</p>
+      <h2>Upload or update a Daggerheart book</h2>
+      <p className="muted">Drop a book JSON file here to add it to the library or update the existing book with the same ID.</p>
       <form onSubmit={submit} className={styles.form}>
         <label
           className={`${styles.drop} ${dragging ? styles.dragging : ''}`}
@@ -57,7 +57,7 @@ export default function BookImportPage() {
           <span className={styles.dropHint}>{file ? 'Ready to import' : 'or click to browse your files'}</span>
           <input type="file" accept="application/json,.json" onChange={(event) => chooseFile(event.target.files[0])} />
         </label>
-        <Button type="submit" disabled={!file || state.busy}>{state.busy ? 'Creating book...' : 'Create book'}</Button>
+        <Button type="submit" disabled={!file || state.busy}>{state.busy ? 'Uploading book...' : 'Upload / update book'}</Button>
       </form>
       {state.error && <p className={styles.error}>{state.error}</p>}
       {state.message && <p className={styles.message}>{state.message}</p>}

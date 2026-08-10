@@ -3,6 +3,7 @@ import { request } from '../../api/client';
 export const getCharacterCreationBook = () => request('/api/content/character-creation');
 export const listCharacters = () => request('/api/characters');
 export const getCharacter = (id) => request(`/api/characters/${id}`);
+export const deleteCharacter = (id) => request(`/api/characters/${id}`, { method: 'DELETE' });
 export const linkCharacterToAdventure = (id, adventureId) => request(`/api/characters/${id}/adventure`, {
   method: 'PATCH',
   body: JSON.stringify({ adventure_id: adventureId }),
