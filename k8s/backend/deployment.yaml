@@ -4,7 +4,8 @@ metadata:
   name: backend
   namespace: dagger-adventure
 spec:
-  replicas: 1
+  replicas: 2
+  revisionHistoryLimit: 2
   selector:
     matchLabels:
       app: backend
@@ -16,7 +17,7 @@ spec:
       containers:
         - name: backend
           # image tag is rewritten in the Jenkins production promotion branch
-          image: docker.io/pierrot32/daggeradventure_backend:50-2aaab477b885
+          image: docker.io/pierrot32/daggeradventure_backend:53-6ec3c1ed2796
           env:
             # created out-of-band: kubectl -n dagger-adventure create secret generic
             # backend-secrets --from-literal=database-url=... --from-literal=jwt-secret=... \

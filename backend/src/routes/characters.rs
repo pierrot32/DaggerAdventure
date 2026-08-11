@@ -9,8 +9,8 @@ use crate::{
     error::AppError,
     middleware::{access_guard::require_at_least, auth_guard::AuthUser},
     models::{
-        AccessLevel, Character, CreateCharacterRequest, UpdateCharacterRequest,
-        UpdateCharacterStatsRequest,
+        AccessLevel, Character, CreateCharacterRequest, UpdateCharacterAdvancementRequest,
+        UpdateCharacterRequest, UpdateCharacterStatsRequest,
     },
     repository::character_repo,
     state::AppState,
@@ -139,6 +139,105 @@ pub async fn update_stats(
         .await?
         .map(Json)
         .ok_or_else(|| AppError::NotFound("Character not found".to_owned()))
+}
+
+pub async fn advance(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+    Path(character_id): Path<Uuid>,
+    Json(request): Json<UpdateCharacterAdvancementRequest>,
+) -> Result<Json<Character>, AppError> {
+    require_at_least(&user, AccessLevel::PlayerOnly)?;
+    if !(2..=10).contains(&request.level) {
+        return Err(AppError::Validation(
+            "Character level must be between 2 and 10".to_owned(),
+        ));
+    }
+    let character = character_repo::find_for_user(&state.db, user.id, character_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Character not found".to_owned()))?;
+    if request.level != character.level + 1 {
+        return Err(AppError::Validation(format!(
+            "Advance one level at a time. This character is level {}",
+            character.level
+        )));
+    }
+    let milestone_level = matches!(request.level, 2 | 5 | 8);
+    if milestone_level
+        && request
+            .experience
+            .as_deref()
+            .unwrap_or("")
+            .trim()
+            .is_empty()
+    {
+        return Err(AppError::Validation(
+            "Name the additional Experience granted at this level".to_owned(),
+        ));
+    }
+    let choices = request.choices.as_array().ok_or_else(|| {
+        AppError::Validation("Advancement choices must be a JSON array".to_owned())
+    })?;
+    if choices.len() != 2 {
+        return Err(AppError::Validation(
+            "Choose exactly two advancements for each level".to_owned(),
+        ));
+    }
+    for choice in choices {
+        let id = choice
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| AppError::Validation("Each advancement needs an id".to_owned()))?;
+        if !matches!(
+            id,
+            "traits"
+                | "hit_points"
+                | "stress"
+                | "experiences"
+                | "domain_card"
+                | "evasion"
+                | "subclass"
+                | "proficiency"
+                | "multiclass"
+        ) {
+            return Err(AppError::Validation(
+                "Unknown advancement option".to_owned(),
+            ));
+        }
+    }
+    let mut advancements = character.advancements.clone();
+    let history = advancements.as_array_mut().ok_or_else(|| {
+        AppError::Validation("Character advancement history is invalid".to_owned())
+    })?;
+    history.push(serde_json::json!({
+        "level": request.level,
+        "choices": request.choices,
+        "experience": request.experience.as_ref().map(|value| value.trim().to_owned()),
+    }));
+    let mut experiences = character.experiences.clone();
+    if let Some(experience) = request
+        .experience
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        experiences
+            .as_array_mut()
+            .ok_or_else(|| AppError::Validation("Character Experiences are invalid".to_owned()))?
+            .push(serde_json::json!({ "name": experience, "modifier": 2 }));
+    }
+    character_repo::advance(
+        &state.db,
+        user.id,
+        character_id,
+        character.level,
+        request.level,
+        &advancements,
+        &experiences,
+    )
+    .await?
+    .map(Json)
+    .ok_or_else(|| AppError::NotFound("Character changed before it could be advanced".to_owned()))
 }
 
 pub async fn link_adventure(

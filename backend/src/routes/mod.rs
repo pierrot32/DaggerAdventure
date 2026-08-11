@@ -8,19 +8,16 @@ pub mod notifications;
 pub mod users;
 
 use axum::{
-    Router,
+    Router, middleware,
     routing::{get, post},
 };
 
+use crate::middleware::auth_guard::require_auth;
 use crate::state::AppState;
 
-pub fn router() -> Router<AppState> {
-    Router::new()
-        .route("/healthz", get(|| async { "OK" }))
+pub fn router(state: AppState) -> Router {
+    let protected = Router::new()
         .route("/api/hello", get(users::hello))
-        .route("/api/auth/register", post(auth::register))
-        .route("/api/auth/login", post(auth::login))
-        .route("/api/auth/logout", post(auth::logout))
         .route("/api/auth/me", get(users::me))
         .route(
             "/api/content/character-creation",
@@ -49,6 +46,10 @@ pub fn router() -> Router<AppState> {
         .route(
             "/api/characters/:character_id/stats",
             axum::routing::patch(characters::update_stats),
+        )
+        .route(
+            "/api/characters/:character_id/advancement",
+            axum::routing::patch(characters::advance),
         )
         .route(
             "/api/characters/:character_id/adventure",
@@ -102,4 +103,13 @@ pub fn router() -> Router<AppState> {
             "/api/notifications/:notification_id/read",
             post(notifications::mark_read),
         )
+        .route_layer(middleware::from_fn_with_state(state.clone(), require_auth));
+
+    Router::new()
+        .route("/healthz", get(|| async { "OK" }))
+        .route("/api/auth/register", post(auth::register))
+        .route("/api/auth/login", post(auth::login))
+        .route("/api/auth/logout", post(auth::logout))
+        .merge(protected)
+        .with_state(state)
 }

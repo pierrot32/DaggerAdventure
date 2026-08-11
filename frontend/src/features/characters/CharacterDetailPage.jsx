@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { listAdventures } from '../adventures/adventureApi';
 import {
-  generateCharacterImage, getCharacter, getCharacterCreationBook, linkCharacterToAdventure, updateCharacter, updateCharacterStats,
+  advanceCharacter, generateCharacterImage, getCharacter, getCharacterCreationBook, linkCharacterToAdventure, updateCharacter, updateCharacterStats,
 } from './characterApi';
 import {
-  GOLD_LIMITS, TRAIT_ACTIONS, TRAIT_IDS, deriveSheet, normalizeStats,
+  GOLD_LIMITS, TRAIT_ACTIONS, TRAIT_IDS, deriveSheet, normalizeStats, tierForLevel,
 } from './characterSheet';
 import styles from './CharacterDetailPage.module.css';
 
@@ -27,6 +27,37 @@ const familyRelations = [
   'Step-brother', 'Step-sister', 'Grandfather', 'Grandmother', 'Uncle', 'Aunt', 'Cousin', 'Child',
   'Spouse or partner', 'Other',
 ];
+
+const advancementOptions = [
+  { id: 'traits', title: 'Increase two traits by +1', detail: 'Choose two traits that are not marked in the current tier.' },
+  { id: 'hit_points', title: 'Gain one Hit Point slot', detail: 'Permanently increase your maximum Hit Points by 1.' },
+  { id: 'stress', title: 'Gain one Stress slot', detail: 'Permanently increase your maximum Stress by 1.' },
+  { id: 'experiences', title: 'Increase two Experiences by +1', detail: 'Choose two Experiences already on your sheet.' },
+  { id: 'domain_card', title: 'Gain an additional domain card', detail: 'Choose a card from an available level and lower.' },
+  { id: 'evasion', title: 'Gain +1 Evasion', detail: 'Permanently increase your Evasion by 1.' },
+  { id: 'subclass', minTier: 3, title: 'Take an upgraded subclass card', detail: 'Record the upgraded subclass choice.' },
+  { id: 'proficiency', minTier: 3, title: 'Increase your Proficiency by +1', detail: 'Permanently increase Proficiency by 1.' },
+  { id: 'multiclass', minTier: 3, title: 'Take a multiclass option', detail: 'Choose an additional class and cross out the other multiclass option.' },
+];
+
+const milestoneLevels = new Set([2, 5, 8]);
+
+function domainCardsFromBook(book) {
+  return (book?.domains || []).flatMap((domain) => Object.entries(domain)
+    .filter(([key, cards]) => /^level_\d+_cards$/.test(key) && Array.isArray(cards))
+    .flatMap(([key, cards]) => cards.map((card) => ({ ...card, level: Number(key.match(/\d+/)[0]), domain: domain.name }))));
+}
+
+function choiceSummary(choice, character, book) {
+  if (choice?.id === 'traits') return `Traits: ${(choice.values || []).map(titleize).join(', ')}`;
+  if (choice?.id === 'experiences') return `Experiences: ${(choice.values || []).map((index) => character.experiences?.[index]?.name || `Experience ${Number(index) + 1}`).join(', ')}`;
+  if (choice?.id === 'domain_card') {
+    const card = domainCardsFromBook(book).find((item) => item.id === choice.value);
+    return `Domain card: ${card?.name || choice.value || 'selected card'}`;
+  }
+  if (choice?.id === 'multiclass') return `Multiclass: ${titleize(choice.value)}`;
+  return advancementOptions.find((option) => option.id === choice?.id)?.title || choice?.id;
+}
 
 const withoutGoldInventory = (inventory) => (Array.isArray(inventory) ? inventory : [])
   .filter((item) => !/gold/i.test(typeof item === 'string' ? item : item?.name || ''));
@@ -216,6 +247,15 @@ export default function CharacterDetailPage({ mode = 'sheet' }) {
         <Link to={`/characters/${characterId}/edit`} className={styles.editButton}>Edit character</Link>
       </div>
 
+      <AdvancementPanel
+        character={character}
+        book={book}
+        onAdvanced={(updated) => {
+          setCharacter(updated);
+          setStats(normalizeStats(updated.stats, deriveSheet(updated, book)));
+        }}
+      />
+
       <header className={styles.nameplate}>
         <div className={styles.classBlock}>
           <h2>{classInfo?.name?.toUpperCase() || titleize(character.class_id)}</h2>
@@ -233,7 +273,7 @@ export default function CharacterDetailPage({ mode = 'sheet' }) {
       <div className={styles.columns}>
         <div className={styles.left}>
           <div className={styles.defenses}>
-            <Shield label="Evasion" value={derived.evasion} note="Class + armor" />
+            <Shield label="Evasion" value={derived.evasion} note="Class + level" />
             <Shield label="Armor" value={derived.armorScore} note="Armor score" />
             <div className={styles.armorSlots}>
               <span>Armor slots</span>
@@ -287,7 +327,7 @@ export default function CharacterDetailPage({ mode = 'sheet' }) {
               {(character.experiences || []).map((experience, index) => (
                 <li key={experience.name || index}>
                   <span>{experience.name || experience}</span>
-                  <b>{signed(experience.modifier ?? 2)}</b>
+                  <b>{signed((experience.modifier ?? 2) + (derived.experienceBonuses[index] || 0))}</b>
                 </li>
               ))}
               {(character.experiences || []).length === 0 && <li className="muted">No experiences recorded.</li>}
@@ -332,7 +372,7 @@ export default function CharacterDetailPage({ mode = 'sheet' }) {
               {TRAIT_IDS.map((trait) => (
                 <div className={styles.trait} key={trait}>
                   <span>{trait.toUpperCase()}</span>
-                  <strong>{signed(character.traits?.[trait])}</strong>
+                  <strong>{signed((Number(character.traits?.[trait]) || 0) + (derived.traitBonuses[trait] || 0))}</strong>
                   <small>{TRAIT_ACTIONS[trait].join(' · ')}</small>
                 </div>
               ))}
@@ -382,6 +422,95 @@ export default function CharacterDetailPage({ mode = 'sheet' }) {
 
     </section>
   );
+}
+
+function AdvancementPanel({ character, book, onAdvanced }) {
+  const nextLevel = character.level + 1;
+  const tier = tierForLevel(nextLevel);
+  const [choices, setChoices] = useState([]);
+  const [experience, setExperience] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const availableCards = domainCardsFromBook(book).filter((card) => Number(card.level || 1) <= nextLevel);
+  const availableTraits = (() => {
+    const marked = new Set();
+    (character.advancements || []).forEach((entry) => {
+      if (entry.level === 5 || entry.level === 8) marked.clear();
+      (entry.choices || []).filter((choice) => choice.id === 'traits').flatMap((choice) => choice.values || []).forEach((trait) => marked.add(trait));
+    });
+    if (nextLevel === 5 || nextLevel === 8) marked.clear();
+    return TRAIT_IDS.filter((trait) => !marked.has(trait));
+  })();
+  const options = advancementOptions.filter((option) => !option.minTier || option.minTier <= tier);
+  const selected = (id) => choices.find((choice) => choice.id === id);
+
+  useEffect(() => {
+    setChoices([]);
+    setExperience('');
+    setError('');
+  }, [character.level]);
+
+  const toggleOption = (id) => setChoices((current) => {
+    if (current.some((choice) => choice.id === id)) return current.filter((choice) => choice.id !== id);
+    if (current.length >= 2) return current;
+    return [...current, { id, values: [] }];
+  });
+  const updateValues = (id, values) => setChoices((current) => current.map((choice) => choice.id === id ? { ...choice, values } : choice));
+  const toggleValue = (id, value) => {
+    const choice = selected(id);
+    const values = choice?.values || [];
+    updateValues(id, values.includes(value) ? values.filter((item) => item !== value) : [...values, value]);
+  };
+  const ready = choices.length === 2 && choices.every((choice) => (
+    (choice.id === 'traits' || choice.id === 'experiences') ? choice.values.length === 2
+      : (choice.id === 'domain_card' || choice.id === 'multiclass') ? Boolean(choice.value) : true
+  )) && (!milestoneLevels.has(nextLevel) || experience.trim());
+  const submit = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      const updated = await advanceCharacter(character.id, {
+        level: nextLevel,
+        choices,
+        experience: milestoneLevels.has(nextLevel) ? experience.trim() : null,
+      });
+      onAdvanced(updated);
+    } catch (submitError) {
+      setError(submitError.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return <section className={styles.advancementPanel}>
+    <div className={styles.advancementHeader}>
+      <div><p className="eyebrow">LEVEL {character.level} · TIER {tier}</p><h3>{nextLevel <= 10 ? `Advance to level ${nextLevel}` : 'Character at maximum level'}</h3></div>
+      {nextLevel <= 10 && <span className={styles.choiceCount}>{choices.length}/2 choices</span>}
+    </div>
+    {nextLevel <= 10 ? <>
+      <p className={styles.hint}>Tier {tier} lets you choose from this tier and every option from earlier tiers. Your choices are saved to this character.</p>
+      {milestoneLevels.has(nextLevel) && <label className={styles.milestone}><span>Additional Experience at +2</span><input value={experience} onChange={(event) => setExperience(event.target.value)} placeholder="Name the new Experience" /></label>}
+      <div className={styles.advancementOptions}>
+        {options.map((option) => {
+          const choice = selected(option.id);
+          return <div className={`${styles.advancementOption} ${choice ? styles.selectedAdvancement : ''}`} key={option.id}>
+            <label><input type="checkbox" checked={Boolean(choice)} onChange={() => toggleOption(option.id)} /><span><strong>{option.title}</strong><small>{option.detail}</small></span></label>
+            {choice?.id === 'traits' && <div className={styles.choiceDetails}><span>Available traits</span>{availableTraits.map((trait) => <label key={trait}><input type="checkbox" checked={choice.values.includes(trait)} onChange={() => toggleValue('traits', trait)} />{titleize(trait)}</label>)}</div>}
+            {choice?.id === 'experiences' && <div className={styles.choiceDetails}><span>Experiences to improve</span>{(character.experiences || []).map((item, index) => <label key={index}><input type="checkbox" checked={choice.values.includes(index)} onChange={() => toggleValue('experiences', index)} />{item.name || item}</label>)}</div>}
+            {choice?.id === 'domain_card' && <div className={styles.choiceDetails}><span>Domain card</span><select value={choice.value || ''} onChange={(event) => setChoices((current) => current.map((item) => item.id === 'domain_card' ? { ...item, value: event.target.value } : item))}><option value="">Choose a card</option>{availableCards.map((card) => <option value={card.id} key={card.id}>{card.name} · {card.domain}</option>)}</select></div>}
+            {choice?.id === 'multiclass' && <div className={styles.choiceDetails}><span>Additional class</span><select value={choice.value || ''} onChange={(event) => setChoices((current) => current.map((item) => item.id === 'multiclass' ? { ...item, value: event.target.value } : item))}><option value="">Choose a class</option>{(book?.classes || []).filter((item) => item.id !== character.class_id).map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></div>}
+          </div>;
+        })}
+      </div>
+      {error && <p className={styles.error}>{error}</p>}
+      <button type="button" className={styles.editButton} disabled={!ready || saving} onClick={submit}>{saving ? 'Saving level...' : `Save level ${nextLevel}`}</button>
+    </> : <p className={styles.hint}>All ten levels have been recorded for this character.</p>}
+    <div className={styles.advancementHistory}>
+      <h4>Advancement history</h4>
+      {(character.advancements || []).length === 0 && <p className={styles.hint}>No levels beyond level 1 yet.</p>}
+      {(character.advancements || []).map((entry) => <div className={styles.historyEntry} key={entry.level}><strong>Level {entry.level}</strong><span>{entry.experience ? `New Experience: ${entry.experience}` : ''}</span>{(entry.choices || []).map((choice, index) => <small key={`${entry.level}-${index}`}>{choiceSummary(choice, character, book)}</small>)}</div>)}
+    </div>
+  </section>;
 }
 
 function CharacterEditor({ form, updateField, updateEquipmentField, updateExperience, addExperience, removeExperience, updateInventoryItem, addInventoryItem, removeInventoryItem, updateFamilyMember, addFamilyMember, removeFamilyMember }) {

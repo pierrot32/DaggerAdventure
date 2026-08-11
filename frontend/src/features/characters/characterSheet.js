@@ -23,15 +23,31 @@ export function parseThresholds(value) {
   return { major: Number.isFinite(major) ? major : 0, severe: Number.isFinite(severe) ? severe : 0 };
 }
 
-// Armor features encode their effect in prose, e.g. "Flexible: +1 Evasion".
-function evasionModifier(feature) {
-  const match = /([+-]\d+)\s*evasion/i.exec(feature || '');
-  return match ? Number.parseInt(match[1], 10) : 0;
-}
-
 function findEquipment(book, group, id) {
   if (!book?.equipment || !id) return null;
   return book.equipment[group]?.find((item) => item.id === id) || null;
+}
+
+export function advancementEffects(advancements) {
+  const effects = {
+    traitBonuses: Object.fromEntries(TRAIT_IDS.map((trait) => [trait, 0])),
+    experienceBonuses: [],
+    hitPoints: 0,
+    stress: 0,
+    evasion: 0,
+    proficiency: 0,
+  };
+  (Array.isArray(advancements) ? advancements : []).forEach((entry) => {
+    (Array.isArray(entry?.choices) ? entry.choices : []).forEach((choice) => {
+      if (choice?.id === 'traits') (choice.values || []).forEach((trait) => { if (trait in effects.traitBonuses) effects.traitBonuses[trait] += 1; });
+      if (choice?.id === 'experiences') (choice.values || []).forEach((index) => { effects.experienceBonuses[index] = (effects.experienceBonuses[index] || 0) + 1; });
+      if (choice?.id === 'hit_points') effects.hitPoints += 1;
+      if (choice?.id === 'stress') effects.stress += 1;
+      if (choice?.id === 'evasion') effects.evasion += 1;
+      if (choice?.id === 'proficiency') effects.proficiency += 1;
+    });
+  });
+  return effects;
 }
 
 export function findClass(book, classId) {
@@ -40,6 +56,7 @@ export function findClass(book, classId) {
 
 export function deriveSheet(character, book) {
   const level = character?.level || 1;
+  const advancement = advancementEffects(character?.advancements);
   const classInfo = findClass(book, character?.class_id);
   const subclassInfo = classInfo?.subclasses?.find((item) => item.id === character?.subclass_id) || null;
 
@@ -52,9 +69,9 @@ export function deriveSheet(character, book) {
   // Both damage thresholds scale with level on top of the armor's base values.
   const thresholds = { major: base.major + level, severe: base.severe + level };
 
-  const evasion = (classInfo?.evasion ?? 0) + evasionModifier(armor?.feature);
+  const evasion = (classInfo?.evasion ?? 0) + level + advancement.evasion;
   const armorScore = armor?.armor_score ?? 0;
-  const hitPointsMax = classInfo?.hit_points ?? 0;
+  const hitPointsMax = (classInfo?.hit_points ?? 0) + advancement.hitPoints;
 
   return {
     level,
@@ -67,9 +84,11 @@ export function deriveSheet(character, book) {
     evasion,
     armorScore,
     hitPointsMax,
-    stressMax: STRESS_MAX,
+    stressMax: STRESS_MAX + advancement.stress,
     hopeMax: HOPE_MAX,
-    proficiency: level >= 5 ? 2 : 1,
+    proficiency: 1 + [2, 5, 8].filter((milestone) => level >= milestone).length + advancement.proficiency,
+    traitBonuses: advancement.traitBonuses,
+    experienceBonuses: advancement.experienceBonuses,
   };
 }
 

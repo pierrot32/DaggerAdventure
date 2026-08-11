@@ -14,12 +14,17 @@ pub struct Config {
 
 impl Config {
     pub fn from_env() -> Self {
+        let jwt_secret = env::var("JWT_SECRET").expect("JWT_SECRET must be set");
+        if jwt_secret.as_bytes().len() < 32 {
+            panic!("JWT_SECRET must contain at least 32 bytes");
+        }
+
         Self {
             database_url: env::var("DATABASE_URL").expect("DATABASE_URL must be set"),
-            jwt_secret: env::var("JWT_SECRET").expect("JWT_SECRET must be set"),
+            jwt_secret,
             cookie_secure: env::var("COOKIE_SECURE")
                 .map(|value| value.eq_ignore_ascii_case("true"))
-                .unwrap_or(false),
+                .unwrap_or(true),
             port: env::var("PORT")
                 .ok()
                 .and_then(|value| value.parse().ok())

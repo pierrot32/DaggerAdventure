@@ -4,7 +4,8 @@ metadata:
   name: frontend
   namespace: dagger-adventure
 spec:
-  replicas: 1
+  replicas: 2
+  revisionHistoryLimit: 2
   selector:
     matchLabels:
       app: frontend
@@ -16,7 +17,7 @@ spec:
       containers:
         - name: frontend
           # image tag is rewritten in the Jenkins production promotion branch
-          image: docker.io/pierrot32/daggeradventure_frontend:50-2aaab477b885
+          image: docker.io/pierrot32/daggeradventure_frontend:53-6ec3c1ed2796
           ports:
             - containerPort: 80
           readinessProbe:
