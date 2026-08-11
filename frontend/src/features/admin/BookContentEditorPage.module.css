@@ -4,7 +4,7 @@
 .header h2 { margin-top: var(--space-2); }
 .toolbar { padding: var(--space-4); border: 1px solid rgba(244, 238, 228, .14); background: rgba(244, 238, 228, .06); }
 .toolbar label, .formGrid label, .wide { display: flex; flex-direction: column; gap: var(--space-2); color: var(--color-muted-inverse); font-size: 13px; }
-.toolbar select, .formGrid input, .formGrid textarea, .wide textarea, .featureRow input, .featureRow textarea { width: 100%; padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text); font: inherit; }
+.toolbar select, .formGrid input, .formGrid textarea, .formGrid select, .wide textarea, .featureRow input, .featureRow textarea { width: 100%; padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text); font: inherit; }
 .toolbar select { min-width: min(420px, 60vw); margin-top: var(--space-1); }
 .meta { color: var(--color-muted-inverse); font-size: 12px; overflow-wrap: anywhere; }
 .entityTabs { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-5); }

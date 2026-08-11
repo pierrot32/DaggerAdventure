@@ -4,10 +4,27 @@ export const WEAPON_GROUPS = [
   { id: 'secondary_weapons', label: 'Secondary weapons' },
   { id: 'armor', label: 'Armor' },
 ];
+export const DOMAIN_LEVELS = Array.from({ length: 10 }, (_, index) => index + 1);
 
 export const clone = (value) => JSON.parse(JSON.stringify(value));
 
 export const feature = (id = '') => ({ id, name: '', text: '' });
+
+export const newDomain = (id = 'new-domain') => ({
+  id,
+  name: 'New domain',
+  description: '',
+  classes: [],
+  ...Object.fromEntries(DOMAIN_LEVELS.map((level) => [`level_${level}_cards`, []])),
+});
+
+export const domainCard = (id = 'new-domain-card') => ({
+  id,
+  name: 'New domain card',
+  type: 'ability',
+  recall_cost: 0,
+  text: '',
+});
 
 export const beastForm = (id = 'new-beast-form') => ({
   id,
@@ -106,6 +123,34 @@ export function normalizeWeapon(item, group) {
   return normalized;
 }
 
+export function normalizeDomainCard(item) {
+  return {
+    ...domainCard(item.id),
+    ...clone(item),
+    id: item.id || '',
+    name: item.name || '',
+    type: item.type || 'ability',
+    recall_cost: Number(item.recall_cost) || 0,
+    text: item.text || '',
+  };
+}
+
+export function normalizeDomain(item) {
+  const normalized = {
+    ...newDomain(item.id),
+    ...clone(item),
+    id: item.id || '',
+    name: item.name || '',
+    description: item.description || '',
+    classes: Array.isArray(item.classes) ? item.classes : [],
+  };
+  DOMAIN_LEVELS.forEach((level) => {
+    const key = `level_${level}_cards`;
+    normalized[key] = Array.isArray(item[key]) ? item[key].map(normalizeDomainCard) : [];
+  });
+  return normalized;
+}
+
 function slugify(value) {
   return String(value || 'feature').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'feature';
 }
@@ -142,6 +187,7 @@ function migrateLegacyBeastFeatures(content) {
 export function normalizeBookContent(value) {
   const content = clone(value || {});
   content.classes = Array.isArray(content.classes) ? content.classes.map(normalizeClass) : [];
+  content.domains = Array.isArray(content.domains) ? content.domains.map(normalizeDomain) : [];
   content.equipment = { ...(content.equipment || {}) };
   WEAPON_GROUPS.forEach(({ id }) => {
     content.equipment[id] = Array.isArray(content.equipment[id])
@@ -171,4 +217,18 @@ export function flattenWeapons(equipment) {
     groupLabel: label,
     key: `${id}::${item.id}`,
   }))).sort((left, right) => Number(left.tier) - Number(right.tier) || left.name.localeCompare(right.name));
+}
+
+export function domainCardKey(domainId, level, cardId) {
+  return `${domainId}::${level}::${cardId}`;
+}
+
+export function flattenDomainCards(domains) {
+  return (domains || []).flatMap((domainItem) => DOMAIN_LEVELS.flatMap((level) => (domainItem[`level_${level}_cards`] || []).map((card) => ({
+    ...card,
+    level,
+    domainId: domainItem.id,
+    domainName: domainItem.name,
+    key: domainCardKey(domainItem.id, level, card.id),
+  })))).sort((left, right) => Number(left.level) - Number(right.level) || left.name.localeCompare(right.name));
 }

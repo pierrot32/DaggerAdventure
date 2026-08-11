@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom';
 import Button from '../../components/Button/Button';
 import { exportBooks, listBooks, updateBookContent } from './adminApi';
 import {
-  BEAST_FEATURES_KEY, WEAPON_GROUPS, beastForm, beastFormKey, clone, feature, flattenBeastForms, flattenWeapons,
-  newClass, normalizeBookContent, normalizeSubclass, normalizeWeapon,
+  BEAST_FEATURES_KEY, DOMAIN_LEVELS, WEAPON_GROUPS, beastForm, beastFormKey, clone, domainCard, domainCardKey,
+  feature, flattenBeastForms, flattenDomainCards, flattenWeapons, newClass, newDomain, normalizeBookContent,
+  normalizeSubclass, normalizeWeapon,
 } from './bookContentEditorUtils';
 import styles from './BookContentEditorPage.module.css';
 
@@ -112,6 +113,23 @@ function WeaponEditor({ item, onChange, onRemove }) {
   );
 }
 
+function DomainCardEditor({ card, onChange, onRemove }) {
+  const field = (label, name, type = 'input') => <label>{label}{type === 'textarea' ? <textarea value={card[name] || ''} onChange={(event) => onChange(name, event.target.value)} /> : <input value={card[name] || ''} onChange={(event) => onChange(name, event.target.value)} />}</label>;
+  return (
+    <div className={styles.editor}>
+      <div className={styles.editorHeading}><div><p className="eyebrow">DOMAIN CARD</p><h3>{card.name || 'Unnamed card'}</h3></div><button type="button" className={styles.removeButton} onClick={onRemove}>Remove card</button></div>
+      <div className={styles.formGrid}>
+        {field('Card ID', 'id')}
+        {field('Name', 'name')}
+        <label>Level<select value={card.level} onChange={(event) => onChange('level', Number(event.target.value))}>{DOMAIN_LEVELS.map((level) => <option value={level} key={level}>Level {level}</option>)}</select></label>
+        {field('Type', 'type')}
+        <label>Recall cost<input type="number" min="0" value={card.recall_cost} onChange={(event) => onChange('recall_cost', Number(event.target.value) || 0)} /></label>
+        {field('Text', 'text', 'textarea')}
+      </div>
+    </div>
+  );
+}
+
 function TierGroups({ items, selectedKey, onSelect, emptyLabel, itemLabel }) {
   return [1, 2, 3, 4].map((tier) => {
     const tierItems = items.filter((item) => Number(item.tier) === tier);
@@ -127,6 +145,21 @@ function TierGroups({ items, selectedKey, onSelect, emptyLabel, itemLabel }) {
   });
 }
 
+function LevelGroups({ items, selectedKey, onSelect, emptyLabel }) {
+  return DOMAIN_LEVELS.map((level) => {
+    const levelItems = items.filter((item) => Number(item.level) === level);
+    return (
+      <details className={styles.tierGroup} key={level}>
+        <summary>Level {level}<span>{levelItems.length}</span></summary>
+        <div className={styles.tierItems}>
+          {levelItems.map((item) => <button type="button" className={`${styles.classButton} ${item.key === selectedKey ? styles.selected : ''}`} key={item.key} onClick={() => onSelect(item)}><strong>{item.name || 'Unnamed card'}</strong><span>{item.type || 'card'}</span></button>)}
+          {levelItems.length === 0 && <p className="muted">{emptyLabel}</p>}
+        </div>
+      </details>
+    );
+  });
+}
+
 export default function BookContentEditorPage() {
   const [books, setBooks] = useState([]);
   const [bookId, setBookId] = useState('');
@@ -135,6 +168,12 @@ export default function BookContentEditorPage() {
   const [selectedClassId, setSelectedClassId] = useState('');
   const [classForm, setClassForm] = useState(null);
   const [selectedSubclassId, setSelectedSubclassId] = useState('');
+  const [selectedDomainId, setSelectedDomainId] = useState('');
+  const [domainForm, setDomainForm] = useState(null);
+  const [selectedDomainCardKey, setSelectedDomainCardKey] = useState('');
+  const [domainCardOriginalId, setDomainCardOriginalId] = useState('');
+  const [domainCardOriginalLevel, setDomainCardOriginalLevel] = useState(1);
+  const [domainCardForm, setDomainCardForm] = useState(null);
   const [editorType, setEditorType] = useState('classes');
   const [selectedBeastFormKey, setSelectedBeastFormKey] = useState('');
   const [beastFormOwnerId, setBeastFormOwnerId] = useState('');
@@ -157,8 +196,12 @@ export default function BookContentEditorPage() {
     setSelectedClassId(nextClasses[0]?.id || '');
     const nextBeastForm = flattenBeastForms(nextClasses)[0];
     const nextWeapon = flattenWeapons(nextContent.equipment)[0];
+    const nextDomain = nextContent.domains[0];
+    const nextDomainCard = flattenDomainCards(nextContent.domains)[0];
     setSelectedBeastFormKey(nextBeastForm?.key || '');
     setSelectedWeaponKey(nextWeapon?.key || '');
+    setSelectedDomainId(nextDomain?.id || '');
+    setSelectedDomainCardKey(nextDomainCard?.key || '');
     setEditorType('classes');
     setConnections(nextContent.character_creation?.connections_prompt || '');
     setState((current) => ({ ...current, error: '', message: '' }));
@@ -194,10 +237,24 @@ export default function BookContentEditorPage() {
     setWeaponForm(selected ? clone(selected) : null);
   }, [content, selectedWeaponKey]);
 
+  useEffect(() => {
+    const selected = (content?.domains || []).find((item) => item.id === selectedDomainId);
+    setDomainForm(selected ? clone(selected) : null);
+  }, [content, selectedDomainId]);
+
+  useEffect(() => {
+    const selected = flattenDomainCards(content?.domains).find((item) => item.key === selectedDomainCardKey);
+    setDomainCardOriginalId(selected?.id || '');
+    setDomainCardOriginalLevel(selected?.level || 1);
+    setDomainCardForm(selected ? clone(selected) : null);
+  }, [content, selectedDomainCardKey]);
+
   const selectedBook = books.find((book) => book.id === bookId);
   const selectedSubclass = classForm?.subclasses.find((item) => item.id === selectedSubclassId);
   const beastFeatures = (content?.[BEAST_FEATURES_KEY] || []).slice().sort((left, right) => left.name.localeCompare(right.name));
   const beastForms = flattenBeastForms(classes);
+  const domains = content?.domains || [];
+  const domainCards = flattenDomainCards(domains).filter((item) => item.domainId === selectedDomainId);
   const weapons = flattenWeapons(content?.equipment);
   const weaponGroups = WEAPON_GROUPS.map((group) => ({
     ...group,
@@ -287,6 +344,44 @@ export default function BookContentEditorPage() {
     setSelectedSubclassId(remaining[0]?.id || '');
   };
 
+  const addDomain = () => {
+    const id = `new-domain-${domains.length + 1}`;
+    const nextDomain = newDomain(id);
+    setContent((current) => ({ ...current, domains: [...(current.domains || []), nextDomain] }));
+    setSelectedDomainId(id);
+    setSelectedDomainCardKey('');
+    setEditorType('domains');
+  };
+
+  const removeDomain = () => {
+    if (!domainForm || !window.confirm(`Remove ${domainForm.name || domainForm.id}?`)) return;
+    const remaining = domains.filter((item) => item.id !== selectedDomainId);
+    setContent((current) => ({ ...current, domains: current.domains.filter((item) => item.id !== selectedDomainId) }));
+    setSelectedDomainId(remaining[0]?.id || '');
+    setSelectedDomainCardKey('');
+  };
+
+  const addDomainCard = () => {
+    const owner = domains.find((item) => item.id === selectedDomainId) || domains[0];
+    if (!owner) return;
+    const level = 1;
+    const key = `level_${level}_cards`;
+    const id = `new-${owner.id}-card-${(owner[key] || []).length + 1}`;
+    const nextCard = domainCard(id);
+    setContent((current) => ({ ...current, domains: current.domains.map((item) => item.id === owner.id ? { ...item, [key]: [...(item[key] || []), nextCard] } : item) }));
+    setSelectedDomainId(owner.id);
+    setSelectedDomainCardKey(domainCardKey(owner.id, level, id));
+    setEditorType('domains');
+  };
+
+  const updateDomainCard = (field, value) => setDomainCardForm((current) => ({ ...current, [field]: value }));
+
+  const removeDomainCard = () => {
+    if (!domainCardForm || !window.confirm(`Remove ${domainCardForm.name || domainCardForm.id}?`)) return;
+    setContent((current) => ({ ...current, domains: current.domains.map((item) => item.id === selectedDomainId ? { ...item, [`level_${domainCardOriginalLevel}_cards`]: (item[`level_${domainCardOriginalLevel}_cards`] || []).filter((card) => card.id !== domainCardOriginalId) } : item) }));
+    setSelectedDomainCardKey('');
+  };
+
   const save = async () => {
     if (!content) return;
     if (editorType === 'classes' && (!classForm?.id || !classForm.name.trim())) {
@@ -295,6 +390,14 @@ export default function BookContentEditorPage() {
     }
     if (editorType === 'beastforms' && (!beastFormForm?.id || !beastFormForm.name.trim())) {
       setState((current) => ({ ...current, error: 'A beast form needs an ID and name.', message: '' }));
+      return;
+    }
+    if (editorType === 'domains' && (!domainForm?.id || !domainForm.name.trim())) {
+      setState((current) => ({ ...current, error: 'A domain needs an ID and name.', message: '' }));
+      return;
+    }
+    if (editorType === 'domains' && domainCardForm && (!domainCardForm.id || !domainCardForm.name.trim())) {
+      setState((current) => ({ ...current, error: 'A domain card needs an ID and name.', message: '' }));
       return;
     }
     if (isWeaponEditor && (!weaponForm?.id || !weaponForm.name.trim())) {
@@ -319,6 +422,26 @@ export default function BookContentEditorPage() {
       delete persistedWeapon.groupLabel;
       delete persistedWeapon.key;
       nextContent.equipment[weaponOriginalGroup] = nextContent.equipment[weaponOriginalGroup].map((item) => item.id === weaponOriginalId ? persistedWeapon : item);
+    } else if (editorType === 'domains') {
+      const persistedDomain = clone(domainForm);
+      nextContent.domains = nextContent.domains.map((item) => item.id === selectedDomainId ? persistedDomain : item);
+      if (domainCardForm) {
+        const persistedDomainCard = clone(domainCardForm);
+        const targetLevel = Number(persistedDomainCard.level) || domainCardOriginalLevel;
+        delete persistedDomainCard.level;
+        delete persistedDomainCard.domainId;
+        delete persistedDomainCard.domainName;
+        delete persistedDomainCard.key;
+        nextContent.domains = nextContent.domains.map((item) => {
+          if (item.id !== persistedDomain.id) return item;
+          const nextDomain = { ...item };
+          const originalKey = `level_${domainCardOriginalLevel}_cards`;
+          const targetKey = `level_${targetLevel}_cards`;
+          nextDomain[originalKey] = (nextDomain[originalKey] || []).filter((card) => card.id !== domainCardOriginalId);
+          nextDomain[targetKey] = [...(nextDomain[targetKey] || []), persistedDomainCard];
+          return nextDomain;
+        });
+      }
     }
     nextContent.character_creation = { ...(nextContent.character_creation || {}), connections_prompt: connections };
     setState({ loading: false, saving: true, error: '', message: '' });
@@ -335,6 +458,9 @@ export default function BookContentEditorPage() {
         setSelectedBeastFormKey(beastFormKey(beastFormOwnerId, beastFormForm.id));
       } else if (isWeaponEditor) {
         setSelectedWeaponKey(`${weaponOriginalGroup}::${weaponForm.id}`);
+      } else if (editorType === 'domains') {
+        setSelectedDomainId(domainForm.id);
+        setSelectedDomainCardKey(domainCardForm ? domainCardKey(domainForm.id, Number(domainCardForm.level) || domainCardOriginalLevel, domainCardForm.id) : '');
       }
       setState({ loading: false, saving: false, error: '', message: 'Book content saved.' });
     } catch (error) {
@@ -363,7 +489,7 @@ export default function BookContentEditorPage() {
   return (
     <section className={styles.page}>
       <header className={styles.header}>
-        <div><p className="eyebrow">ADMINISTRATION / CONTENT</p><h2>Book content studio</h2><p className="muted">Edit stored class and subclass data, then save the complete book.</p></div>
+        <div><p className="eyebrow">ADMINISTRATION / CONTENT</p><h2>Book content studio</h2><p className="muted">Edit stored classes, equipment, domains, and cards, then save the complete book.</p></div>
         <Button type="button" variant="text" onClick={download}>Export all books</Button>
       </header>
       <div className={styles.toolbar}>
@@ -373,6 +499,7 @@ export default function BookContentEditorPage() {
       <div className={styles.entityTabs}>
         <button type="button" className={editorType === 'classes' ? styles.activeTab : ''} onClick={() => setEditorType('classes')}>Classes</button>
         <button type="button" className={editorType === 'beastforms' ? styles.activeTab : ''} onClick={() => setEditorType('beastforms')}>Beast forms</button>
+        <button type="button" className={editorType === 'domains' ? styles.activeTab : ''} onClick={() => setEditorType('domains')}>Domains</button>
         {weaponGroups.map((group) => <button type="button" className={editorType === group.id ? styles.activeTab : ''} onClick={() => openWeaponGroup(group)} key={group.id}>{group.label}</button>)}
         <Link to="/admin/content/books/beast-features" className={styles.featureLink}>Manage shared beast features</Link>
       </div>
@@ -391,6 +518,14 @@ export default function BookContentEditorPage() {
         {isWeaponEditor && <aside className={styles.sidebar}>
           <div className={styles.sectionHeading}><h3>{activeWeaponGroup.label}</h3><button type="button" className={styles.smallButton} onClick={() => addWeapon(activeWeaponGroup.id)}>Add {activeWeaponGroup.label.toLowerCase().replace('weapons', 'weapon')}</button></div>
           <TierGroups items={activeWeaponGroup.items} selectedKey={selectedWeaponKey} onSelect={(item) => setSelectedWeaponKey(item.key)} emptyLabel={`No ${activeWeaponGroup.label.toLowerCase()} added.`} itemLabel="item" />
+        </aside>}
+        {editorType === 'domains' && <aside className={styles.sidebar}>
+          <div className={styles.sectionHeading}><h3>Domains</h3><button type="button" className={styles.smallButton} onClick={addDomain}>Add domain</button></div>
+          {domains.map((item) => <button type="button" className={`${styles.classButton} ${item.id === selectedDomainId ? styles.selected : ''}`} key={item.id} onClick={() => { setSelectedDomainId(item.id); setSelectedDomainCardKey(''); }}><strong>{item.name || 'Unnamed domain'}</strong><span>{item.id}</span></button>)}
+          {domainForm && <>
+            <div className={styles.sectionHeading}><h3>Cards</h3><button type="button" className={styles.smallButton} onClick={addDomainCard}>Add card</button></div>
+            <LevelGroups items={domainCards} selectedKey={selectedDomainCardKey} onSelect={(item) => setSelectedDomainCardKey(item.key)} emptyLabel="No cards at this level." />
+          </>}
         </aside>}
         {editorType === 'classes' && classForm && (
           <div className={styles.editor}>
@@ -435,6 +570,20 @@ export default function BookContentEditorPage() {
         )}
         {isWeaponEditor && weaponForm && (
           <WeaponEditor item={weaponForm} onChange={updateWeapon} onRemove={removeWeapon} />
+        )}
+        {editorType === 'domains' && domainForm && (
+          <div className={styles.editor}>
+            <div className={styles.editorHeading}><div><p className="eyebrow">DOMAIN</p><h3>{domainForm.name || 'Unnamed domain'}</h3></div><button type="button" className={styles.removeButton} onClick={removeDomain}>Remove domain</button></div>
+            <div className={styles.formGrid}>
+              <label>Domain ID<input value={domainForm.id} onChange={(event) => setDomainForm((current) => ({ ...current, id: event.target.value }))} /></label>
+              <label>Domain name<input value={domainForm.name} onChange={(event) => setDomainForm((current) => ({ ...current, name: event.target.value }))} /></label>
+              <label>Classes<input value={domainForm.classes.join(', ')} onChange={(event) => setDomainForm((current) => ({ ...current, classes: event.target.value.split(',').map((value) => value.trim()).filter(Boolean) }))} placeholder="druid, sorcerer" /></label>
+              <label className={styles.wide}>Description<textarea value={domainForm.description} onChange={(event) => setDomainForm((current) => ({ ...current, description: event.target.value }))} /></label>
+            </div>
+            {domainCardForm ? <DomainCardEditor card={domainCardForm} onChange={updateDomainCard} onRemove={removeDomainCard} /> : <p className="muted">Select a level in the sidebar to edit a domain card, or add a new card.</p>}
+            {(state.error || state.message) && <p className={state.error ? styles.error : styles.message} role="status">{state.error || state.message}</p>}
+            <Button type="button" disabled={state.saving} onClick={save}>{state.saving ? 'Saving book...' : 'Save book content'}</Button>
+          </div>
         )}
       </div>
     </section>
