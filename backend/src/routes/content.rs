@@ -1,4 +1,7 @@
-use axum::{Json, extract::{Path, State}};
+use axum::{
+    Json,
+    extract::{Path, State},
+};
 
 use crate::{
     error::AppError,
@@ -69,7 +72,9 @@ pub async fn export_books(
 
 fn validate_book_content(content: &serde_json::Value) -> Result<(), AppError> {
     if !content.is_object() {
-        return Err(AppError::Validation("Book content must be a JSON object".to_owned()));
+        return Err(AppError::Validation(
+            "Book content must be a JSON object".to_owned(),
+        ));
     }
     let has_trait_proposals = content
         .get("character_creation")
@@ -89,8 +94,14 @@ fn validate_book_content(content: &serde_json::Value) -> Result<(), AppError> {
             .as_object()
             .ok_or_else(|| AppError::Validation("Each class must be a JSON object".to_owned()))?;
         for field in ["id", "name"] {
-            if class_object.get(field).and_then(serde_json::Value::as_str).is_none_or(str::is_empty) {
-                return Err(AppError::Validation(format!("Each class needs a non-empty {field}")));
+            if class_object
+                .get(field)
+                .and_then(serde_json::Value::as_str)
+                .is_none_or(str::is_empty)
+            {
+                return Err(AppError::Validation(format!(
+                    "Each class needs a non-empty {field}"
+                )));
             }
         }
         if let Some(subclasses) = class_object.get("subclasses") {
@@ -101,8 +112,14 @@ fn validate_book_content(content: &serde_json::Value) -> Result<(), AppError> {
                     AppError::Validation("Each subclass must be a JSON object".to_owned())
                 })?;
                 for field in ["id", "name"] {
-                    if subclass_object.get(field).and_then(serde_json::Value::as_str).is_none_or(str::is_empty) {
-                        return Err(AppError::Validation(format!("Each subclass needs a non-empty {field}")));
+                    if subclass_object
+                        .get(field)
+                        .and_then(serde_json::Value::as_str)
+                        .is_none_or(str::is_empty)
+                    {
+                        return Err(AppError::Validation(format!(
+                            "Each subclass needs a non-empty {field}"
+                        )));
                     }
                 }
             }
