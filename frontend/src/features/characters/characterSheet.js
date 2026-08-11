@@ -97,3 +97,11 @@ export function normalizeStats(stats, derived) {
 }
 
 export const GOLD_LIMITS = GOLD_MAX;
+
+export function tierForLevel(level) {
+  const value = Number(level) || 1;
+  if (value >= 8) return 4;
+  if (value >= 5) return 3;
+  if (value >= 2) return 2;
+  return 1;
+}

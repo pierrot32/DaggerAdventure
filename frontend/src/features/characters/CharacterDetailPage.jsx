@@ -212,6 +212,7 @@ export default function CharacterDetailPage({ mode = 'sheet' }) {
       {state.error && <p className={styles.error}>{state.error}</p>}
       <div className={styles.editActions}>
         <Link to={`/characters/${characterId}/profile`} className={styles.cancelButton}>Character profile</Link>
+        {character.class_id === 'druid' && <Link to={`/characters/${characterId}/beastforms`} className={styles.cancelButton}>Beast forms</Link>}
         <Link to={`/characters/${characterId}/edit`} className={styles.editButton}>Edit character</Link>
       </div>
 

@@ -5,6 +5,20 @@ import styles from './BookContentEditorPage.module.css';
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const feature = () => ({ name: '', text: '' });
+const beastForm = (id = 'new-beast-form') => ({
+  id,
+  name: 'New beast form',
+  tier: 1,
+  examples: [],
+  evasion_bonus: 0,
+  attack_range: 'melee',
+  attack_trait: '',
+  attack_bonus: 0,
+  attack_damage: '',
+  advantages: [],
+  carrier: '',
+  features: [],
+});
 
 function newClass(id = 'new-class') {
   return {
@@ -17,6 +31,7 @@ function newClass(id = 'new-class') {
     class_items: [],
     hope_feature: feature(),
     class_features: [],
+    beast_forms: [],
     background_questions: [],
     subclasses: [],
   };
@@ -29,9 +44,23 @@ function normalizeClass(item) {
     domains: Array.isArray(item.domains) ? item.domains : [],
     class_items: Array.isArray(item.class_items) ? item.class_items : [],
     class_features: Array.isArray(item.class_features) ? item.class_features : [],
+    beast_forms: Array.isArray(item.beast_forms) ? item.beast_forms.map(normalizeBeastForm) : [],
     background_questions: Array.isArray(item.background_questions) ? item.background_questions : [],
     subclasses: Array.isArray(item.subclasses) ? item.subclasses.map(normalizeSubclass) : [],
     hope_feature: item.hope_feature || feature(),
+  };
+}
+
+function normalizeBeastForm(item) {
+  return {
+    ...beastForm(item.id),
+    ...clone(item),
+    id: item.id || '',
+    name: item.name || '',
+    tier: Number(item.tier) || 1,
+    examples: Array.isArray(item.examples) ? item.examples : [],
+    advantages: Array.isArray(item.advantages) ? item.advantages : [],
+    features: Array.isArray(item.features) ? item.features : [],
   };
 }
 
@@ -95,6 +124,39 @@ function SubclassEditor({ subclass, onChange, onRemove }) {
       {renderFeatureList('foundation', 'Foundation features')}
       {renderFeatureList('specialization', 'Specialization features')}
       {renderFeatureList('mastery', 'Mastery features')}
+    </div>
+  );
+}
+
+function BeastFormEditor({ form, onChange, onRemove }) {
+  const update = (field, value) => onChange({ ...form, [field]: value });
+  const updateFeature = (index, field, value) => update('features', form.features.map((item, itemIndex) => itemIndex === index ? { ...item, [field]: value } : item));
+  return (
+    <div className={styles.subclassEditor}>
+      <div className={styles.editorHeading}>
+        <h4>{form.name || 'Unnamed beast form'}</h4>
+        <button type="button" className={styles.removeButton} onClick={onRemove}>Remove beast form</button>
+      </div>
+      <div className={styles.formGrid}>
+        <label>Form ID<input value={form.id} onChange={(event) => update('id', event.target.value)} /></label>
+        <label>Form name<input value={form.name} onChange={(event) => update('name', event.target.value)} /></label>
+        <label>Tier<input type="number" min="1" max="4" value={form.tier} onChange={(event) => update('tier', Number(event.target.value) || 1)} /></label>
+        <label>Evasion bonus<input type="number" value={form.evasion_bonus} onChange={(event) => update('evasion_bonus', Number(event.target.value) || 0)} /></label>
+        <label>Attack range<input value={form.attack_range} onChange={(event) => update('attack_range', event.target.value)} placeholder="Melee" /></label>
+        <label className={styles.wide}>Examples<textarea value={form.examples.join('\n')} onChange={(event) => update('examples', event.target.value.split('\n').map((value) => value.trim()).filter(Boolean))} placeholder="Dire Wolf, Velociraptor, Sabertooth Tiger" /></label>
+        <label>Attack trait<input value={form.attack_trait} onChange={(event) => update('attack_trait', event.target.value)} placeholder="Strength" /></label>
+        <label>Attack trait bonus<input type="number" value={form.attack_bonus} onChange={(event) => update('attack_bonus', Number(event.target.value) || 0)} /></label>
+        <label>Attack damage<input value={form.attack_damage} onChange={(event) => update('attack_damage', event.target.value)} placeholder="d12+8 phy" /></label>
+        <label className={styles.wide}>Gain advantage on<input value={form.advantages.join(', ')} onChange={(event) => update('advantages', event.target.value.split(',').map((value) => value.trim()).filter(Boolean))} placeholder="attack, sneak, sprint" /></label>
+        <label className={styles.wide}>Carrier<textarea value={form.carrier} onChange={(event) => update('carrier', event.target.value)} /></label>
+      </div>
+      <FeatureList
+        title="Beast features"
+        items={form.features}
+        onAdd={() => update('features', [...form.features, feature()])}
+        onRemove={(index) => update('features', form.features.filter((_, itemIndex) => itemIndex !== index))}
+        onChange={updateFeature}
+      />
     </div>
   );
 }
@@ -165,6 +227,15 @@ export default function BookContentEditorPage() {
     updateClass('subclasses', [...classForm.subclasses, normalizeSubclass({ id, name: 'New subclass' })]);
     setSelectedSubclassId(id);
   };
+
+  const addBeastForm = () => {
+    const id = `new-beast-form-${(classForm.beast_forms?.length || 0) + 1}`;
+    updateClass('beast_forms', [...classForm.beast_forms, beastForm(id)]);
+  };
+
+  const updateBeastForm = (index, form) => updateClass('beast_forms', classForm.beast_forms.map((item, itemIndex) => itemIndex === index ? form : item));
+
+  const removeBeastForm = (index) => updateClass('beast_forms', classForm.beast_forms.filter((_, itemIndex) => itemIndex !== index));
 
   const removeSubclass = () => {
     if (!selectedSubclass || !window.confirm(`Remove ${selectedSubclass.name || selectedSubclass.id}?`)) return;
@@ -242,6 +313,13 @@ export default function BookContentEditorPage() {
             </div>
             <div className={styles.panel}><h3>Hope feature</h3><div className={styles.formGrid}><label>Name<input value={classForm.hope_feature.name || ''} onChange={(event) => updateHope('name', event.target.value)} /></label><label className={styles.wide}>Description<textarea value={classForm.hope_feature.text || ''} onChange={(event) => updateHope('text', event.target.value)} /></label></div></div>
             <FeatureList title="Class features" items={classForm.class_features} onAdd={() => updateClass('class_features', [...classForm.class_features, feature()])} onRemove={(index) => updateClass('class_features', classForm.class_features.filter((_, itemIndex) => itemIndex !== index))} onChange={(index, field, value) => updateClass('class_features', classForm.class_features.map((item, itemIndex) => itemIndex === index ? { ...item, [field]: value } : item))} />
+            {(classForm.id === 'druid' || classForm.beast_forms.length > 0) && (
+              <div className={styles.panel}>
+                <div className={styles.sectionHeading}><div><h3>Beast forms</h3><p className="muted">Add any number of forms. Characters see forms up to their current tier.</p></div><button type="button" className={styles.smallButton} onClick={addBeastForm}>Add beast form</button></div>
+                <div className={styles.beastForms}>{classForm.beast_forms.map((form, index) => <BeastFormEditor key={form.id || index} form={form} onChange={(nextForm) => updateBeastForm(index, nextForm)} onRemove={() => removeBeastForm(index)} />)}</div>
+                {classForm.beast_forms.length === 0 && <p className="muted">No beast forms added.</p>}
+              </div>
+            )}
             <label className={styles.wide}>Background questions<textarea value={classForm.background_questions.join('\n')} onChange={(event) => updateClass('background_questions', event.target.value.split('\n').filter(Boolean))} placeholder="One question per line" /></label>
             <div className={styles.panel}>
               <div className={styles.sectionHeading}><h3>Subclasses</h3><button type="button" className={styles.smallButton} onClick={addSubclass}>Add subclass</button></div>
