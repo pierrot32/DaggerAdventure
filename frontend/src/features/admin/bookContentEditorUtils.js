@@ -96,12 +96,14 @@ export function normalizeClass(item) {
 }
 
 export function normalizeWeapon(item, group) {
-  return {
+  const normalized = {
     ...clone(item),
     id: item.id || `new-${group}-item`,
     name: item.name || '',
     tier: Number(item.tier) || 1,
   };
+  if (group !== 'armor') normalized.is_magic = Boolean(item.is_magic);
+  return normalized;
 }
 
 function slugify(value) {

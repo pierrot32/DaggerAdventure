@@ -12,14 +12,19 @@
 .entityTabs .activeTab { border-color: var(--color-accent-strong); background: var(--color-accent); color: var(--color-text); }
 .featureLink { margin-left: auto; color: var(--color-accent-strong-hover); }
 .featureSelect { min-height: 150px; }
-.layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: var(--space-5); margin-top: var(--space-5); }
-.sidebar { align-self: start; padding: var(--space-4); background: rgba(244, 238, 228, .06); }
+.layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); align-items: start; gap: var(--space-5); margin-top: var(--space-5); }
+.sidebar { align-self: start; max-height: calc(100vh - 230px); overflow-y: auto; padding: var(--space-4); background: rgba(244, 238, 228, .06); }
 .sidebar h3, .panel h3, .featureList h4 { margin: 0; color: var(--color-text-inverse); }
 .sidebarField { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-4); color: var(--color-muted-inverse); font-size: 13px; }
 .sidebarField select { padding: var(--space-2); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text); font: inherit; }
 .classButton { display: flex; flex-direction: column; width: 100%; margin-top: var(--space-2); padding: var(--space-3); border: 0; border-left: 2px solid transparent; background: transparent; color: var(--color-text-inverse); text-align: left; cursor: pointer; }
 .classButton:hover, .classButton.selected { border-left-color: var(--color-accent); background: rgba(201, 157, 99, .14); }
 .classButton span { margin-top: var(--space-1); color: var(--color-muted-inverse); font-size: 12px; }
+.tierGroup { border-top: 1px solid rgba(244, 238, 228, .14); }
+.tierGroup summary { display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) 0; color: var(--color-text-inverse); cursor: pointer; font-size: 13px; font-weight: 700; list-style-position: inside; }
+.tierGroup summary span { color: var(--color-muted-inverse); font-size: 12px; font-weight: 400; }
+.tierItems { padding-bottom: var(--space-2); }
+.tierItems .classButton { margin-top: 0; }
 .editor { display: grid; gap: var(--space-5); min-width: 0; padding: var(--space-5); background: var(--color-surface); color: var(--color-text); }
 .editorHeading h3, .editorHeading h4 { margin: 0; }
 .formGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
