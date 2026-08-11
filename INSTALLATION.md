@@ -107,12 +107,14 @@ cargo check
 cargo test
 ```
 
-The default command runs the unit tests. The authentication integration tests require PostgreSQL and are marked `#[ignore]`. Run them with the same database URL configured in `backend/.env`:
+The default command runs database-free unit tests. PostgreSQL integration tests use SQLx's disposable per-test databases and require a Postgres role that can create databases:
 
 ```bash
 DATABASE_URL="postgres://dagger_adventure:<POSTGRES_PASSWORD>@127.0.0.1:5432/dagger_adventure" \
-  cargo test --test auth_tests -- --ignored --test-threads=1
+  cargo test --tests -- --ignored
 ```
+
+Use a URL-encoded password when it contains URL-special characters. The integration suite creates an isolated database for every test and does not use the persistent Compose database contents directly.
 
 Frontend checks:
 

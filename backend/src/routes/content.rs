@@ -127,3 +127,76 @@ fn validate_book_content(content: &serde_json::Value) -> Result<(), AppError> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::validate_book_content;
+    use serde_json::json;
+
+    fn valid_book() -> serde_json::Value {
+        json!({
+            "character_creation": {"trait_proposals": {}},
+            "classes": [{
+                "id": "blade",
+                "name": "Blade",
+                "subclasses": [{"id": "duelist", "name": "Duelist"}]
+            }]
+        })
+    }
+
+    #[test]
+    fn accepts_minimal_valid_book() {
+        assert!(validate_book_content(&valid_book()).is_ok());
+    }
+
+    #[test]
+    fn rejects_invalid_book_shapes() {
+        let cases = [
+            ("non-object content", json!(null)),
+            (
+                "missing trait proposals",
+                json!({"classes": [{"id": "blade", "name": "Blade"}]}),
+            ),
+            (
+                "missing classes",
+                json!({"character_creation": {"trait_proposals": {}}}),
+            ),
+            (
+                "class without id",
+                json!({
+                    "character_creation": {"trait_proposals": {}},
+                    "classes": [{"name": "Blade"}]
+                }),
+            ),
+            (
+                "class with malformed subclasses",
+                json!({
+                    "character_creation": {"trait_proposals": {}},
+                    "classes": [{
+                        "id": "blade",
+                        "name": "Blade",
+                        "subclasses": {}
+                    }]
+                }),
+            ),
+            (
+                "subclass without name",
+                json!({
+                    "character_creation": {"trait_proposals": {}},
+                    "classes": [{
+                        "id": "blade",
+                        "name": "Blade",
+                        "subclasses": [{"id": "duelist"}]
+                    }]
+                }),
+            ),
+        ];
+
+        for (name, content) in cases {
+            assert!(
+                validate_book_content(&content).is_err(),
+                "expected validation to reject {name}"
+            );
+        }
+    }
+}

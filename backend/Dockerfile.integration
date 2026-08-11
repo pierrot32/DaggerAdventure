@@ -1,0 +1,14 @@
+FROM rust:1.97
+
+WORKDIR /app/backend
+
+COPY backend/Cargo.toml backend/Cargo.lock* ./
+COPY backend/src ./src
+COPY backend/migrations ./migrations
+COPY backend/tests ./tests
+COPY content /app/content
+
+ARG DATABASE_URL
+ENV DATABASE_URL=${DATABASE_URL}
+
+RUN cargo test --tests -- --ignored

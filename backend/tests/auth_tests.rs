@@ -3,26 +3,10 @@ use backend::{
     repository::{admin_repo, adventure_repo, notification_repo, user_repo},
     services::auth_service,
 };
-use sqlx::postgres::PgPoolOptions;
 
-async fn test_pool() -> sqlx::PgPool {
-    let database_url = std::env::var("DATABASE_URL")
-        .expect("set DATABASE_URL to a disposable Postgres database to run this test");
-    let pool = PgPoolOptions::new()
-        .max_connections(5)
-        .connect(&database_url)
-        .await
-        .expect("unable to connect to test database");
-    backend::run_migrations(&pool)
-        .await
-        .expect("unable to run migrations");
-    pool
-}
-
-#[tokio::test]
-#[ignore = "requires DATABASE_URL pointing at a disposable Postgres database"]
-async fn register_then_login_succeeds() {
-    let pool = test_pool().await;
+#[sqlx::test]
+#[ignore = "requires DATABASE_URL and disposable Postgres test databases"]
+async fn register_then_login_succeeds(pool: sqlx::PgPool) {
     let jwt_secret = "test-secret";
     let email = format!("{}@example.com", uuid::Uuid::new_v4());
 
@@ -53,10 +37,9 @@ async fn register_then_login_succeeds() {
     assert_eq!(logged_in.user.id, registered.user.id);
 }
 
-#[tokio::test]
-#[ignore = "requires DATABASE_URL pointing at a disposable Postgres database"]
-async fn login_with_wrong_password_is_rejected() {
-    let pool = test_pool().await;
+#[sqlx::test]
+#[ignore = "requires DATABASE_URL and disposable Postgres test databases"]
+async fn login_with_wrong_password_is_rejected(pool: sqlx::PgPool) {
     let jwt_secret = "test-secret";
     let email = format!("{}@example.com", uuid::Uuid::new_v4());
 
@@ -85,10 +68,9 @@ async fn login_with_wrong_password_is_rejected() {
     assert!(result.is_err());
 }
 
-#[tokio::test]
-#[ignore = "requires DATABASE_URL pointing at a disposable Postgres database"]
-async fn duplicate_email_registration_is_rejected() {
-    let pool = test_pool().await;
+#[sqlx::test]
+#[ignore = "requires DATABASE_URL and disposable Postgres test databases"]
+async fn duplicate_email_registration_is_rejected(pool: sqlx::PgPool) {
     let jwt_secret = "test-secret";
     let email = format!("{}@example.com", uuid::Uuid::new_v4());
 
@@ -118,10 +100,9 @@ async fn duplicate_email_registration_is_rejected() {
     assert!(result.is_err(), "second registration should be rejected");
 }
 
-#[tokio::test]
-#[ignore = "requires DATABASE_URL pointing at a disposable Postgres database"]
-async fn admin_grants_access_and_invitation_workflow_succeeds() {
-    let pool = test_pool().await;
+#[sqlx::test]
+#[ignore = "requires DATABASE_URL and disposable Postgres test databases"]
+async fn admin_grants_access_and_invitation_workflow_succeeds(pool: sqlx::PgPool) {
     let jwt_secret = "test-secret";
     let admin_email = format!("admin-{}@example.com", uuid::Uuid::new_v4());
     let maker_email = format!("maker-{}@example.com", uuid::Uuid::new_v4());
@@ -216,10 +197,9 @@ async fn admin_grants_access_and_invitation_workflow_succeeds() {
 
 /// A freshly registered invitee still has the `nothing` access level, so the invite
 /// inbox and the accept/decline actions must not be gated behind `player_only`.
-#[tokio::test]
-#[ignore = "requires DATABASE_URL pointing at a disposable Postgres database"]
-async fn invitee_without_access_level_can_list_and_accept_invites() {
-    let pool = test_pool().await;
+#[sqlx::test]
+#[ignore = "requires DATABASE_URL and disposable Postgres test databases"]
+async fn invitee_without_access_level_can_list_and_accept_invites(pool: sqlx::PgPool) {
     let jwt_secret = "test-secret";
     let maker = register_with_level(&pool, jwt_secret, "maker", AccessLevel::AdventureMaker).await;
     let invited_email = format!("invited-{}@example.com", uuid::Uuid::new_v4());
@@ -269,10 +249,9 @@ async fn invitee_without_access_level_can_list_and_accept_invites() {
     );
 }
 
-#[tokio::test]
-#[ignore = "requires DATABASE_URL pointing at a disposable Postgres database"]
-async fn invitee_can_decline_and_only_gm_moves_the_fear_pool() {
-    let pool = test_pool().await;
+#[sqlx::test]
+#[ignore = "requires DATABASE_URL and disposable Postgres test databases"]
+async fn invitee_can_decline_and_only_gm_moves_the_fear_pool(pool: sqlx::PgPool) {
     let jwt_secret = "test-secret";
     let maker = register_with_level(&pool, jwt_secret, "maker", AccessLevel::AdventureMaker).await;
     let outsider =
