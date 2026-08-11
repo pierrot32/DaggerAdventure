@@ -88,6 +88,7 @@ export default function CharacterDetailPage({ mode = 'sheet' }) {
   const [selectedAdventure, setSelectedAdventure] = useState('');
   const [editForm, setEditForm] = useState(null);
   const [portraitLoading, setPortraitLoading] = useState(false);
+  const [advancementOpen, setAdvancementOpen] = useState(false);
   const [state, setState] = useState({ loading: true, saving: false, error: '' });
 
   useEffect(() => {
@@ -247,15 +248,6 @@ export default function CharacterDetailPage({ mode = 'sheet' }) {
         <Link to={`/characters/${characterId}/edit`} className={styles.editButton}>Edit character</Link>
       </div>
 
-      <AdvancementPanel
-        character={character}
-        book={book}
-        onAdvanced={(updated) => {
-          setCharacter(updated);
-          setStats(normalizeStats(updated.stats, deriveSheet(updated, book)));
-        }}
-      />
-
       <header className={styles.nameplate}>
         <div className={styles.classBlock}>
           <h2>{classInfo?.name?.toUpperCase() || titleize(character.class_id)}</h2>
@@ -267,8 +259,28 @@ export default function CharacterDetailPage({ mode = 'sheet' }) {
           <Field label="Heritage" value={heritage} />
           <Field label="Subclass" value={subclassInfo?.name || titleize(character.subclass_id)} />
         </div>
-        <div className={styles.level}><span>LEVEL</span><strong>{derived.level}</strong></div>
+        <button
+          type="button"
+          className={styles.level}
+          aria-expanded={advancementOpen}
+          aria-controls="character-advancement"
+          aria-label={`Open level-up options for level ${derived.level}`}
+          onClick={() => setAdvancementOpen(true)}
+        >
+          <span>LEVEL</span><strong>{derived.level}</strong>
+        </button>
       </header>
+
+      {advancementOpen && <AdvancementPanel
+        character={character}
+        book={book}
+        onClose={() => setAdvancementOpen(false)}
+        onAdvanced={(updated) => {
+          setCharacter(updated);
+          setStats(normalizeStats(updated.stats, deriveSheet(updated, book)));
+          setAdvancementOpen(false);
+        }}
+      />}
 
       <div className={styles.columns}>
         <div className={styles.left}>
@@ -424,11 +436,12 @@ export default function CharacterDetailPage({ mode = 'sheet' }) {
   );
 }
 
-function AdvancementPanel({ character, book, onAdvanced }) {
+function AdvancementPanel({ character, book, onClose, onAdvanced }) {
   const nextLevel = character.level + 1;
   const tier = tierForLevel(nextLevel);
   const [choices, setChoices] = useState([]);
   const [experience, setExperience] = useState('');
+  const [showPreviousUpgrades, setShowPreviousUpgrades] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const availableCards = domainCardsFromBook(book).filter((card) => Number(card.level || 1) <= nextLevel);
@@ -442,18 +455,27 @@ function AdvancementPanel({ character, book, onAdvanced }) {
     return TRAIT_IDS.filter((trait) => !marked.has(trait));
   })();
   const options = advancementOptions.filter((option) => !option.minTier || option.minTier <= tier);
+  const previousTier = tier - 1;
+  const previousTierMarked = new Set((character.advancements || [])
+    .filter((entry) => tierForLevel(entry.level) === previousTier)
+    .flatMap((entry) => entry.choices || [])
+    .filter((choice) => (choice.sourceTier || previousTier) === previousTier)
+    .map((choice) => choice.id));
+  const previousOptions = options.filter((option) => !option.minTier || option.minTier <= previousTier)
+    .filter((option) => !previousTierMarked.has(option.id));
   const selected = (id) => choices.find((choice) => choice.id === id);
 
   useEffect(() => {
     setChoices([]);
     setExperience('');
+    setShowPreviousUpgrades(false);
     setError('');
   }, [character.level]);
 
-  const toggleOption = (id) => setChoices((current) => {
+  const toggleOption = (id, sourceTier = tier) => setChoices((current) => {
     if (current.some((choice) => choice.id === id)) return current.filter((choice) => choice.id !== id);
     if (current.length >= 2) return current;
-    return [...current, { id, values: [] }];
+    return [...current, { id, sourceTier, values: [] }];
   });
   const updateValues = (id, values) => setChoices((current) => current.map((choice) => choice.id === id ? { ...choice, values } : choice));
   const toggleValue = (id, value) => {
@@ -482,26 +504,40 @@ function AdvancementPanel({ character, book, onAdvanced }) {
     }
   };
 
-  return <section className={styles.advancementPanel}>
+  const renderOption = (option, sourceTier = tier) => {
+    const choice = selected(option.id);
+    return <div className={`${styles.advancementOption} ${choice ? styles.selectedAdvancement : ''}`} key={`${sourceTier}-${option.id}`}>
+      <label><input type="checkbox" checked={Boolean(choice)} onChange={() => toggleOption(option.id, sourceTier)} /><span><strong>{option.title}</strong><small>{option.detail}</small></span></label>
+      {choice?.id === 'traits' && <div className={styles.choiceDetails}><span>Available traits</span>{availableTraits.map((trait) => <label key={trait}><input type="checkbox" checked={choice.values.includes(trait)} onChange={() => toggleValue('traits', trait)} />{titleize(trait)}</label>)}</div>}
+      {choice?.id === 'experiences' && <div className={styles.choiceDetails}><span>Experiences to improve</span>{(character.experiences || []).map((item, index) => <label key={index}><input type="checkbox" checked={choice.values.includes(index)} onChange={() => toggleValue('experiences', index)} />{item.name || item}</label>)}</div>}
+      {choice?.id === 'domain_card' && <div className={styles.choiceDetails}><span>Domain card</span><select value={choice.value || ''} onChange={(event) => setChoices((current) => current.map((item) => item.id === 'domain_card' ? { ...item, value: event.target.value } : item))}><option value="">Choose a card</option>{availableCards.map((card) => <option value={card.id} key={card.id}>{card.name} · {card.domain}</option>)}</select></div>}
+      {choice?.id === 'multiclass' && <div className={styles.choiceDetails}><span>Additional class</span><select value={choice.value || ''} onChange={(event) => setChoices((current) => current.map((item) => item.id === 'multiclass' ? { ...item, value: event.target.value } : item))}><option value="">Choose a class</option>{(book?.classes || []).filter((item) => item.id !== character.class_id).map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></div>}
+    </div>;
+  };
+
+  return <section className={styles.advancementPanel} id="character-advancement">
     <div className={styles.advancementHeader}>
       <div><p className="eyebrow">LEVEL {character.level} · TIER {tier}</p><h3>{nextLevel <= 10 ? `Advance to level ${nextLevel}` : 'Character at maximum level'}</h3></div>
-      {nextLevel <= 10 && <span className={styles.choiceCount}>{choices.length}/2 choices</span>}
+      <div className={styles.advancementActions}>
+        {nextLevel <= 10 && <span className={styles.choiceCount}>{choices.length}/2 choices</span>}
+        <button type="button" className={styles.textButton} onClick={onClose}>Close</button>
+      </div>
     </div>
     {nextLevel <= 10 ? <>
       <p className={styles.hint}>Tier {tier} lets you choose from this tier and every option from earlier tiers. Your choices are saved to this character.</p>
       {milestoneLevels.has(nextLevel) && <label className={styles.milestone}><span>Additional Experience at +2</span><input value={experience} onChange={(event) => setExperience(event.target.value)} placeholder="Name the new Experience" /></label>}
       <div className={styles.advancementOptions}>
-        {options.map((option) => {
-          const choice = selected(option.id);
-          return <div className={`${styles.advancementOption} ${choice ? styles.selectedAdvancement : ''}`} key={option.id}>
-            <label><input type="checkbox" checked={Boolean(choice)} onChange={() => toggleOption(option.id)} /><span><strong>{option.title}</strong><small>{option.detail}</small></span></label>
-            {choice?.id === 'traits' && <div className={styles.choiceDetails}><span>Available traits</span>{availableTraits.map((trait) => <label key={trait}><input type="checkbox" checked={choice.values.includes(trait)} onChange={() => toggleValue('traits', trait)} />{titleize(trait)}</label>)}</div>}
-            {choice?.id === 'experiences' && <div className={styles.choiceDetails}><span>Experiences to improve</span>{(character.experiences || []).map((item, index) => <label key={index}><input type="checkbox" checked={choice.values.includes(index)} onChange={() => toggleValue('experiences', index)} />{item.name || item}</label>)}</div>}
-            {choice?.id === 'domain_card' && <div className={styles.choiceDetails}><span>Domain card</span><select value={choice.value || ''} onChange={(event) => setChoices((current) => current.map((item) => item.id === 'domain_card' ? { ...item, value: event.target.value } : item))}><option value="">Choose a card</option>{availableCards.map((card) => <option value={card.id} key={card.id}>{card.name} · {card.domain}</option>)}</select></div>}
-            {choice?.id === 'multiclass' && <div className={styles.choiceDetails}><span>Additional class</span><select value={choice.value || ''} onChange={(event) => setChoices((current) => current.map((item) => item.id === 'multiclass' ? { ...item, value: event.target.value } : item))}><option value="">Choose a class</option>{(book?.classes || []).filter((item) => item.id !== character.class_id).map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></div>}
-          </div>;
-        })}
+        {options.map((option) => renderOption(option))}
       </div>
+      {tier >= 3 && <div className={styles.previousUpgrades}>
+        <button type="button" className={styles.textButton} onClick={() => setShowPreviousUpgrades((current) => !current)}>
+          {showPreviousUpgrades ? 'Hide previous unmarked upgrades' : 'View previous unmarked upgrades'}
+        </button>
+        {showPreviousUpgrades && <>
+          <p className={styles.hint}>Choose an upgrade from Tier {previousTier} that has not been marked there yet.</p>
+          {previousOptions.length > 0 ? <div className={styles.advancementOptions}>{previousOptions.map((option) => renderOption(option, previousTier))}</div> : <p className={styles.hint}>All previous-tier upgrades are already marked.</p>}
+        </>}
+      </div>}
       {error && <p className={styles.error}>{error}</p>}
       <button type="button" className={styles.editButton} disabled={!ready || saving} onClick={submit}>{saving ? 'Saving level...' : `Save level ${nextLevel}`}</button>
     </> : <p className={styles.hint}>All ten levels have been recorded for this character.</p>}
