@@ -9,6 +9,7 @@ pub struct Config {
     pub admin_email: Option<String>,
     pub openai_api_key: Option<String>,
     pub openai_model: String,
+    pub openai_image_model: String,
 }
 
 impl Config {
@@ -28,6 +29,8 @@ impl Config {
                 .ok()
                 .filter(|value| !value.trim().is_empty()),
             openai_model: env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-5.6-luna".to_owned()),
+            openai_image_model: env::var("OPENAI_IMAGE_MODEL")
+                .unwrap_or_else(|_| "gpt-image-1-mini".to_owned()),
         }
     }
 }

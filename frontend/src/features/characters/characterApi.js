@@ -25,6 +25,10 @@ export const generateCharacter = (payload) => request('/api/ai/character', {
   method: 'POST',
   body: JSON.stringify(payload),
 });
+export const generateCharacterImage = (characterId) => request('/api/ai/character-image', {
+  method: 'POST',
+  body: JSON.stringify({ character_id: characterId }),
+});
 
 export const importBook = (payload) => request('/api/content/books/import', {
   method: 'POST',

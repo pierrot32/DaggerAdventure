@@ -94,6 +94,7 @@ pub struct Character {
     pub hair_color: String,
     pub skin_color: String,
     pub look_description: String,
+    pub portrait_url: Option<String>,
     pub level: i32,
     pub class_id: String,
     pub subclass_id: String,
