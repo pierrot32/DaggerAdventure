@@ -156,8 +156,8 @@ pub async fn update(
          height = $5, weight = $6, eye_color = $7, hair_color = $8, skin_color = $9,
          look_description = $10, experiences = $11, equipment = $12,
          background_story = $13, background_notes = $14, family_members = $15,
-         updated_at = now()
-         WHERE id = $16 AND user_id = $17 RETURNING {CHARACTER_FIELDS}"
+         connections = $16, updated_at = now()
+         WHERE id = $17 AND user_id = $18 RETURNING {CHARACTER_FIELDS}"
     );
     sqlx::query_as::<_, Character>(&query)
         .bind(&request.name)
@@ -175,6 +175,7 @@ pub async fn update(
         .bind(&request.background_story)
         .bind(&request.background_notes)
         .bind(&request.family_members)
+        .bind(&request.connections)
         .bind(character_id)
         .bind(user_id)
         .fetch_optional(pool)
