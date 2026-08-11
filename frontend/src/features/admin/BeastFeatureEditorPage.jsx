@@ -114,7 +114,7 @@ export default function BeastFeatureEditorPage() {
       <div className={styles.layout}>
         <aside className={styles.sidebar}>
           <div className={styles.sectionHeading}><h3>Features</h3><button type="button" className={styles.smallButton} onClick={addFeature}>Add feature</button></div>
-          {features.map((item) => <button type="button" className={`${styles.featureButton} ${item.id === selectedFeatureId ? styles.selected : ''}`} key={item.id} onClick={() => setSelectedFeatureId(item.id)}><strong>{item.name || 'Unnamed feature'}</strong><span>Tier {item.tier} · {item.id}</span></button>)}
+          {features.map((item) => <button type="button" className={`${styles.featureButton} ${item.id === selectedFeatureId ? styles.selected : ''}`} key={item.id} onClick={() => setSelectedFeatureId(item.id)}><strong>{item.name || 'Unnamed feature'}</strong><span>{item.id}</span></button>)}
           {features.length === 0 && <p className="muted">No shared features added.</p>}
         </aside>
         {featureForm && <div className={styles.editor}>
@@ -122,7 +122,6 @@ export default function BeastFeatureEditorPage() {
           <div className={styles.formGrid}>
             <label>Feature ID<input value={featureForm.id} onChange={(event) => updateFeature('id', event.target.value)} /></label>
             <label>Feature name<input value={featureForm.name} onChange={(event) => updateFeature('name', event.target.value)} /></label>
-            <label>Tier<input type="number" min="1" max="4" value={featureForm.tier} onChange={(event) => updateFeature('tier', Number(event.target.value) || 1)} /></label>
             <label className={styles.wide}>Description<textarea value={featureForm.text} onChange={(event) => updateFeature('text', event.target.value)} /></label>
           </div>
           <p className={styles.hint}>Beast forms can select this feature from their shared feature list. Editing it updates every form that uses it.</p>
@@ -135,5 +134,5 @@ export default function BeastFeatureEditorPage() {
 }
 
 function sortedFeatures(items) {
-  return (Array.isArray(items) ? items : []).map((item) => normalizeFeature(item)).sort((left, right) => Number(left.tier) - Number(right.tier) || left.name.localeCompare(right.name));
+  return (Array.isArray(items) ? items : []).map((item) => normalizeFeature(item)).sort((left, right) => left.name.localeCompare(right.name));
 }

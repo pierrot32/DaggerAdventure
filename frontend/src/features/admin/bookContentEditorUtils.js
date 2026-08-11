@@ -7,7 +7,7 @@ export const WEAPON_GROUPS = [
 
 export const clone = (value) => JSON.parse(JSON.stringify(value));
 
-export const feature = (id = '') => ({ id, name: '', text: '', tier: 1 });
+export const feature = (id = '') => ({ id, name: '', text: '' });
 
 export const beastForm = (id = 'new-beast-form') => ({
   id,
@@ -43,14 +43,15 @@ export function newClass(id = 'new-class') {
 }
 
 export function normalizeFeature(item, fallbackId = '') {
-  return {
+  const normalized = {
     ...feature(item.id || fallbackId),
     ...clone(item),
     id: item.id || fallbackId,
     name: item.name || '',
     text: item.text || '',
-    tier: Number(item.tier) || 1,
   };
+  delete normalized.tier;
+  return normalized;
 }
 
 export function normalizeBeastForm(item) {
@@ -125,7 +126,7 @@ function migrateLegacyBeastFeatures(content) {
           suffix += 1;
         }
         if (!knownIds.has(id)) {
-          library.push(normalizeFeature({ ...item, tier: item.tier || form.tier }, id));
+          library.push(normalizeFeature(item, id));
           knownIds.add(id);
         }
         if (!nextForm.feature_ids.includes(id)) nextForm.feature_ids.push(id);
