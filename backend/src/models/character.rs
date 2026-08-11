@@ -80,6 +80,14 @@ pub struct UpdateCharacterStatsRequest {
     pub stats: Value,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct UpdateCharacterAdvancementRequest {
+    pub level: i32,
+    pub choices: Value,
+    #[serde(default)]
+    pub experience: Option<String>,
+}
+
 #[derive(Debug, Serialize, sqlx::FromRow)]
 pub struct Character {
     pub id: Uuid,
@@ -98,6 +106,7 @@ pub struct Character {
     pub look_description: String,
     pub portrait_url: Option<String>,
     pub level: i32,
+    pub advancements: Value,
     pub class_id: String,
     pub subclass_id: String,
     pub ancestry_id: String,

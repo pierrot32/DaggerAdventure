@@ -51,6 +51,10 @@ pub fn router() -> Router<AppState> {
             axum::routing::patch(characters::update_stats),
         )
         .route(
+            "/api/characters/:character_id/advancement",
+            axum::routing::patch(characters::advance),
+        )
+        .route(
             "/api/characters/:character_id/adventure",
             axum::routing::patch(characters::link_adventure),
         )

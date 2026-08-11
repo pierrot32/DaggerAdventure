@@ -19,7 +19,8 @@ pub use ai::{
     GenerateResponse,
 };
 pub use character::{
-    Character, CreateCharacterRequest, UpdateCharacterRequest, UpdateCharacterStatsRequest,
+    Character, CreateCharacterRequest, UpdateCharacterAdvancementRequest, UpdateCharacterRequest,
+    UpdateCharacterStatsRequest,
 };
 pub use content::{ImportBookRequest, SourceBook, UpdateBookContentRequest};
 pub use notification::Notification;
