@@ -27,6 +27,15 @@ pub fn router() -> Router<AppState> {
             get(content::get_character_creation_book),
         )
         .route("/api/content/books/import", post(content::import_book))
+        .route("/api/admin/content/books", get(content::list_books))
+        .route(
+            "/api/admin/content/books/export",
+            get(content::export_books),
+        )
+        .route(
+            "/api/admin/content/books/:book_id",
+            axum::routing::put(content::update_book_content),
+        )
         .route(
             "/api/characters",
             get(characters::list).post(characters::create),

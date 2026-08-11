@@ -33,3 +33,28 @@ pub async fn find_character_creation_book(
     .fetch_optional(pool)
     .await
 }
+
+pub async fn list_books(pool: &PgPool) -> Result<Vec<SourceBook>, sqlx::Error> {
+    sqlx::query_as::<_, SourceBook>(
+        "SELECT id, title, version, source_file, content, imported_at
+         FROM source_books ORDER BY imported_at DESC, id",
+    )
+    .fetch_all(pool)
+    .await
+}
+
+pub async fn update_book_content(
+    pool: &PgPool,
+    book_id: &str,
+    content: &serde_json::Value,
+) -> Result<Option<SourceBook>, sqlx::Error> {
+    sqlx::query_as::<_, SourceBook>(
+        "UPDATE source_books SET content = $1, imported_at = now()
+         WHERE id = $2
+         RETURNING id, title, version, source_file, content, imported_at",
+    )
+    .bind(content)
+    .bind(book_id)
+    .fetch_optional(pool)
+    .await
+}

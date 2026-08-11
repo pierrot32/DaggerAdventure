@@ -4,21 +4,6 @@ use backend::{
     services::auth_service,
 };
 use serde_json::json;
-use sqlx::postgres::PgPoolOptions;
-
-async fn test_pool() -> sqlx::PgPool {
-    let database_url = std::env::var("DATABASE_URL")
-        .expect("set DATABASE_URL to a disposable Postgres database to run this test");
-    let pool = PgPoolOptions::new()
-        .max_connections(5)
-        .connect(&database_url)
-        .await
-        .expect("unable to connect to test database");
-    backend::run_migrations(&pool)
-        .await
-        .expect("unable to run migrations");
-    pool
-}
 
 fn create_character_request(adventure_id: Option<uuid::Uuid>) -> CreateCharacterRequest {
     CreateCharacterRequest {
@@ -53,10 +38,9 @@ fn create_character_request(adventure_id: Option<uuid::Uuid>) -> CreateCharacter
 
 /// The sheet trackers (HP, stress, hope, armor, gold) round-trip through `stats`,
 /// and only the character's owner may write them.
-#[tokio::test]
-#[ignore = "requires DATABASE_URL pointing at a disposable Postgres database"]
-async fn only_the_owner_can_persist_sheet_trackers() {
-    let pool = test_pool().await;
+#[sqlx::test]
+#[ignore = "requires DATABASE_URL and disposable Postgres test databases"]
+async fn only_the_owner_can_persist_sheet_trackers(pool: sqlx::PgPool) {
     let jwt_secret = "test-secret";
 
     let owner = auth_service::register(
@@ -117,10 +101,9 @@ async fn only_the_owner_can_persist_sheet_trackers() {
     );
 }
 
-#[tokio::test]
-#[ignore = "requires DATABASE_URL pointing at a disposable Postgres database"]
-async fn owner_creator_and_unrelated_user_visibility() {
-    let pool = test_pool().await;
+#[sqlx::test]
+#[ignore = "requires DATABASE_URL and disposable Postgres test databases"]
+async fn owner_creator_and_unrelated_user_visibility(pool: sqlx::PgPool) {
     let jwt_secret = "test-secret";
 
     let owner_email = format!("owner-{}@example.com", uuid::Uuid::new_v4());

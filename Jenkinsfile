@@ -79,6 +79,47 @@ pipeline {
             }
         }
 
+        stage('Backend database integration tests') {
+            steps {
+                sh '''
+                    set -eu
+                    test_network="dagger-db-tests-${BUILD_TAG:-$$}"
+                    postgres_name="dagger-postgres-tests-${BUILD_TAG:-$$}"
+                    test_image="dagger-backend-integration-tests:${BUILD_TAG:-$$}"
+                    cleanup() {
+                        docker rm -f "$postgres_name" >/dev/null 2>&1 || true
+                        docker network rm "$test_network" >/dev/null 2>&1 || true
+                        docker image rm "$test_image" >/dev/null 2>&1 || true
+                    }
+                    trap cleanup EXIT
+
+                    docker network create "$test_network"
+                    docker run -d --rm \
+                      --name "$postgres_name" \
+                      --network "$test_network" \
+                      -e POSTGRES_DB=dagger_adventure \
+                      -e POSTGRES_USER=dagger_adventure \
+                      -e POSTGRES_PASSWORD=ci-password \
+                      postgres:16-alpine
+
+                    until docker run --rm --network "$test_network" postgres:16-alpine \
+                        pg_isready -h "$postgres_name" -U dagger_adventure -d dagger_adventure; do
+                        sleep 1
+                    done
+
+                                        docker build \
+                                            -f backend/Dockerfile.integration \
+                                            -t "$test_image" \
+                                            .
+
+                                        docker run --rm \
+                                            --network "$test_network" \
+                                            -e DATABASE_URL=postgres://dagger_adventure:ci-password@${postgres_name}:5432/dagger_adventure \
+                                            "$test_image"
+                '''
+            }
+        }
+
         stage('Build application images') {
             steps {
                 sh '''
