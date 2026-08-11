@@ -8,7 +8,4 @@ COPY backend/migrations ./migrations
 COPY backend/tests ./tests
 COPY content /app/content
 
-ARG DATABASE_URL
-ENV DATABASE_URL=${DATABASE_URL}
-
-RUN cargo test --tests -- --ignored
+CMD ["cargo", "test", "--tests", "--", "--ignored"]

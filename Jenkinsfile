@@ -107,11 +107,15 @@ pipeline {
                         sleep 1
                     done
 
-                                        docker build --network "$test_network" \
-                                            --build-arg DATABASE_URL=postgres://dagger_adventure:ci-password@${postgres_name}:5432/dagger_adventure \
+                                        docker build \
                                             -f backend/Dockerfile.integration \
                                             -t "$test_image" \
                                             .
+
+                                        docker run --rm \
+                                            --network "$test_network" \
+                                            -e DATABASE_URL=postgres://dagger_adventure:ci-password@${postgres_name}:5432/dagger_adventure \
+                                            "$test_image"
                 '''
             }
         }
