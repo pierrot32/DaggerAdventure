@@ -80,9 +80,10 @@ function BeastFormEditor({ form, features, onChange, onRemove }) {
         <label>Attack damage<input value={form.attack_damage} onChange={(event) => update('attack_damage', event.target.value)} placeholder="d12+8 phy" /></label>
         <label className={styles.wide}>Gain advantage on<input value={form.advantages.join(', ')} onChange={(event) => update('advantages', event.target.value.split(',').map((value) => value.trim()).filter(Boolean))} placeholder="attack, sneak, sprint" /></label>
         <label className={styles.wide}>Carrier<textarea value={form.carrier} onChange={(event) => update('carrier', event.target.value)} /></label>
-        <label className={styles.wide}>Shared features<select className={styles.featureSelect} multiple value={form.feature_ids} onChange={(event) => update('feature_ids', Array.from(event.target.selectedOptions, (option) => option.value))}>
-          {features.map((item) => <option value={item.id} key={item.id}>{item.name || 'Unnamed feature'} · Tier {item.tier}</option>)}
-        </select></label>
+        <fieldset className={styles.featureChoices}>
+          <legend>Shared features</legend>
+          {features.map((item) => <label className={styles.featureChoice} key={item.id}><input type="checkbox" checked={form.feature_ids.includes(item.id)} onChange={(event) => update('feature_ids', event.target.checked ? [...form.feature_ids, item.id] : form.feature_ids.filter((id) => id !== item.id))} /><span>{item.name || 'Unnamed feature'}</span></label>)}
+        </fieldset>
       </div>
       {features.length === 0 && <p className="muted">No shared beast features exist yet. Add one from the Beast features page.</p>}
     </div>
@@ -179,9 +180,15 @@ export default function BookContentEditorPage() {
 
   const selectedBook = books.find((book) => book.id === bookId);
   const selectedSubclass = classForm?.subclasses.find((item) => item.id === selectedSubclassId);
-  const beastFeatures = (content?.[BEAST_FEATURES_KEY] || []).slice().sort((left, right) => Number(left.tier) - Number(right.tier) || left.name.localeCompare(right.name));
+  const beastFeatures = (content?.[BEAST_FEATURES_KEY] || []).slice().sort((left, right) => left.name.localeCompare(right.name));
   const beastForms = flattenBeastForms(classes);
   const weapons = flattenWeapons(content?.equipment);
+  const weaponGroups = WEAPON_GROUPS.map((group) => ({
+    ...group,
+    items: weapons.filter((item) => item.group === group.id),
+  }));
+  const activeWeaponGroup = weaponGroups.find((group) => group.id === editorType);
+  const isWeaponEditor = Boolean(activeWeaponGroup);
   const updateClass = (field, value) => setClassForm((current) => ({ ...current, [field]: value }));
   const updateHope = (field, value) => updateClass('hope_feature', { ...classForm.hope_feature, [field]: value });
   const updateSubclass = (subclass) => {
@@ -210,7 +217,7 @@ export default function BookContentEditorPage() {
   };
 
   const addBeastForm = () => {
-    const owner = classes.find((item) => item.id === selectedClassId) || classes[0];
+    const owner = classes.find((item) => item.id === beastFormOwnerId) || classes.find((item) => item.id === selectedClassId) || classes[0];
     if (!owner) return;
     const id = `new-beast-form-${owner.beast_forms.length + 1}`;
     const nextForm = beastForm(id);
@@ -238,7 +245,13 @@ export default function BookContentEditorPage() {
     const nextWeapon = normalizeWeapon({ id, name: 'New item', tier: 1 }, group);
     setContent((current) => ({ ...current, equipment: { ...current.equipment, [group]: [...(current.equipment[group] || []), nextWeapon] } }));
     setSelectedWeaponKey(`${group}::${id}`);
-    setEditorType('weapons');
+    setEditorType(group);
+  };
+
+  const openWeaponGroup = (group) => {
+    setEditorType(group.id);
+    const first = weapons.find((item) => item.group === group.id);
+    setSelectedWeaponKey(first?.key || '');
   };
 
   const updateWeapon = (field, value) => {
@@ -268,7 +281,7 @@ export default function BookContentEditorPage() {
       setState((current) => ({ ...current, error: 'A beast form needs an ID and name.', message: '' }));
       return;
     }
-    if (editorType === 'weapons' && (!weaponForm?.id || !weaponForm.name.trim())) {
+    if (isWeaponEditor && (!weaponForm?.id || !weaponForm.name.trim())) {
       setState((current) => ({ ...current, error: 'A weapon or armor item needs an ID and name.', message: '' }));
       return;
     }
@@ -284,7 +297,7 @@ export default function BookContentEditorPage() {
         ...item,
         beast_forms: item.beast_forms.map((form) => form.id === beastFormOriginalId ? persistedBeastForm : form),
       } : item);
-    } else if (editorType === 'weapons') {
+    } else if (isWeaponEditor) {
       const persistedWeapon = clone(weaponForm);
       delete persistedWeapon.group;
       delete persistedWeapon.groupLabel;
@@ -304,7 +317,7 @@ export default function BookContentEditorPage() {
         setSelectedSubclassId(selectedSubclass?.id || '');
       } else if (editorType === 'beastforms') {
         setSelectedBeastFormKey(beastFormKey(beastFormOwnerId, beastFormForm.id));
-      } else if (editorType === 'weapons') {
+      } else if (isWeaponEditor) {
         setSelectedWeaponKey(`${weaponOriginalGroup}::${weaponForm.id}`);
       }
       setState({ loading: false, saving: false, error: '', message: 'Book content saved.' });
@@ -344,7 +357,7 @@ export default function BookContentEditorPage() {
       <div className={styles.entityTabs}>
         <button type="button" className={editorType === 'classes' ? styles.activeTab : ''} onClick={() => setEditorType('classes')}>Classes</button>
         <button type="button" className={editorType === 'beastforms' ? styles.activeTab : ''} onClick={() => setEditorType('beastforms')}>Beast forms</button>
-        <button type="button" className={editorType === 'weapons' ? styles.activeTab : ''} onClick={() => setEditorType('weapons')}>Weapons and armor</button>
+        {weaponGroups.map((group) => <button type="button" className={editorType === group.id ? styles.activeTab : ''} onClick={() => openWeaponGroup(group)} key={group.id}>{group.label}</button>)}
         <Link to="/admin/content/books/beast-features" className={styles.featureLink}>Manage shared beast features</Link>
       </div>
       <div className={styles.layout}>
@@ -354,14 +367,16 @@ export default function BookContentEditorPage() {
         </aside>}
         {editorType === 'beastforms' && <aside className={styles.sidebar}>
           <div className={styles.sectionHeading}><h3>Beast forms</h3><button type="button" className={styles.smallButton} onClick={addBeastForm}>Add beast form</button></div>
+          <label className={styles.sidebarField}>Class<select value={beastFormOwnerId || selectedClassId} onChange={(event) => { setBeastFormOwnerId(event.target.value); setSelectedClassId(event.target.value); }}>
+            {classes.map((item) => <option value={item.id} key={item.id}>{item.name || item.id}</option>)}
+          </select></label>
           {beastForms.map((item) => <button type="button" className={`${styles.classButton} ${item.key === selectedBeastFormKey ? styles.selected : ''}`} key={item.key} onClick={() => { setSelectedBeastFormKey(item.key); setSelectedClassId(item.classId); }}><strong>{item.name || 'Unnamed beast form'}</strong><span>Tier {item.tier} · {item.className || item.classId}</span></button>)}
           {beastForms.length === 0 && <p className="muted">No beast forms added.</p>}
         </aside>}
-        {editorType === 'weapons' && <aside className={styles.sidebar}>
-          <div className={styles.sectionHeading}><h3>Weapons and armor</h3></div>
-          {WEAPON_GROUPS.map((group) => <button type="button" className={styles.smallButton} onClick={() => addWeapon(group.id)} key={group.id}>Add {group.label.toLowerCase()}</button>)}
-          {weapons.map((item) => <button type="button" className={`${styles.classButton} ${item.key === selectedWeaponKey ? styles.selected : ''}`} key={item.key} onClick={() => setSelectedWeaponKey(item.key)}><strong>{item.name || 'Unnamed item'}</strong><span>Tier {item.tier} · {item.groupLabel}</span></button>)}
-          {weapons.length === 0 && <p className="muted">No weapons or armor added.</p>}
+        {isWeaponEditor && <aside className={styles.sidebar}>
+          <div className={styles.sectionHeading}><h3>{activeWeaponGroup.label}</h3><button type="button" className={styles.smallButton} onClick={() => addWeapon(activeWeaponGroup.id)}>Add {activeWeaponGroup.label.toLowerCase().replace('weapons', 'weapon')}</button></div>
+          {activeWeaponGroup.items.map((item) => <button type="button" className={`${styles.classButton} ${item.key === selectedWeaponKey ? styles.selected : ''}`} key={item.key} onClick={() => setSelectedWeaponKey(item.key)}><strong>{item.name || 'Unnamed item'}</strong><span>Tier {item.tier}</span></button>)}
+          {activeWeaponGroup.items.length === 0 && <p className="muted">No {activeWeaponGroup.label.toLowerCase()} added.</p>}
         </aside>}
         {editorType === 'classes' && classForm && (
           <div className={styles.editor}>
@@ -404,7 +419,7 @@ export default function BookContentEditorPage() {
             <Button type="button" disabled={state.saving} onClick={save}>{state.saving ? 'Saving book...' : 'Save beast form'}</Button>
           </div>
         )}
-        {editorType === 'weapons' && weaponForm && (
+        {isWeaponEditor && weaponForm && (
           <WeaponEditor item={weaponForm} onChange={updateWeapon} onRemove={removeWeapon} />
         )}
       </div>
