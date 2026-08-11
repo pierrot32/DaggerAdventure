@@ -26,7 +26,7 @@ async fn main() {
 
     let port = config.port;
     let state = AppState { db, config };
-    let app = routes::router().with_state(state);
+    let app = routes::router(state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     println!("Server running on http://{addr}");

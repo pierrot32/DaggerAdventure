@@ -157,7 +157,7 @@ pipeline {
                       --name dagger-backend-ci \
                       --network dagger-ci-network \
                       -e DATABASE_URL=postgres://dagger_adventure:ci-password@dagger-postgres-ci:5432/dagger_adventure \
-                      -e JWT_SECRET=ci-only-secret \
+                      -e JWT_SECRET=ci-only-secret-change-this-to-a-32-byte-value \
                                             ${BACKEND_IMAGE}:${IMAGE_TAG}
 
                     docker run --rm --network dagger-ci-network curlimages/curl:8.12.1 \

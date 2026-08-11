@@ -163,7 +163,14 @@ pub async fn advance(
         )));
     }
     let milestone_level = matches!(request.level, 2 | 5 | 8);
-    if milestone_level && request.experience.as_deref().unwrap_or("").trim().is_empty() {
+    if milestone_level
+        && request
+            .experience
+            .as_deref()
+            .unwrap_or("")
+            .trim()
+            .is_empty()
+    {
         return Err(AppError::Validation(
             "Name the additional Experience granted at this level".to_owned(),
         ));
@@ -193,7 +200,9 @@ pub async fn advance(
                 | "proficiency"
                 | "multiclass"
         ) {
-            return Err(AppError::Validation("Unknown advancement option".to_owned()));
+            return Err(AppError::Validation(
+                "Unknown advancement option".to_owned(),
+            ));
         }
     }
     let mut advancements = character.advancements.clone();
@@ -206,7 +215,12 @@ pub async fn advance(
         "experience": request.experience.as_ref().map(|value| value.trim().to_owned()),
     }));
     let mut experiences = character.experiences.clone();
-    if let Some(experience) = request.experience.as_deref().map(str::trim).filter(|value| !value.is_empty()) {
+    if let Some(experience) = request
+        .experience
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
         experiences
             .as_array_mut()
             .ok_or_else(|| AppError::Validation("Character Experiences are invalid".to_owned()))?

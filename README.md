@@ -45,7 +45,8 @@ Create `backend/.env` with credentials for that database:
 
 ```dotenv
 DATABASE_URL=postgres://dagger_adventure:change_me_locally@127.0.0.1:5432/dagger_adventure
-JWT_SECRET=replace_with_a_long_local_secret
+# Generate with: openssl rand -hex 32
+JWT_SECRET=replace_with_at_least_32_random_bytes
 COOKIE_SECURE=false
 PORT=8080
 OPENAI_API_KEY=replace_with_your_openai_key

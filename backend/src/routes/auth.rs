@@ -64,7 +64,7 @@ fn auth_response(status: StatusCode, user: &UserResponse, token: &str, secure: b
 fn auth_cookie(token: &str, secure: bool) -> HeaderValue {
     let secure_flag = if secure { "; Secure" } else { "" };
     HeaderValue::from_str(&format!(
-        "auth_token={token}; Path=/; Max-Age={TOKEN_LIFETIME_SECONDS}; HttpOnly; SameSite=Lax{secure_flag}"
+        "auth_token={token}; Path=/; Max-Age={TOKEN_LIFETIME_SECONDS}; HttpOnly; SameSite=Strict{secure_flag}"
     ))
     .expect("auth cookie should be a valid header value")
 }
@@ -72,7 +72,7 @@ fn auth_cookie(token: &str, secure: bool) -> HeaderValue {
 fn expired_cookie(secure: bool) -> HeaderValue {
     let secure_flag = if secure { "; Secure" } else { "" };
     HeaderValue::from_str(&format!(
-        "auth_token=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax{secure_flag}"
+        "auth_token=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict{secure_flag}"
     ))
     .expect("expired cookie should be a valid header value")
 }

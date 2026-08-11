@@ -9,11 +9,11 @@ use backend::{config::Config, repository::content_repo, routes, state::AppState}
 use common::fixtures::{admin_user, player_user, sample_book, sample_content};
 use hyper::body::to_bytes;
 use serde_json::json;
-use sqlx::PgPool;
+use sqlx::{PgPool, postgres::PgPoolOptions};
 use tower::ServiceExt;
 
 fn app(pool: PgPool, jwt_secret: &str) -> Router {
-    routes::router().with_state(AppState {
+    routes::router(AppState {
         db: pool,
         config: Config {
             database_url: "postgres://test".to_owned(),
@@ -35,6 +35,49 @@ fn request_with_cookie(uri: &str, method: axum::http::Method, token: &str) -> Re
         .header(header::COOKIE, format!("auth_token={token}"))
         .body(Body::empty())
         .expect("request should build")
+}
+
+#[tokio::test]
+async fn protected_routes_reject_requests_without_authentication() {
+    let pool = PgPoolOptions::new()
+        .connect_lazy("postgres://user:password@127.0.0.1/test")
+        .expect("test pool URL should be valid");
+    let application = app(pool, "test-secret");
+
+    let protected_response = application
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/characters")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("request should complete");
+    assert_eq!(protected_response.status(), StatusCode::UNAUTHORIZED);
+
+    let content_response = application
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/content/character-creation")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("request should complete");
+    assert_eq!(content_response.status(), StatusCode::UNAUTHORIZED);
+
+    let health_response = application
+        .oneshot(
+            Request::builder()
+                .uri("/healthz")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("request should complete");
+    assert_eq!(health_response.status(), StatusCode::OK);
 }
 
 #[sqlx::test]
