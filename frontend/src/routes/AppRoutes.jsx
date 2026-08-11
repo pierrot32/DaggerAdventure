@@ -21,6 +21,7 @@ import CharacterProfilePage from '../features/characters/CharacterProfilePage';
 import DruidBeastFormsPage from '../features/characters/DruidBeastFormsPage';
 import BookImportPage from '../features/admin/BookImportPage';
 import BookContentEditorPage from '../features/admin/BookContentEditorPage';
+import BeastFeatureEditorPage from '../features/admin/BeastFeatureEditorPage';
 
 // Single source of truth for the route tree - add future Daggerheart feature
 // pages here, nested under AppLayout like DashboardPage
@@ -98,6 +99,9 @@ export default function AppRoutes() {
       <Route path="/admin/content/import" element={<Navigate to="/admin/content/books/create" replace />} />
       <Route path="/admin/content/books/edit" element={(
         <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.ADMIN]}><AppLayout><BookContentEditorPage /></AppLayout></ProtectedRoute>
+      )} />
+      <Route path="/admin/content/books/beast-features" element={(
+        <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.ADMIN]}><AppLayout><BeastFeatureEditorPage /></AppLayout></ProtectedRoute>
       )} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
