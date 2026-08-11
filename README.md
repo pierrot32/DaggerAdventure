@@ -1,6 +1,6 @@
 # DaggerAdventure
 
-DaggerAdventure is a DaggerHeart companion application for creating and managing adventures. It is also a hands-on project covering React, Rust, PostgreSQL, Docker, Jenkins, and Argo CD.
+DaggerAdventure is a companion application for creating and managing adventures. It is also a hands-on project covering React, Rust, PostgreSQL, Docker, Jenkins, and Argo CD.
 
 For a complete server installation, see [INSTALLATION.md](INSTALLATION.md). This file focuses on the project structure, local usage, and the development workflow.
 
@@ -106,7 +106,7 @@ DATABASE_URL="postgres://dagger_adventure:<password>@127.0.0.1:5432/dagger_adven
   cargo test --tests -- --ignored
 ```
 
-Use a URL-encoded password when it contains URL-special characters. The integration suite creates an isolated database for every test and includes content validation, admin route authorization, schema-drift, and migration reversibility coverage.
+Use a URL-encoded password when it contains URL-special characters. The integration suite creates an isolated database for every test and includes content validation, admin route authorization, migration reversibility, and fictional example-book coverage. The upload-ready example is [examples/example-book.json](examples/example-book.json); it contains no SRD data.
 
 Run the frontend checks from `frontend/`:
 

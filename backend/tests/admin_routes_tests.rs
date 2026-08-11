@@ -160,18 +160,13 @@ async fn admin_content_routes_return_validation_and_not_found_errors(pool: PgPoo
 
 #[sqlx::test]
 #[ignore = "requires DATABASE_URL and disposable Postgres test databases"]
-async fn production_srd_content_still_passes_import_validation(pool: PgPool) {
+async fn example_book_fixture_still_passes_import_validation(pool: PgPool) {
     let jwt_secret = "test-secret";
     let admin = admin_user(&pool, jwt_secret).await;
     let application = app(pool, jwt_secret);
-    let book: serde_json::Value = serde_json::from_str(
-        &std::fs::read_to_string(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../content/daggerheart-srd-9-09-25.json"
-        ))
-        .expect("production SRD fixture should be readable"),
-    )
-    .expect("production SRD fixture should be valid JSON");
+    let book: serde_json::Value =
+        serde_json::from_str(include_str!("../../examples/example-book.json"))
+            .expect("example book fixture should be valid JSON");
     let request_body = serde_json::to_vec(&json!({
         "id": book["id"],
         "title": book["title"],

@@ -114,7 +114,7 @@ DATABASE_URL="postgres://dagger_adventure:<POSTGRES_PASSWORD>@127.0.0.1:5432/dag
   cargo test --tests -- --ignored
 ```
 
-Use a URL-encoded password when it contains URL-special characters. The integration suite creates an isolated database for every test and does not use the persistent Compose database contents directly.
+Use a URL-encoded password when it contains URL-special characters. The integration suite creates an isolated database for every test and does not use the persistent Compose database contents directly. The upload-ready fictional example at [examples/example-book.json](examples/example-book.json) is also used by the import validation test and contains no SRD data.
 
 Frontend checks:
 

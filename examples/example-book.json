@@ -1,0 +1,79 @@
+{
+  "id": "lanterns-of-veyra-example",
+  "title": "Lanterns of Veyra: Example Book",
+  "version": "example-1.0.0",
+  "source_file": "example-book.json",
+  "content": {
+    "character_creation": {
+      "trait_proposals": {
+        "tidecaller": {
+          "quickness": ["quick hands", "steady footing"],
+          "might": ["brace the mast", "hold the line"],
+          "precision": ["thread the needle", "read the current"],
+          "awareness": ["hear the storm", "spot the glimmer"],
+          "gravitas": ["rally the crew", "tell a bright story"],
+          "lore": ["chart forgotten waters", "name old stars"]
+        }
+      },
+      "connections_prompt": "Who trusted you with a secret beneath the lighthouse?"
+    },
+    "classes": [
+      {
+        "id": "tidecaller",
+        "name": "Tidecaller",
+        "site_description": "A guide who turns weather, rhythm, and teamwork into calm momentum.",
+        "domains": ["tide", "echo"],
+        "evasion": 11,
+        "hit_points": 7,
+        "class_items": [
+          "A brass tide compass",
+          "A coil of blue rope"
+        ],
+        "hope_feature": {
+          "name": "Shared Horizon",
+          "text": "Spend Hope to let an ally nearby move safely before the next danger arrives."
+        },
+        "class_features": [
+          {
+            "name": "Read the Weather",
+            "text": "Once per scene, ask what change in the surroundings is about to matter."
+          },
+          {
+            "name": "Crew Signal",
+            "text": "When an ally follows your plan, mark the moment with a visible signal and gain a small advantage."
+          }
+        ],
+        "background_questions": [
+          "What promise did you make at the edge of the salt flats?",
+          "Which companion taught you to trust an unfamiliar map?"
+        ],
+        "subclasses": [
+          {
+            "id": "harbor-warden",
+            "name": "Harbor Warden",
+            "site_description": "A protector who keeps fragile communities moving through dangerous seasons.",
+            "spellcast_trait": "gravitas",
+            "foundation": [
+              {
+                "name": "Safe Passage",
+                "text": "Create a clear route for your companions through a crowded or unstable place."
+              }
+            ],
+            "specialization": [
+              {
+                "name": "Beacon Step",
+                "text": "When you reach a threatened ally, they may immediately reposition beside you."
+              }
+            ],
+            "mastery": [
+              {
+                "name": "Unbroken Watch",
+                "text": "During a rest, your group cannot be surprised while you remain awake and attentive."
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
