@@ -18,8 +18,9 @@ const stepDetails = [
 const traitIds = ['agility', 'strength', 'finesse', 'instinct', 'presence', 'knowledge'];
 const identityGenerationFields = ['name', 'pronouns', 'class_id', 'subclass_id', 'ancestry_id', 'secondary_ancestry_id', 'community_id'];
 const appearanceGenerationFields = ['description', 'size', 'height', 'weight', 'eye_color', 'hair_color', 'skin_color', 'look_description'];
+const experienceGenerationFields = ['experience_1', 'experience_2'];
 const backgroundGenerationFields = ['background_story', 'family_members', 'background_notes'];
-const generationFields = [...identityGenerationFields, ...appearanceGenerationFields, ...backgroundGenerationFields];
+const generationFields = [...identityGenerationFields, ...appearanceGenerationFields, ...experienceGenerationFields, ...backgroundGenerationFields];
 const formFieldByGenerationField = {
   name: 'name', pronouns: 'pronouns', description: 'description', size: 'size', height: 'height', weight: 'weight',
   eye_color: 'eyeColor', hair_color: 'hairColor', skin_color: 'skinColor', look_description: 'lookDescription',
@@ -31,6 +32,7 @@ const fieldLabels = {
   eye_color: 'eye color', hair_color: 'hair color', skin_color: 'skin color', look_description: 'look description',
   class_id: 'class', subclass_id: 'subclass', ancestry_id: 'ancestry', secondary_ancestry_id: 'second ancestry', community_id: 'community',
   background_story: 'background story', family_members: 'family members', background_notes: 'background notes',
+  experience_1: 'experience one', experience_2: 'experience two',
 };
 const familyRelations = [
   'Friend', "Friend's family", 'Father', 'Mother', 'Brother', 'Sister', 'Step-father', 'Step-mother',
@@ -145,37 +147,48 @@ export default function CharacterBuilderPage() {
     background_story: form.backgroundStory,
     family_members: form.familyMembers.map(({ relation, name, details }) => ({ relation, name, details })),
     background_notes: form.backgroundNotes,
+    experience_1: form.experiences[0],
+    experience_2: form.experiences[1],
   };
   const generationOptions = {
     classes: classes.map((item) => ({ id: item.id, name: item.name, subclasses: (item.subclasses || []).map((subclass) => ({ id: subclass.id, name: subclass.name })) })),
     ancestries: ancestries.map((item) => ({ id: item.id, name: item.name })),
     communities: communities.map((item) => ({ id: item.id, name: item.name })),
   };
-  const generateFields = async (fields) => {
+  const applyGeneratedValues = (values) => setForm((current) => {
+    const next = Object.entries(values).reduce((result, [field, value]) => {
+      if (field === 'experience_1' || field === 'experience_2') {
+        const index = field === 'experience_1' ? 0 : 1;
+        return { ...result, experiences: result.experiences.map((experience, experienceIndex) => experienceIndex === index ? value : experience) };
+      }
+      return { ...result, [formFieldByGenerationField[field]]: value };
+    }, current);
+    if (values.family_members) next.familyMembers = normalizeFamilyMembers(values.family_members);
+    if (values.class_id || values.subclass_id) {
+      const nextClass = classes.find((item) => item.id === next.classId);
+      const nextSubclass = nextClass?.subclasses.find((item) => item.id === next.subclassId);
+      next.traits = proposedTraitsFor(nextClass, nextSubclass, traitProposals);
+    }
+    return next;
+  });
+  const generateFields = async (fields, expandCurrent = false) => {
     const requestedFields = fields.filter((field) => !locks[field]);
     if (requestedFields.length === 0) return;
     setAiState({ loading: true, error: '' });
     try {
-      const response = await generateCharacter({ values: generationValues, locked_fields: generationFields.filter((field) => locks[field]), fields: requestedFields, options: generationOptions });
-      setForm((current) => {
-        const next = Object.entries(response.values).reduce((result, [field, value]) => ({ ...result, [formFieldByGenerationField[field]]: value }), current);
-        if (response.values.family_members) next.familyMembers = normalizeFamilyMembers(response.values.family_members);
-        if (response.values.class_id || response.values.subclass_id) {
-          const nextClass = classes.find((item) => item.id === next.classId);
-          const nextSubclass = nextClass?.subclasses.find((item) => item.id === next.subclassId);
-          next.traits = proposedTraitsFor(nextClass, nextSubclass, traitProposals);
-        }
-        return next;
-      });
+      const response = await generateCharacter({ values: generationValues, locked_fields: generationFields.filter((field) => locks[field]), fields: requestedFields, options: generationOptions, expand_current: expandCurrent });
+      applyGeneratedValues(response.values);
       setAiState({ loading: false, error: '' });
     } catch (error) {
       setAiState({ loading: false, error: error.message });
     }
   };
+  const expandField = (field) => generateFields([field], true);
   const toggleLock = (field) => setLocks((current) => ({ ...current, [field]: !current[field] }));
   const pageGenerationFields = stepIds[step] === 'identity'
     ? identityGenerationFields
-    : stepIds[step] === 'appearance' ? appearanceGenerationFields : backgroundGenerationFields;
+    : stepIds[step] === 'appearance' ? appearanceGenerationFields
+      : stepIds[step] === 'experiences' ? experienceGenerationFields : backgroundGenerationFields;
   const activeGenerationFields = pageGenerationFields.filter((field) => field !== 'secondary_ancestry_id' || form.ancestryId === 'mixed-ancestry');
   const toggleAllLocks = (fields) => setLocks((current) => {
     const shouldLock = fields.some((field) => !current[field]);
@@ -196,10 +209,10 @@ export default function CharacterBuilderPage() {
   const submit = async () => {
     setState({ loading: false, saving: true, error: '', success: '' });
     try {
-      await createCharacter({
+      const createdCharacter = await createCharacter({
         // Trackers count marked boxes, so a new character starts unmarked with 2 Hope.
         stats: {
-          hit_points: { current: 0, max: selectedClass?.hit_points || 0 },
+          hit_points: { current: selectedClass?.hit_points || 0, max: selectedClass?.hit_points || 0 },
           stress: { current: 0, max: 6 },
           hope: { current: 2, max: 6 },
           armor: { current: 0, max: 0 },
@@ -219,7 +232,7 @@ export default function CharacterBuilderPage() {
         equipment: { primary: form.primaryWeapon, secondary: form.secondaryWeapon, armor: form.armor, potion: form.potion, inventory: book.equipment.starting_inventory.filter((item) => !/gold/i.test(item)) },
         domain_cards: selectedCards,
       });
-      navigate('/characters');
+      navigate(`/characters/${createdCharacter.id}`);
     } catch (error) {
       setState({ loading: false, saving: false, error: error.message, success: '' });
     }
@@ -244,13 +257,13 @@ export default function CharacterBuilderPage() {
         </aside>
         <div className={styles.content}>
           <div className={styles.stepTitle}><span>STEP {step + 1} OF {stepIds.length}</span><h3>{stepDetails[step].title}</h3><p>{stepDetails[step].description}</p></div>
-          {['identity', 'appearance', 'background'].includes(stepIds[step]) && <GenerationToolbar loading={aiState.loading} locks={locks} fields={activeGenerationFields} onGenerate={() => generateFields(activeGenerationFields)} onToggleAll={() => toggleAllLocks(activeGenerationFields)} />}
+          {['identity', 'appearance', 'background', 'experiences'].includes(stepIds[step]) && <GenerationToolbar loading={aiState.loading} locks={locks} fields={activeGenerationFields} onGenerate={() => generateFields(activeGenerationFields)} onToggleAll={() => toggleAllLocks(activeGenerationFields)} />}
           {stepIds[step] === 'identity' && <Identity classes={classes} ancestries={ancestries} communities={communities} selectedClass={selectedClass} selectedAncestry={selectedAncestry} selectedCommunity={selectedCommunity} subclasses={subclasses} form={form} setField={setField} setClass={setClass} setSubclass={setSubclass} locks={locks} toggleLock={toggleLock} generate={generateFields} />}
-          {stepIds[step] === 'appearance' && <Appearance form={form} setField={setField} locks={locks} toggleLock={toggleLock} generate={generateFields} />}
+          {stepIds[step] === 'appearance' && <Appearance form={form} setField={setField} locks={locks} toggleLock={toggleLock} generate={generateFields} expand={expandField} />}
           {stepIds[step] === 'traits' && <TraitsStep form={form} updateTrait={updateTrait} selectedClass={selectedClass} selectedSubclass={selectedSubclass} traitProposals={traitProposals} />}
           {stepIds[step] === 'equipment' && <EquipmentStep equipment={book.equipment} form={form} setField={setField} />}
-          {stepIds[step] === 'background' && <BackgroundStep form={form} setField={setField} locks={locks} toggleLock={toggleLock} generate={generateFields} updateFamilyMember={updateFamilyMember} addFamilyMember={addFamilyMember} removeFamilyMember={removeFamilyMember} questions={selectedClass?.background_questions} />}
-          {stepIds[step] === 'experiences' && <ExperiencesStep form={form} updateArray={updateArray} />}
+          {stepIds[step] === 'background' && <BackgroundStep form={form} setField={setField} locks={locks} toggleLock={toggleLock} generate={generateFields} expand={expandField} updateFamilyMember={updateFamilyMember} addFamilyMember={addFamilyMember} removeFamilyMember={removeFamilyMember} questions={selectedClass?.background_questions} />}
+          {stepIds[step] === 'experiences' && <ExperiencesStep form={form} updateArray={updateArray} locks={locks} toggleLock={toggleLock} generate={generateFields} />}
           {stepIds[step] === 'domain_cards' && <DomainCardsStep cards={availableCards} selected={form.domainCards} toggleCard={toggleCard} />}
           {stepIds[step] === 'connections' && <TextStep label="Connections" value={form.connections} onChange={(value) => setField('connections', value)} placeholder="One connection per line. Who do you trust, owe, challenge, or remember?" />}
           {(state.error || aiState.error) && <p className={styles.error}>{state.error || aiState.error}</p>}
@@ -270,15 +283,16 @@ function GenerationToolbar({ loading, locks, fields, onGenerate, onToggleAll }) 
   return <div className={styles.aiToolbar}><div><strong>AI assist</strong><span>{unlockedCount} unlocked field{unlockedCount === 1 ? '' : 's'} will be requested.</span></div><div className={styles.aiActions}><Button type="button" variant="text" onClick={onToggleAll}>{allLocked ? 'Unlock all fields' : 'Lock all fields'}</Button><Button type="button" variant="text" disabled={loading || unlockedCount === 0} onClick={onGenerate}>{loading ? 'Generating...' : 'Generate all unlocked'}</Button></div></div>;
 }
 
-function FieldActions({ field, locked, toggleLock, generate }) {
+function FieldActions({ field, locked, toggleLock, generate, expand, expandDisabled }) {
   return <span className={styles.fieldActions}>
     <button type="button" className={styles.lockButton} onClick={() => toggleLock(field)} aria-label={`${locked ? 'Unlock' : 'Lock'} ${fieldLabels[field]}`}>{locked ? 'Unlock' : 'Lock'}</button>
     <button type="button" className={styles.generateButton} disabled={locked} onClick={() => generate([field])}>Generate</button>
+    {expand && <button type="button" className={styles.expandButton} disabled={locked || expandDisabled} onClick={expand}>Generate from current input</button>}
   </span>;
 }
 
-function FieldLabel({ field, label, locked, toggleLock, generate, children, className = '' }) {
-  return <label className={className}><span className={styles.fieldHeading}>{label}<FieldActions field={field} locked={locked} toggleLock={toggleLock} generate={generate} /></span>{children}</label>;
+function FieldLabel({ field, label, locked, toggleLock, generate, expand, expandDisabled, children, className = '' }) {
+  return <label className={className}><span className={styles.fieldHeading}>{label}<FieldActions field={field} locked={locked} toggleLock={toggleLock} generate={generate} expand={expand} expandDisabled={expandDisabled} /></span>{children}</label>;
 }
 
 function Identity({ classes, ancestries, communities, selectedClass, selectedAncestry, selectedCommunity, subclasses, form, setField, setClass, setSubclass, locks, toggleLock, generate }) {
@@ -296,16 +310,16 @@ function Identity({ classes, ancestries, communities, selectedClass, selectedAnc
   </div>;
 }
 
-function Appearance({ form, setField, locks, toggleLock, generate }) {
+function Appearance({ form, setField, locks, toggleLock, generate, expand }) {
   return <div className={styles.formGrid}>
-    <FieldLabel field="description" label="Character description" className={styles.full} locked={locks.description} toggleLock={toggleLock} generate={generate}><textarea value={form.description} onChange={(event) => setField('description', event.target.value)} placeholder="What does the table notice first?" /></FieldLabel>
+    <FieldLabel field="description" label="Character description" className={styles.full} locked={locks.description} toggleLock={toggleLock} generate={generate} expand={() => expand('description')} expandDisabled={!form.description.trim()}><textarea value={form.description} onChange={(event) => setField('description', event.target.value)} placeholder="What does the table notice first?" /></FieldLabel>
     <FieldLabel field="size" label="Size" locked={locks.size} toggleLock={toggleLock} generate={generate}><input value={form.size} onChange={(event) => setField('size', event.target.value)} placeholder="Small, medium, tall..." /></FieldLabel>
     <FieldLabel field="height" label="Height" locked={locks.height} toggleLock={toggleLock} generate={generate}><input value={form.height} onChange={(event) => setField('height', event.target.value)} placeholder="A clear measurement" /></FieldLabel>
     <FieldLabel field="weight" label="Weight" locked={locks.weight} toggleLock={toggleLock} generate={generate}><input value={form.weight} onChange={(event) => setField('weight', event.target.value)} placeholder="A clear measurement" /></FieldLabel>
     <FieldLabel field="eye_color" label="Eye color" locked={locks.eye_color} toggleLock={toggleLock} generate={generate}><input value={form.eyeColor} onChange={(event) => setField('eyeColor', event.target.value)} /></FieldLabel>
     <FieldLabel field="hair_color" label="Hair color" locked={locks.hair_color} toggleLock={toggleLock} generate={generate}><input value={form.hairColor} onChange={(event) => setField('hairColor', event.target.value)} /></FieldLabel>
     <FieldLabel field="skin_color" label="Skin color" locked={locks.skin_color} toggleLock={toggleLock} generate={generate}><input value={form.skinColor} onChange={(event) => setField('skinColor', event.target.value)} /></FieldLabel>
-    <FieldLabel field="look_description" label="Look, clothing & other features" className={styles.full} locked={locks.look_description} toggleLock={toggleLock} generate={generate}><textarea value={form.lookDescription} onChange={(event) => setField('lookDescription', event.target.value)} placeholder="Clothing, posture, scars, jewelry, mannerisms, or anything else people remember." /></FieldLabel>
+    <FieldLabel field="look_description" label="Look, clothing & other features" className={styles.full} locked={locks.look_description} toggleLock={toggleLock} generate={generate} expand={() => expand('look_description')} expandDisabled={!form.lookDescription.trim()}><textarea value={form.lookDescription} onChange={(event) => setField('lookDescription', event.target.value)} placeholder="Clothing, posture, scars, jewelry, mannerisms, or anything else people remember." /></FieldLabel>
   </div>;
 }
 
@@ -322,12 +336,12 @@ function EquipmentStep({ equipment, form, setField }) {
   return <div className={styles.formGrid}>{select('Primary weapon', 'primaryWeapon', equipment.primary_weapons, weaponOption)}{select('Secondary weapon', 'secondaryWeapon', equipment.secondary_weapons, weaponOption, <option value="none" key="none">No secondary weapon</option>)}{select('Armor', 'armor', equipment.armor, armorOption)}<label>First potion<select value={form.potion} onChange={(event) => setField('potion', event.target.value)}>{equipment.potions.map((item) => <option value={item.id} key={item.id}>{item.name} · {item.text}</option>)}</select></label><div className={styles.detailPanel}><strong>Always added to inventory</strong><p>{startingInventory.join(' · ')}</p></div></div>;
 }
 
-function BackgroundStep({ form, setField, locks, toggleLock, generate, updateFamilyMember, addFamilyMember, removeFamilyMember, questions }) {
+function BackgroundStep({ form, setField, locks, toggleLock, generate, expand, updateFamilyMember, addFamilyMember, removeFamilyMember, questions }) {
   return <div className={styles.formGrid}>
-    <FieldLabel field="background_story" label="Background story" className={styles.full} locked={locks.background_story} toggleLock={toggleLock} generate={generate}>
+    <FieldLabel field="background_story" label="Background story" className={styles.full} locked={locks.background_story} toggleLock={toggleLock} generate={generate} expand={() => expand('background_story')} expandDisabled={!form.backgroundStory.trim()}>
       <textarea value={form.backgroundStory} onChange={(event) => setField('backgroundStory', event.target.value)} placeholder="The story your character carries into the adventure." />
     </FieldLabel>
-    <FieldLabel field="background_notes" label="Background notes" className={styles.full} locked={locks.background_notes} toggleLock={toggleLock} generate={generate}>
+    <FieldLabel field="background_notes" label="Background notes" className={styles.full} locked={locks.background_notes} toggleLock={toggleLock} generate={generate} expand={() => expand('background_notes')} expandDisabled={!form.backgroundNotes.trim()}>
       <textarea value={form.backgroundNotes} onChange={(event) => setField('backgroundNotes', event.target.value)} placeholder="Answers, rumors, places, obligations, and other loose threads." />
     </FieldLabel>
     {questions?.length > 0 && <div className={styles.prompts}><strong>Prompts from your class</strong>{questions.map((question) => <p key={question}>{question}</p>)}</div>}
@@ -345,7 +359,13 @@ function BackgroundStep({ form, setField, locks, toggleLock, generate, updateFam
   </div>;
 }
 
-function ExperiencesStep({ form, updateArray }) { return <div className={styles.formGrid}><label>Experience one<input value={form.experiences[0]} onChange={(event) => updateArray('experiences', 0, event.target.value)} placeholder="A specific skill or history" /></label><label>Experience two<input value={form.experiences[1]} onChange={(event) => updateArray('experiences', 1, event.target.value)} placeholder="Another specific skill or history" /></label><div className={styles.detailPanel}><strong>Each Experience starts at +2</strong><p>Keep these specific enough to be interesting, but broad enough to apply in more than one situation. They do not grant spells or special abilities.</p></div></div>; }
+function ExperiencesStep({ form, updateArray, locks, toggleLock, generate }) {
+  return <div className={styles.formGrid}>
+    <FieldLabel field="experience_1" label="Experience one" locked={locks.experience_1} toggleLock={toggleLock} generate={generate}><input value={form.experiences[0]} onChange={(event) => updateArray('experiences', 0, event.target.value)} placeholder="A specific skill or history" /></FieldLabel>
+    <FieldLabel field="experience_2" label="Experience two" locked={locks.experience_2} toggleLock={toggleLock} generate={generate}><input value={form.experiences[1]} onChange={(event) => updateArray('experiences', 1, event.target.value)} placeholder="Another specific skill or history" /></FieldLabel>
+    <div className={styles.detailPanel}><strong>Each Experience starts at +2</strong><p>Keep these specific enough to be interesting, but broad enough to apply in more than one situation. They do not grant spells or special abilities.</p></div>
+  </div>;
+}
 
 function DomainCardsStep({ cards, selected, toggleCard }) { return <div className={styles.cards}><p className="muted">Choose two cards. {selected.length}/2 selected.</p>{cards.map((card) => <button type="button" className={`${styles.cardChoice} ${selected.includes(card.id) ? styles.selected : ''}`} onClick={() => toggleCard(card.id)} key={card.id}><span>{card.domain} · {card.type} · level 1</span><strong>{card.name}</strong><small>Recall {card.recall_cost}</small><p>{card.text}</p></button>)}</div>; }
 

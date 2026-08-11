@@ -59,6 +59,10 @@ pub fn router() -> Router<AppState> {
         .route("/api/ai/generate", post(ai::generate))
         .route("/api/ai/character", post(ai::generate_character))
         .route(
+            "/api/ai/character-image",
+            post(ai::generate_character_image),
+        )
+        .route(
             "/api/adventures",
             get(adventures::list).post(adventures::create),
         )

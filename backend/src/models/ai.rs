@@ -19,6 +19,8 @@ pub struct GenerateCharacterRequest {
     pub locked_fields: Vec<String>,
     pub fields: Vec<String>,
     pub options: Value,
+    #[serde(default)]
+    pub expand_current: bool,
 }
 
 #[derive(Debug, Serialize)]

@@ -4,7 +4,7 @@ use uuid::Uuid;
 use crate::models::{Character, CreateCharacterRequest};
 
 const CHARACTER_FIELDS: &str = "id, user_id, adventure_id, name, pronouns, description, size,
-    height, weight, eye_color, hair_color, skin_color, look_description, level,
+    height, weight, eye_color, hair_color, skin_color, look_description, portrait_url, level,
     class_id, subclass_id, ancestry_id, secondary_ancestry_id, community_id, traits,
     experiences, background_answers, background_story, background_notes, family_members,
     connections, equipment, domain_cards, stats, created_at, updated_at";
@@ -80,6 +80,7 @@ pub async fn find_visible_to_user(
     let query =
         "SELECT c.id, c.user_id, c.adventure_id, c.name, c.pronouns, c.description, c.level,
         c.size, c.height, c.weight, c.eye_color, c.hair_color, c.skin_color, c.look_description,
+        c.portrait_url,
         c.class_id, c.subclass_id, c.ancestry_id, c.secondary_ancestry_id, c.community_id, c.traits,
         c.experiences, c.background_answers, c.background_story, c.background_notes, c.family_members,
         c.connections, c.equipment, c.domain_cards, c.stats,
@@ -174,6 +175,24 @@ pub async fn update(
         .bind(&request.background_story)
         .bind(&request.background_notes)
         .bind(&request.family_members)
+        .bind(character_id)
+        .bind(user_id)
+        .fetch_optional(pool)
+        .await
+}
+
+pub async fn update_portrait(
+    pool: &PgPool,
+    user_id: Uuid,
+    character_id: Uuid,
+    portrait_url: &str,
+) -> Result<Option<Character>, sqlx::Error> {
+    let query = format!(
+        "UPDATE characters SET portrait_url = $1, updated_at = now()
+         WHERE id = $2 AND user_id = $3 RETURNING {CHARACTER_FIELDS}"
+    );
+    sqlx::query_as::<_, Character>(&query)
+        .bind(portrait_url)
         .bind(character_id)
         .bind(user_id)
         .fetch_optional(pool)

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { listAdventures } from '../adventures/adventureApi';
 import {
-  getCharacter, getCharacterCreationBook, linkCharacterToAdventure, updateCharacter, updateCharacterStats,
+  generateCharacterImage, getCharacter, getCharacterCreationBook, linkCharacterToAdventure, updateCharacter, updateCharacterStats,
 } from './characterApi';
 import {
   GOLD_LIMITS, TRAIT_ACTIONS, TRAIT_IDS, deriveSheet, normalizeStats,
@@ -56,6 +56,7 @@ export default function CharacterDetailPage() {
   const [selectedAdventure, setSelectedAdventure] = useState('');
   const [editForm, setEditForm] = useState(null);
   const [editing, setEditing] = useState(false);
+  const [portraitLoading, setPortraitLoading] = useState(false);
   const [state, setState] = useState({ loading: true, saving: false, error: '' });
 
   useEffect(() => {
@@ -141,6 +142,20 @@ export default function CharacterDetailPage() {
       setState({ loading: false, saving: false, error: error.message });
     }
   };
+  const generatePortrait = async () => {
+    setPortraitLoading(true);
+    setState((current) => ({ ...current, error: '' }));
+    try {
+      const updated = await generateCharacterImage(characterId);
+      setCharacter(updated);
+      setEditForm(editableCharacter(updated));
+      setState((current) => ({ ...current, saving: false, error: '' }));
+    } catch (error) {
+      setState((current) => ({ ...current, error: error.message }));
+    } finally {
+      setPortraitLoading(false);
+    }
+  };
 
   const updateAdventure = async (event) => {
     const adventureId = event.target.value || null;
@@ -183,6 +198,7 @@ export default function CharacterDetailPage() {
           <button type="button" className={styles.cancelButton} onClick={() => { setEditForm(editableCharacter(character)); setEditing(false); }}>Cancel</button>
           <button type="button" className={styles.editButton} disabled={state.saving} onClick={saveCharacter}>{state.saving ? 'Saving...' : 'Save character'}</button>
         </>}
+        {!editing && <button type="button" className={styles.editButton} disabled={portraitLoading} onClick={generatePortrait}>{portraitLoading ? 'Generating image...' : 'Generate character image'}</button>}
       </div>
       {editing && <CharacterEditor form={editForm} updateField={updateEditField} updateEquipmentField={updateEquipmentField} updateExperience={updateExperience} addExperience={addExperience} removeExperience={removeExperience} updateInventoryItem={updateInventoryItem} addInventoryItem={addInventoryItem} removeInventoryItem={removeInventoryItem} updateFamilyMember={updateFamilyMember} addFamilyMember={addFamilyMember} removeFamilyMember={removeFamilyMember} />}
 
@@ -310,6 +326,7 @@ export default function CharacterDetailPage() {
           </Panel>
 
           <Panel title="Character description">
+            {character.portrait_url && <div className={styles.portraitDisplay}><img src={character.portrait_url} alt={`${character.name}'s character portrait`} /></div>}
             <p className={styles.descriptionText}>{character.description || '—'}</p>
             <div className={styles.appearanceGrid}>
               <Field label="Size" value={character.size} />
