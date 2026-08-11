@@ -18,6 +18,7 @@ import CharactersPage from '../features/characters/CharactersPage';
 import CharacterBuilderPage from '../features/characters/CharacterBuilderPage';
 import CharacterDetailPage from '../features/characters/CharacterDetailPage';
 import BookImportPage from '../features/admin/BookImportPage';
+import BookContentEditorPage from '../features/admin/BookContentEditorPage';
 
 // Single source of truth for the route tree - add future Daggerheart feature
 // pages here, nested under AppLayout like DashboardPage
@@ -84,6 +85,9 @@ export default function AppRoutes() {
         <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.ADMIN]}><AppLayout><BookImportPage /></AppLayout></ProtectedRoute>
       )} />
       <Route path="/admin/content/import" element={<Navigate to="/admin/content/books/create" replace />} />
+      <Route path="/admin/content/books/edit" element={(
+        <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.ADMIN]}><AppLayout><BookContentEditorPage /></AppLayout></ProtectedRoute>
+      )} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

@@ -11,6 +11,11 @@ pub struct ImportBookRequest {
     pub content: Value,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct UpdateBookContentRequest {
+    pub content: Value,
+}
+
 #[derive(Debug, Serialize, sqlx::FromRow)]
 pub struct SourceBook {
     pub id: String,

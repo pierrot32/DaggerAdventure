@@ -21,6 +21,6 @@ pub use ai::{
 pub use character::{
     Character, CreateCharacterRequest, UpdateCharacterRequest, UpdateCharacterStatsRequest,
 };
-pub use content::{ImportBookRequest, SourceBook};
+pub use content::{ImportBookRequest, SourceBook, UpdateBookContentRequest};
 pub use notification::Notification;
 pub use user::{AccessLevel, LoginRequest, MessageResponse, RegisterRequest, User, UserResponse};

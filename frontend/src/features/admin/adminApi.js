@@ -24,3 +24,12 @@ export const listAuditEvents = (page = 1, limit = 50) =>
 
 export const listAiLogs = (page = 1, limit = 50) =>
   request(`/api/admin/ai-logs?page=${page}&limit=${limit}`);
+
+export const listBooks = () => request('/api/admin/content/books');
+
+export const updateBookContent = (bookId, content) => request(`/api/admin/content/books/${bookId}`, {
+  method: 'PUT',
+  body: JSON.stringify({ content }),
+});
+
+export const exportBooks = () => request('/api/admin/content/books/export');
