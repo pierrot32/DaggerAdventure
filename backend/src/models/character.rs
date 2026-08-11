@@ -71,6 +71,8 @@ pub struct UpdateCharacterRequest {
     pub background_notes: String,
     #[serde(default)]
     pub family_members: Value,
+    #[serde(default)]
+    pub connections: Value,
 }
 
 #[derive(Debug, Deserialize)]

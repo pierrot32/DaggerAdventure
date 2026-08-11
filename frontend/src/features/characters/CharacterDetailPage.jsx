@@ -45,9 +45,10 @@ const editableCharacter = (value) => ({
   },
   background_story: value.background_story || '', background_notes: value.background_notes || '',
   family_members: Array.isArray(value.family_members) ? value.family_members.map((member) => ({ ...member })) : [],
+  connections: Array.isArray(value.connections) ? value.connections.join('\n') : value.connections || '',
 });
 
-export default function CharacterDetailPage() {
+export default function CharacterDetailPage({ mode = 'sheet' }) {
   const { characterId } = useParams();
   const [character, setCharacter] = useState(null);
   const [book, setBook] = useState(null);
@@ -55,7 +56,6 @@ export default function CharacterDetailPage() {
   const [adventures, setAdventures] = useState([]);
   const [selectedAdventure, setSelectedAdventure] = useState('');
   const [editForm, setEditForm] = useState(null);
-  const [editing, setEditing] = useState(false);
   const [portraitLoading, setPortraitLoading] = useState(false);
   const [state, setState] = useState({ loading: true, saving: false, error: '' });
 
@@ -96,10 +96,6 @@ export default function CharacterDetailPage() {
   const setTrack = (key, next) => persist({ ...stats, [key]: { ...stats[key], current: next } });
   const setGold = (key, next) => persist({ ...stats, gold: { ...stats.gold, [key]: next } });
 
-  const beginEditing = () => {
-    setEditForm(editableCharacter(character));
-    setEditing(true);
-  };
   const updateEditField = (field, value) => setEditForm((current) => ({ ...current, [field]: value }));
   const updateEquipmentField = (field, value) => setEditForm((current) => ({ ...current, equipment: { ...current.equipment, [field]: value } }));
   const updateExperience = (index, value) => setEditForm((current) => ({
@@ -132,11 +128,11 @@ export default function CharacterDetailPage() {
       const updated = await updateCharacter(characterId, {
         ...editForm,
         experiences: editForm.experiences.filter((experience) => experience.name.trim()),
+        connections: editForm.connections.split('\n').map((connection) => connection.trim()).filter(Boolean),
         equipment: { ...editForm.equipment, inventory: editableInventory(editForm.equipment.inventory) },
       });
       setCharacter(updated);
       setEditForm(editableCharacter(updated));
-      setEditing(false);
       setState({ loading: false, saving: false, error: '' });
     } catch (error) {
       setState({ loading: false, saving: false, error: error.message });
@@ -178,6 +174,27 @@ export default function CharacterDetailPage() {
   const heritage = [character.ancestry_id, character.secondary_ancestry_id, character.community_id]
     .filter(Boolean).map(titleize).join(' · ');
 
+  if (mode === 'edit') {
+    return (
+      <section className={styles.sheet}>
+        <div className={styles.topBar}>
+          <Link to={`/characters/${characterId}`} className={styles.back}>Back to character sheet</Link>
+          <Link to={`/characters/${characterId}/profile`} className={styles.back}>View character profile</Link>
+        </div>
+        <header className={styles.pageHeading}>
+          <div><p className="eyebrow">CHARACTER EDITOR</p><h2>Edit {character.name}</h2><p className="muted">Update your character details, story, equipment, and portrait.</p></div>
+          <button type="button" className={styles.editButton} disabled={portraitLoading} onClick={generatePortrait}>{portraitLoading ? 'Generating image...' : 'Generate character image'}</button>
+        </header>
+        {state.error && <p className={styles.error}>{state.error}</p>}
+        <CharacterEditor form={editForm} updateField={updateEditField} updateEquipmentField={updateEquipmentField} updateExperience={updateExperience} addExperience={addExperience} removeExperience={removeExperience} updateInventoryItem={updateInventoryItem} addInventoryItem={addInventoryItem} removeInventoryItem={removeInventoryItem} updateFamilyMember={updateFamilyMember} addFamilyMember={addFamilyMember} removeFamilyMember={removeFamilyMember} />
+        <div className={styles.editActions}>
+          <Link to={`/characters/${characterId}`} className={styles.cancelButton}>Cancel</Link>
+          <button type="button" className={styles.editButton} disabled={state.saving} onClick={saveCharacter}>{state.saving ? 'Saving...' : 'Save character'}</button>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className={styles.sheet}>
       <div className={styles.topBar}>
@@ -194,13 +211,9 @@ export default function CharacterDetailPage() {
       </div>
       {state.error && <p className={styles.error}>{state.error}</p>}
       <div className={styles.editActions}>
-        {!editing ? <button type="button" className={styles.editButton} onClick={beginEditing}>Edit character</button> : <>
-          <button type="button" className={styles.cancelButton} onClick={() => { setEditForm(editableCharacter(character)); setEditing(false); }}>Cancel</button>
-          <button type="button" className={styles.editButton} disabled={state.saving} onClick={saveCharacter}>{state.saving ? 'Saving...' : 'Save character'}</button>
-        </>}
-        {!editing && <button type="button" className={styles.editButton} disabled={portraitLoading} onClick={generatePortrait}>{portraitLoading ? 'Generating image...' : 'Generate character image'}</button>}
+        <Link to={`/characters/${characterId}/profile`} className={styles.cancelButton}>Character profile</Link>
+        <Link to={`/characters/${characterId}/edit`} className={styles.editButton}>Edit character</Link>
       </div>
-      {editing && <CharacterEditor form={editForm} updateField={updateEditField} updateEquipmentField={updateEquipmentField} updateExperience={updateExperience} addExperience={addExperience} removeExperience={removeExperience} updateInventoryItem={updateInventoryItem} addInventoryItem={addInventoryItem} removeInventoryItem={removeInventoryItem} updateFamilyMember={updateFamilyMember} addFamilyMember={addFamilyMember} removeFamilyMember={removeFamilyMember} />}
 
       <header className={styles.nameplate}>
         <div className={styles.classBlock}>
@@ -325,20 +338,6 @@ export default function CharacterDetailPage() {
             </div>
           </Panel>
 
-          <Panel title="Character description">
-            {character.portrait_url && <div className={styles.portraitDisplay}><img src={character.portrait_url} alt={`${character.name}'s character portrait`} /></div>}
-            <p className={styles.descriptionText}>{character.description || '—'}</p>
-            <div className={styles.appearanceGrid}>
-              <Field label="Size" value={character.size} />
-              <Field label="Height" value={character.height} />
-              <Field label="Weight" value={character.weight} />
-              <Field label="Eyes" value={character.eye_color} />
-              <Field label="Hair" value={character.hair_color} />
-              <Field label="Skin" value={character.skin_color} />
-            </div>
-            <p className={styles.lookDescription}>{character.look_description || 'No additional look details recorded.'}</p>
-          </Panel>
-
           <Panel title="Active weapons">
             <p className={styles.hint}>Proficiency {derived.proficiency}</p>
             <WeaponRow title="Primary" weapon={primary} fallback={equipment.primary} />
@@ -362,15 +361,6 @@ export default function CharacterDetailPage() {
                 </li>
               ))}
             </ul>
-          </Panel>
-
-          <Panel title="Background">
-            {character.background_story && <p className={styles.descriptionText}>{character.background_story}</p>}
-            {character.background_notes && <p className={styles.lookDescription}>{character.background_notes}</p>}
-            {(character.family_members || []).length > 0 && <ul className={styles.familyList}>
-              {character.family_members.map((member, index) => <li key={member.id || `${member.relation}-${index}`}><strong>{member.name || 'Unnamed'} · {member.relation || 'Other'}</strong><span>{member.details || 'No details recorded.'}</span></li>)}
-            </ul>}
-            {!character.background_story && !character.background_notes && !(character.family_members || []).length && <p className="muted">No background details recorded.</p>}
           </Panel>
 
           {(character.domain_cards || []).length > 0 && (
@@ -421,7 +411,7 @@ function CharacterEditor({ form, updateField, updateEquipmentField, updateExperi
     </div>
     <div className={styles.editorSection}>
       <h4>Background</h4>
-      <div className={styles.editorGrid}>{input('Background story', 'background_story', 'textarea')}{input('Background notes', 'background_notes', 'textarea')}</div>
+      <div className={styles.editorGrid}>{input('Background story', 'background_story', 'textarea')}{input('Background notes', 'background_notes', 'textarea')}{input('Connections', 'connections', 'textarea')}</div>
       {form.family_members.map((member, index) => <div className={styles.familyEditRow} key={member.id || index}>
         <select value={member.relation || 'Other'} onChange={(event) => updateFamilyMember(index, 'relation', event.target.value)}>{familyRelations.map((relation) => <option value={relation} key={relation}>{relation}</option>)}</select>
         <input value={member.name || ''} onChange={(event) => updateFamilyMember(index, 'name', event.target.value)} placeholder="Name" />

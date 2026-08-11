@@ -17,6 +17,7 @@ import NotificationsPage from '../features/notifications/NotificationsPage';
 import CharactersPage from '../features/characters/CharactersPage';
 import CharacterBuilderPage from '../features/characters/CharacterBuilderPage';
 import CharacterDetailPage from '../features/characters/CharacterDetailPage';
+import CharacterProfilePage from '../features/characters/CharacterProfilePage';
 import BookImportPage from '../features/admin/BookImportPage';
 import BookContentEditorPage from '../features/admin/BookContentEditorPage';
 
@@ -77,6 +78,12 @@ export default function AppRoutes() {
       )} />
       <Route path="/characters/create" element={(
         <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.PLAYER_ONLY]}><AppLayout><CharacterBuilderPage /></AppLayout></ProtectedRoute>
+      )} />
+      <Route path="/characters/:characterId/edit" element={(
+        <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.PLAYER_ONLY]}><AppLayout><CharacterDetailPage mode="edit" /></AppLayout></ProtectedRoute>
+      )} />
+      <Route path="/characters/:characterId/profile" element={(
+        <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.PLAYER_ONLY]}><AppLayout><CharacterProfilePage /></AppLayout></ProtectedRoute>
       )} />
       <Route path="/characters/:characterId" element={(
         <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.PLAYER_ONLY]}><AppLayout><CharacterDetailPage /></AppLayout></ProtectedRoute>
