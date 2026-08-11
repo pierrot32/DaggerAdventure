@@ -52,15 +52,19 @@ export default function DruidBeastFormsPage() {
 
       {forms.length === 0 ? <section className={styles.empty}><h3>No beast forms available</h3><p className="muted">An administrator can add Druid beast forms in the book editor.</p></section> : (
         <div className={styles.grid}>
-          {forms.map((form) => <BeastFormCard form={form} key={form.id || form.name} />)}
+          {forms.map((form) => <BeastFormCard form={form} featureLibrary={book.beast_features || []} key={form.id || form.name} />)}
         </div>
       )}
     </section>
   );
 }
 
-function BeastFormCard({ form }) {
+function BeastFormCard({ form, featureLibrary }) {
   const attack = [form.attack_range, form.attack_trait, form.attack_damage].filter(Boolean).map((value, index) => index === 0 ? titleize(value) : value).join(' ');
+  const features = [
+    ...(form.feature_ids || []).map((id) => featureLibrary.find((item) => item.id === id)).filter(Boolean),
+    ...(form.features || []),
+  ];
   return (
     <article className={styles.card}>
       <header className={styles.cardHeader}>
@@ -74,7 +78,7 @@ function BeastFormCard({ form }) {
       </div>
       {form.advantages?.length > 0 && <p className={styles.advantages}><strong>Gain advantage on:</strong> {form.advantages.join(', ')}</p>}
       {form.carrier && <p className={styles.feature}><strong>Carrier.</strong> {form.carrier}</p>}
-      {form.features?.length > 0 && <div className={styles.features}>{form.features.map((feature) => <p className={styles.feature} key={feature.name}><strong>{feature.name}.</strong> {feature.text}</p>)}</div>}
+      {features.length > 0 && <div className={styles.features}>{features.map((feature, index) => <p className={styles.feature} key={feature.id || `${feature.name}-${index}`}><strong>{feature.name}.</strong> {feature.text}</p>)}</div>}
     </article>
   );
 }

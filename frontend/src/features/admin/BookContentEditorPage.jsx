@@ -1,81 +1,13 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import Button from '../../components/Button/Button';
 import { exportBooks, listBooks, updateBookContent } from './adminApi';
+import {
+  BEAST_FEATURES_KEY, WEAPON_GROUPS, beastForm, beastFormKey, clone, feature, flattenBeastForms, flattenWeapons,
+  newClass, normalizeBookContent, normalizeSubclass, normalizeWeapon,
+} from './bookContentEditorUtils';
 import styles from './BookContentEditorPage.module.css';
 
-const clone = (value) => JSON.parse(JSON.stringify(value));
-const feature = () => ({ name: '', text: '' });
-const beastForm = (id = 'new-beast-form') => ({
-  id,
-  name: 'New beast form',
-  tier: 1,
-  examples: [],
-  evasion_bonus: 0,
-  attack_range: 'melee',
-  attack_trait: '',
-  attack_bonus: 0,
-  attack_damage: '',
-  advantages: [],
-  carrier: '',
-  features: [],
-});
-
-function newClass(id = 'new-class') {
-  return {
-    id,
-    name: 'New class',
-    site_description: '',
-    domains: [],
-    evasion: 10,
-    hit_points: 5,
-    class_items: [],
-    hope_feature: feature(),
-    class_features: [],
-    beast_forms: [],
-    background_questions: [],
-    subclasses: [],
-  };
-}
-
-function normalizeClass(item) {
-  return {
-    ...newClass(item.id),
-    ...clone(item),
-    domains: Array.isArray(item.domains) ? item.domains : [],
-    class_items: Array.isArray(item.class_items) ? item.class_items : [],
-    class_features: Array.isArray(item.class_features) ? item.class_features : [],
-    beast_forms: Array.isArray(item.beast_forms) ? item.beast_forms.map(normalizeBeastForm) : [],
-    background_questions: Array.isArray(item.background_questions) ? item.background_questions : [],
-    subclasses: Array.isArray(item.subclasses) ? item.subclasses.map(normalizeSubclass) : [],
-    hope_feature: item.hope_feature || feature(),
-  };
-}
-
-function normalizeBeastForm(item) {
-  return {
-    ...beastForm(item.id),
-    ...clone(item),
-    id: item.id || '',
-    name: item.name || '',
-    tier: Number(item.tier) || 1,
-    examples: Array.isArray(item.examples) ? item.examples : [],
-    advantages: Array.isArray(item.advantages) ? item.advantages : [],
-    features: Array.isArray(item.features) ? item.features : [],
-  };
-}
-
-function normalizeSubclass(item) {
-  return {
-    ...clone(item),
-    id: item.id || '',
-    name: item.name || '',
-    site_description: item.site_description || '',
-    spellcast_trait: item.spellcast_trait || '',
-    foundation: Array.isArray(item.foundation) ? item.foundation : [],
-    specialization: Array.isArray(item.specialization) ? item.specialization : [],
-    mastery: Array.isArray(item.mastery) ? item.mastery : [],
-  };
-}
 
 function FeatureList({ title, items, onChange, onAdd, onRemove }) {
   return (
@@ -128,9 +60,8 @@ function SubclassEditor({ subclass, onChange, onRemove }) {
   );
 }
 
-function BeastFormEditor({ form, onChange, onRemove }) {
+function BeastFormEditor({ form, features, onChange, onRemove }) {
   const update = (field, value) => onChange({ ...form, [field]: value });
-  const updateFeature = (index, field, value) => update('features', form.features.map((item, itemIndex) => itemIndex === index ? { ...item, [field]: value } : item));
   return (
     <div className={styles.subclassEditor}>
       <div className={styles.editorHeading}>
@@ -149,14 +80,32 @@ function BeastFormEditor({ form, onChange, onRemove }) {
         <label>Attack damage<input value={form.attack_damage} onChange={(event) => update('attack_damage', event.target.value)} placeholder="d12+8 phy" /></label>
         <label className={styles.wide}>Gain advantage on<input value={form.advantages.join(', ')} onChange={(event) => update('advantages', event.target.value.split(',').map((value) => value.trim()).filter(Boolean))} placeholder="attack, sneak, sprint" /></label>
         <label className={styles.wide}>Carrier<textarea value={form.carrier} onChange={(event) => update('carrier', event.target.value)} /></label>
+        <label className={styles.wide}>Shared features<select className={styles.featureSelect} multiple value={form.feature_ids} onChange={(event) => update('feature_ids', Array.from(event.target.selectedOptions, (option) => option.value))}>
+          {features.map((item) => <option value={item.id} key={item.id}>{item.name || 'Unnamed feature'} · Tier {item.tier}</option>)}
+        </select></label>
       </div>
-      <FeatureList
-        title="Beast features"
-        items={form.features}
-        onAdd={() => update('features', [...form.features, feature()])}
-        onRemove={(index) => update('features', form.features.filter((_, itemIndex) => itemIndex !== index))}
-        onChange={updateFeature}
-      />
+      {features.length === 0 && <p className="muted">No shared beast features exist yet. Add one from the Beast features page.</p>}
+    </div>
+  );
+}
+
+function WeaponEditor({ item, onChange, onRemove }) {
+  const field = (label, name, type = 'input') => <label>{label}{type === 'textarea' ? <textarea value={item[name] || ''} onChange={(event) => onChange(name, event.target.value)} /> : <input value={item[name] || ''} onChange={(event) => onChange(name, event.target.value)} />}</label>;
+  return (
+    <div className={styles.editor}>
+      <div className={styles.editorHeading}><div><p className="eyebrow">{item.groupLabel}</p><h3>{item.name || 'Unnamed item'}</h3></div><button type="button" className={styles.removeButton} onClick={onRemove}>Remove item</button></div>
+      <div className={styles.formGrid}>
+        {field('Item ID', 'id')}
+        {field('Name', 'name')}
+        <label>Tier<input type="number" min="1" max="4" value={item.tier} onChange={(event) => onChange('tier', Number(event.target.value) || 1)} /></label>
+        {field('Trait', 'trait')}
+        {field('Range', 'range')}
+        {field('Damage', 'damage')}
+        {field('Burden', 'burden')}
+        {field('Armor score', 'armor_score')}
+        {field('Thresholds', 'thresholds')}
+        <label className={styles.wide}>Feature<textarea value={item.feature || ''} onChange={(event) => onChange('feature', event.target.value)} /></label>
+      </div>
     </div>
   );
 }
@@ -169,17 +118,31 @@ export default function BookContentEditorPage() {
   const [selectedClassId, setSelectedClassId] = useState('');
   const [classForm, setClassForm] = useState(null);
   const [selectedSubclassId, setSelectedSubclassId] = useState('');
+  const [editorType, setEditorType] = useState('classes');
+  const [selectedBeastFormKey, setSelectedBeastFormKey] = useState('');
+  const [beastFormOwnerId, setBeastFormOwnerId] = useState('');
+  const [beastFormOriginalId, setBeastFormOriginalId] = useState('');
+  const [beastFormForm, setBeastFormForm] = useState(null);
+  const [selectedWeaponKey, setSelectedWeaponKey] = useState('');
+  const [weaponOriginalId, setWeaponOriginalId] = useState('');
+  const [weaponOriginalGroup, setWeaponOriginalGroup] = useState('');
+  const [weaponForm, setWeaponForm] = useState(null);
   const [connections, setConnections] = useState('');
   const [state, setState] = useState({ loading: true, saving: false, error: '', message: '' });
 
   const openBook = (book) => {
     if (!book) return;
-    const nextContent = clone(book.content);
-    const nextClasses = (nextContent.classes || []).map(normalizeClass);
+    const nextContent = normalizeBookContent(book.content);
+    const nextClasses = nextContent.classes;
     setBookId(book.id);
     setContent(nextContent);
     setClasses(nextClasses);
     setSelectedClassId(nextClasses[0]?.id || '');
+    const nextBeastForm = flattenBeastForms(nextClasses)[0];
+    const nextWeapon = flattenWeapons(nextContent.equipment)[0];
+    setSelectedBeastFormKey(nextBeastForm?.key || '');
+    setSelectedWeaponKey(nextWeapon?.key || '');
+    setEditorType('classes');
     setConnections(nextContent.character_creation?.connections_prompt || '');
     setState((current) => ({ ...current, error: '', message: '' }));
   };
@@ -200,8 +163,25 @@ export default function BookContentEditorPage() {
     setSelectedSubclassId(selected?.subclasses[0]?.id || '');
   }, [classes, selectedClassId]);
 
+  useEffect(() => {
+    const selected = flattenBeastForms(classes).find((item) => item.key === selectedBeastFormKey);
+    setBeastFormOwnerId(selected?.classId || '');
+    setBeastFormOriginalId(selected?.id || '');
+    setBeastFormForm(selected ? clone(selected) : null);
+  }, [classes, selectedBeastFormKey]);
+
+  useEffect(() => {
+    const selected = flattenWeapons(content?.equipment).find((item) => item.key === selectedWeaponKey);
+    setWeaponOriginalId(selected?.id || '');
+    setWeaponOriginalGroup(selected?.group || '');
+    setWeaponForm(selected ? clone(selected) : null);
+  }, [content, selectedWeaponKey]);
+
   const selectedBook = books.find((book) => book.id === bookId);
   const selectedSubclass = classForm?.subclasses.find((item) => item.id === selectedSubclassId);
+  const beastFeatures = (content?.[BEAST_FEATURES_KEY] || []).slice().sort((left, right) => Number(left.tier) - Number(right.tier) || left.name.localeCompare(right.name));
+  const beastForms = flattenBeastForms(classes);
+  const weapons = flattenWeapons(content?.equipment);
   const updateClass = (field, value) => setClassForm((current) => ({ ...current, [field]: value }));
   const updateHope = (field, value) => updateClass('hope_feature', { ...classForm.hope_feature, [field]: value });
   const updateSubclass = (subclass) => {
@@ -213,6 +193,7 @@ export default function BookContentEditorPage() {
     const id = `new-class-${classes.length + 1}`;
     setClasses((current) => [...current, newClass(id)]);
     setSelectedClassId(id);
+    setEditorType('classes');
   };
 
   const removeClass = () => {
@@ -229,13 +210,46 @@ export default function BookContentEditorPage() {
   };
 
   const addBeastForm = () => {
-    const id = `new-beast-form-${(classForm.beast_forms?.length || 0) + 1}`;
-    updateClass('beast_forms', [...classForm.beast_forms, beastForm(id)]);
+    const owner = classes.find((item) => item.id === selectedClassId) || classes[0];
+    if (!owner) return;
+    const id = `new-beast-form-${owner.beast_forms.length + 1}`;
+    const nextForm = beastForm(id);
+    setClasses((current) => current.map((item) => item.id === owner.id ? { ...item, beast_forms: [...item.beast_forms, nextForm] } : item));
+    setBeastFormOwnerId(owner.id);
+    setSelectedBeastFormKey(beastFormKey(owner.id, id));
+    setEditorType('beastforms');
   };
 
-  const updateBeastForm = (index, form) => updateClass('beast_forms', classForm.beast_forms.map((item, itemIndex) => itemIndex === index ? form : item));
+  const updateBeastForm = (form) => {
+    setBeastFormForm(form);
+  };
 
-  const removeBeastForm = (index) => updateClass('beast_forms', classForm.beast_forms.filter((_, itemIndex) => itemIndex !== index));
+  const removeBeastForm = () => {
+    if (!beastFormForm || !window.confirm(`Remove ${beastFormForm.name || beastFormForm.id}?`)) return;
+    const remaining = classes.find((item) => item.id === beastFormOwnerId)?.beast_forms.filter((form) => form.id !== beastFormOriginalId) || [];
+    const nextForms = classes.map((item) => item.id === beastFormOwnerId ? { ...item, beast_forms: item.beast_forms.filter((form) => form.id !== beastFormOriginalId) } : item);
+    setClasses(nextForms);
+    const next = remaining[0];
+    setSelectedBeastFormKey(next ? beastFormKey(beastFormOwnerId, next.id) : '');
+  };
+
+  const addWeapon = (group) => {
+    const id = `new-${group}-${(content.equipment[group] || []).length + 1}`;
+    const nextWeapon = normalizeWeapon({ id, name: 'New item', tier: 1 }, group);
+    setContent((current) => ({ ...current, equipment: { ...current.equipment, [group]: [...(current.equipment[group] || []), nextWeapon] } }));
+    setSelectedWeaponKey(`${group}::${id}`);
+    setEditorType('weapons');
+  };
+
+  const updateWeapon = (field, value) => {
+    setWeaponForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const removeWeapon = () => {
+    if (!weaponForm || !window.confirm(`Remove ${weaponForm.name || weaponForm.id}?`)) return;
+    setContent((current) => ({ ...current, equipment: { ...current.equipment, [weaponOriginalGroup]: current.equipment[weaponOriginalGroup].filter((item) => item.id !== weaponOriginalId) } }));
+    setSelectedWeaponKey('');
+  };
 
   const removeSubclass = () => {
     if (!selectedSubclass || !window.confirm(`Remove ${selectedSubclass.name || selectedSubclass.id}?`)) return;
@@ -245,21 +259,54 @@ export default function BookContentEditorPage() {
   };
 
   const save = async () => {
-    if (!content || !classForm?.id || !classForm.name.trim()) {
+    if (!content) return;
+    if (editorType === 'classes' && (!classForm?.id || !classForm.name.trim())) {
       setState((current) => ({ ...current, error: 'A class needs an ID and name.', message: '' }));
       return;
     }
+    if (editorType === 'beastforms' && (!beastFormForm?.id || !beastFormForm.name.trim())) {
+      setState((current) => ({ ...current, error: 'A beast form needs an ID and name.', message: '' }));
+      return;
+    }
+    if (editorType === 'weapons' && (!weaponForm?.id || !weaponForm.name.trim())) {
+      setState((current) => ({ ...current, error: 'A weapon or armor item needs an ID and name.', message: '' }));
+      return;
+    }
     const nextContent = clone(content);
-    nextContent.classes = classes.map((item) => item.id === selectedClassId ? classForm : item);
+    if (editorType === 'classes') {
+      nextContent.classes = classes.map((item) => item.id === selectedClassId ? classForm : item);
+    } else if (editorType === 'beastforms') {
+      const persistedBeastForm = clone(beastFormForm);
+      delete persistedBeastForm.classId;
+      delete persistedBeastForm.className;
+      delete persistedBeastForm.key;
+      nextContent.classes = classes.map((item) => item.id === beastFormOwnerId ? {
+        ...item,
+        beast_forms: item.beast_forms.map((form) => form.id === beastFormOriginalId ? persistedBeastForm : form),
+      } : item);
+    } else if (editorType === 'weapons') {
+      const persistedWeapon = clone(weaponForm);
+      delete persistedWeapon.group;
+      delete persistedWeapon.groupLabel;
+      delete persistedWeapon.key;
+      nextContent.equipment[weaponOriginalGroup] = nextContent.equipment[weaponOriginalGroup].map((item) => item.id === weaponOriginalId ? persistedWeapon : item);
+    }
     nextContent.character_creation = { ...(nextContent.character_creation || {}), connections_prompt: connections };
     setState({ loading: false, saving: true, error: '', message: '' });
     try {
       const saved = await updateBookContent(bookId, nextContent);
-      setContent(saved.content);
       setBooks((current) => current.map((book) => book.id === saved.id ? saved : book));
-      setSelectedClassId(classForm.id);
-      setSelectedSubclassId(selectedSubclass?.id || '');
-      setClasses(saved.content.classes.map(normalizeClass));
+      const normalized = normalizeBookContent(saved.content);
+      setContent(normalized);
+      setClasses(normalized.classes);
+      if (editorType === 'classes') {
+        setSelectedClassId(classForm.id);
+        setSelectedSubclassId(selectedSubclass?.id || '');
+      } else if (editorType === 'beastforms') {
+        setSelectedBeastFormKey(beastFormKey(beastFormOwnerId, beastFormForm.id));
+      } else if (editorType === 'weapons') {
+        setSelectedWeaponKey(`${weaponOriginalGroup}::${weaponForm.id}`);
+      }
       setState({ loading: false, saving: false, error: '', message: 'Book content saved.' });
     } catch (error) {
       setState({ loading: false, saving: false, error: error.message, message: '' });
@@ -294,12 +341,29 @@ export default function BookContentEditorPage() {
         <label>Book<select value={bookId} onChange={(event) => openBook(books.find((book) => book.id === event.target.value))}>{books.map((book) => <option value={book.id} key={book.id}>{book.title} - {book.version}</option>)}</select></label>
         <span className={styles.meta}>{selectedBook.source_file}</span>
       </div>
+      <div className={styles.entityTabs}>
+        <button type="button" className={editorType === 'classes' ? styles.activeTab : ''} onClick={() => setEditorType('classes')}>Classes</button>
+        <button type="button" className={editorType === 'beastforms' ? styles.activeTab : ''} onClick={() => setEditorType('beastforms')}>Beast forms</button>
+        <button type="button" className={editorType === 'weapons' ? styles.activeTab : ''} onClick={() => setEditorType('weapons')}>Weapons and armor</button>
+        <Link to="/admin/content/books/beast-features" className={styles.featureLink}>Manage shared beast features</Link>
+      </div>
       <div className={styles.layout}>
-        <aside className={styles.sidebar}>
+        {editorType === 'classes' && <aside className={styles.sidebar}>
           <div className={styles.sectionHeading}><h3>Classes</h3><button type="button" className={styles.smallButton} onClick={addClass}>Add class</button></div>
           {classes.map((item) => <button type="button" className={`${styles.classButton} ${item.id === selectedClassId ? styles.selected : ''}`} key={item.id} onClick={() => setSelectedClassId(item.id)}><strong>{item.name || 'Unnamed class'}</strong><span>{item.id}</span></button>)}
-        </aside>
-        {classForm && (
+        </aside>}
+        {editorType === 'beastforms' && <aside className={styles.sidebar}>
+          <div className={styles.sectionHeading}><h3>Beast forms</h3><button type="button" className={styles.smallButton} onClick={addBeastForm}>Add beast form</button></div>
+          {beastForms.map((item) => <button type="button" className={`${styles.classButton} ${item.key === selectedBeastFormKey ? styles.selected : ''}`} key={item.key} onClick={() => { setSelectedBeastFormKey(item.key); setSelectedClassId(item.classId); }}><strong>{item.name || 'Unnamed beast form'}</strong><span>Tier {item.tier} · {item.className || item.classId}</span></button>)}
+          {beastForms.length === 0 && <p className="muted">No beast forms added.</p>}
+        </aside>}
+        {editorType === 'weapons' && <aside className={styles.sidebar}>
+          <div className={styles.sectionHeading}><h3>Weapons and armor</h3></div>
+          {WEAPON_GROUPS.map((group) => <button type="button" className={styles.smallButton} onClick={() => addWeapon(group.id)} key={group.id}>Add {group.label.toLowerCase()}</button>)}
+          {weapons.map((item) => <button type="button" className={`${styles.classButton} ${item.key === selectedWeaponKey ? styles.selected : ''}`} key={item.key} onClick={() => setSelectedWeaponKey(item.key)}><strong>{item.name || 'Unnamed item'}</strong><span>Tier {item.tier} · {item.groupLabel}</span></button>)}
+          {weapons.length === 0 && <p className="muted">No weapons or armor added.</p>}
+        </aside>}
+        {editorType === 'classes' && classForm && (
           <div className={styles.editor}>
             <div className={styles.editorHeading}><div><p className="eyebrow">CLASS</p><h3>{classForm.name || 'Unnamed class'}</h3></div><button type="button" className={styles.removeButton} onClick={removeClass}>Remove class</button></div>
             <div className={styles.formGrid}>
@@ -313,13 +377,6 @@ export default function BookContentEditorPage() {
             </div>
             <div className={styles.panel}><h3>Hope feature</h3><div className={styles.formGrid}><label>Name<input value={classForm.hope_feature.name || ''} onChange={(event) => updateHope('name', event.target.value)} /></label><label className={styles.wide}>Description<textarea value={classForm.hope_feature.text || ''} onChange={(event) => updateHope('text', event.target.value)} /></label></div></div>
             <FeatureList title="Class features" items={classForm.class_features} onAdd={() => updateClass('class_features', [...classForm.class_features, feature()])} onRemove={(index) => updateClass('class_features', classForm.class_features.filter((_, itemIndex) => itemIndex !== index))} onChange={(index, field, value) => updateClass('class_features', classForm.class_features.map((item, itemIndex) => itemIndex === index ? { ...item, [field]: value } : item))} />
-            {(classForm.id === 'druid' || classForm.beast_forms.length > 0) && (
-              <div className={styles.panel}>
-                <div className={styles.sectionHeading}><div><h3>Beast forms</h3><p className="muted">Add any number of forms. Characters see forms up to their current tier.</p></div><button type="button" className={styles.smallButton} onClick={addBeastForm}>Add beast form</button></div>
-                <div className={styles.beastForms}>{classForm.beast_forms.map((form, index) => <BeastFormEditor key={form.id || index} form={form} onChange={(nextForm) => updateBeastForm(index, nextForm)} onRemove={() => removeBeastForm(index)} />)}</div>
-                {classForm.beast_forms.length === 0 && <p className="muted">No beast forms added.</p>}
-              </div>
-            )}
             <label className={styles.wide}>Background questions<textarea value={classForm.background_questions.join('\n')} onChange={(event) => updateClass('background_questions', event.target.value.split('\n').filter(Boolean))} placeholder="One question per line" /></label>
             <div className={styles.panel}>
               <div className={styles.sectionHeading}><h3>Subclasses</h3><button type="button" className={styles.smallButton} onClick={addSubclass}>Add subclass</button></div>
@@ -330,6 +387,25 @@ export default function BookContentEditorPage() {
             {(state.error || state.message) && <p className={state.error ? styles.error : styles.message} role="status">{state.error || state.message}</p>}
             <Button type="button" disabled={state.saving} onClick={save}>{state.saving ? 'Saving book...' : 'Save book content'}</Button>
           </div>
+        )}
+        {editorType === 'beastforms' && beastFormForm && (
+          <div className={styles.editor}>
+            <div className={styles.formGrid}>
+              <label>Class<select value={beastFormOwnerId} onChange={(event) => {
+                const nextClass = classes.find((item) => item.id === event.target.value);
+                if (!nextClass || nextClass.id === beastFormOwnerId) return;
+                setClasses((current) => current.map((item) => item.id === beastFormOwnerId ? { ...item, beast_forms: item.beast_forms.filter((form) => form.id !== beastFormOriginalId) } : item.id === nextClass.id ? { ...item, beast_forms: [...item.beast_forms, beastFormForm] } : item));
+                setBeastFormOwnerId(nextClass.id);
+                setSelectedBeastFormKey(beastFormKey(nextClass.id, beastFormForm.id));
+              }}>{classes.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label>
+            </div>
+            <BeastFormEditor form={beastFormForm} features={beastFeatures} onChange={updateBeastForm} onRemove={removeBeastForm} />
+            {(state.error || state.message) && <p className={state.error ? styles.error : styles.message} role="status">{state.error || state.message}</p>}
+            <Button type="button" disabled={state.saving} onClick={save}>{state.saving ? 'Saving book...' : 'Save beast form'}</Button>
+          </div>
+        )}
+        {editorType === 'weapons' && weaponForm && (
+          <WeaponEditor item={weaponForm} onChange={updateWeapon} onRemove={removeWeapon} />
         )}
       </div>
     </section>

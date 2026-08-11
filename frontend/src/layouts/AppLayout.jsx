@@ -22,6 +22,7 @@ export default function AppLayout({ children }) {
           {canManageUsers(user) && <Link to="/admin/ai/logs">AI logs</Link>}
           {canManageUsers(user) && <Link to="/admin/content/books/create">Create book</Link>}
           {canManageUsers(user) && <Link to="/admin/content/books/edit">Edit books</Link>}
+          {canManageUsers(user) && <Link to="/admin/content/books/beast-features">Beast features</Link>}
           <Link to="/notifications">Notifications</Link>
           <span className={styles.muted}>{user?.name}</span>
           <Button variant="text" onClick={logout}>Sign out</Button>
