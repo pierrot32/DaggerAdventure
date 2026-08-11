@@ -103,12 +103,28 @@ function WeaponEditor({ item, onChange, onRemove }) {
         {field('Range', 'range')}
         {field('Damage', 'damage')}
         {field('Burden', 'burden')}
+        {item.group !== 'armor' && <label><span>Magic weapon</span><input type="checkbox" checked={Boolean(item.is_magic)} onChange={(event) => onChange('is_magic', event.target.checked)} /></label>}
         {field('Armor score', 'armor_score')}
         {field('Thresholds', 'thresholds')}
         <label className={styles.wide}>Feature<textarea value={item.feature || ''} onChange={(event) => onChange('feature', event.target.value)} /></label>
       </div>
     </div>
   );
+}
+
+function TierGroups({ items, selectedKey, onSelect, emptyLabel, itemLabel }) {
+  return [1, 2, 3, 4].map((tier) => {
+    const tierItems = items.filter((item) => Number(item.tier) === tier);
+    return (
+      <details className={styles.tierGroup} key={tier}>
+        <summary>Tier {tier}<span>{tierItems.length}</span></summary>
+        <div className={styles.tierItems}>
+          {tierItems.map((item) => <button type="button" className={`${styles.classButton} ${item.key === selectedKey ? styles.selected : ''}`} key={item.key} onClick={() => onSelect(item)}><strong>{item.name || `Unnamed ${itemLabel}`}</strong>{item.className && <span>{item.className}</span>}</button>)}
+          {tierItems.length === 0 && <p className="muted">{emptyLabel}</p>}
+        </div>
+      </details>
+    );
+  });
 }
 
 export default function BookContentEditorPage() {
@@ -370,13 +386,11 @@ export default function BookContentEditorPage() {
           <label className={styles.sidebarField}>Class<select value={beastFormOwnerId || selectedClassId} onChange={(event) => { setBeastFormOwnerId(event.target.value); setSelectedClassId(event.target.value); }}>
             {classes.map((item) => <option value={item.id} key={item.id}>{item.name || item.id}</option>)}
           </select></label>
-          {beastForms.map((item) => <button type="button" className={`${styles.classButton} ${item.key === selectedBeastFormKey ? styles.selected : ''}`} key={item.key} onClick={() => { setSelectedBeastFormKey(item.key); setSelectedClassId(item.classId); }}><strong>{item.name || 'Unnamed beast form'}</strong><span>Tier {item.tier} · {item.className || item.classId}</span></button>)}
-          {beastForms.length === 0 && <p className="muted">No beast forms added.</p>}
+          <TierGroups items={beastForms} selectedKey={selectedBeastFormKey} onSelect={(item) => { setSelectedBeastFormKey(item.key); setSelectedClassId(item.classId); setBeastFormOwnerId(item.classId); }} emptyLabel="No beast forms added." itemLabel="beast form" />
         </aside>}
         {isWeaponEditor && <aside className={styles.sidebar}>
           <div className={styles.sectionHeading}><h3>{activeWeaponGroup.label}</h3><button type="button" className={styles.smallButton} onClick={() => addWeapon(activeWeaponGroup.id)}>Add {activeWeaponGroup.label.toLowerCase().replace('weapons', 'weapon')}</button></div>
-          {activeWeaponGroup.items.map((item) => <button type="button" className={`${styles.classButton} ${item.key === selectedWeaponKey ? styles.selected : ''}`} key={item.key} onClick={() => setSelectedWeaponKey(item.key)}><strong>{item.name || 'Unnamed item'}</strong><span>Tier {item.tier}</span></button>)}
-          {activeWeaponGroup.items.length === 0 && <p className="muted">No {activeWeaponGroup.label.toLowerCase()} added.</p>}
+          <TierGroups items={activeWeaponGroup.items} selectedKey={selectedWeaponKey} onSelect={(item) => setSelectedWeaponKey(item.key)} emptyLabel={`No ${activeWeaponGroup.label.toLowerCase()} added.`} itemLabel="item" />
         </aside>}
         {editorType === 'classes' && classForm && (
           <div className={styles.editor}>
