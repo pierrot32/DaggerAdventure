@@ -26,6 +26,20 @@ export const domainCard = (id = 'new-domain-card') => ({
   text: '',
 });
 
+export const newAncestry = (id = 'new-ancestry') => ({
+  id,
+  name: 'New ancestry',
+  selection_rules: '',
+  features: [],
+});
+
+export const newCommunity = (id = 'new-community') => ({
+  id,
+  name: 'New community',
+  adjectives: [],
+  feature: feature(),
+});
+
 export const beastForm = (id = 'new-beast-form') => ({
   id,
   name: 'New beast form',
@@ -151,6 +165,28 @@ export function normalizeDomain(item) {
   return normalized;
 }
 
+export function normalizeAncestry(item) {
+  return {
+    ...newAncestry(item.id),
+    ...clone(item),
+    id: item.id || '',
+    name: item.name || '',
+    selection_rules: item.selection_rules || '',
+    features: Array.isArray(item.features) ? item.features.map((entry) => normalizeFeature(entry)) : [],
+  };
+}
+
+export function normalizeCommunity(item) {
+  return {
+    ...newCommunity(item.id),
+    ...clone(item),
+    id: item.id || '',
+    name: item.name || '',
+    adjectives: Array.isArray(item.adjectives) ? item.adjectives : [],
+    feature: normalizeFeature(item.feature || feature()),
+  };
+}
+
 function slugify(value) {
   return String(value || 'feature').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'feature';
 }
@@ -187,6 +223,8 @@ function migrateLegacyBeastFeatures(content) {
 export function normalizeBookContent(value) {
   const content = clone(value || {});
   content.classes = Array.isArray(content.classes) ? content.classes.map(normalizeClass) : [];
+  content.ancestries = Array.isArray(content.ancestries) ? content.ancestries.map(normalizeAncestry) : [];
+  content.communities = Array.isArray(content.communities) ? content.communities.map(normalizeCommunity) : [];
   content.domains = Array.isArray(content.domains) ? content.domains.map(normalizeDomain) : [];
   content.equipment = { ...(content.equipment || {}) };
   WEAPON_GROUPS.forEach(({ id }) => {

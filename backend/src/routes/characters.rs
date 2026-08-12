@@ -3,6 +3,7 @@ use axum::{
     extract::{Path, State},
 };
 use serde::Deserialize;
+use serde_json::{Value, json};
 use uuid::Uuid;
 
 use crate::{
@@ -12,7 +13,7 @@ use crate::{
         AccessLevel, Character, CreateCharacterRequest, UpdateCharacterAdvancementRequest,
         UpdateCharacterRequest, UpdateCharacterStatsRequest,
     },
-    repository::character_repo,
+    repository::{character_repo, content_repo},
     state::AppState,
     utils::validation,
 };
@@ -183,6 +184,28 @@ pub async fn advance(
             "Choose exactly two advancements for each level".to_owned(),
         ));
     }
+    let book = content_repo::find_character_creation_book(&state.db)
+        .await?
+        .ok_or_else(|| {
+            AppError::Validation("No book content is available for domain cards".to_owned())
+        })?;
+    let class_domain_ids = book
+        .content
+        .get("classes")
+        .and_then(Value::as_array)
+        .and_then(|classes| {
+            classes.iter().find(|class| {
+                class.get("id").and_then(Value::as_str) == Some(character.class_id.as_str())
+            })
+        })
+        .and_then(|class| class.get("domains"))
+        .and_then(Value::as_array)
+        .map(|domains| domains.iter().filter_map(Value::as_str).collect::<Vec<_>>())
+        .unwrap_or_default();
+    let mut domain_cards = character.domain_cards.clone();
+    let domain_cards_history = domain_cards.as_array_mut().ok_or_else(|| {
+        AppError::Validation("Character domain card history is invalid".to_owned())
+    })?;
     for choice in choices {
         let id = choice
             .get("id")
@@ -203,6 +226,39 @@ pub async fn advance(
             return Err(AppError::Validation(
                 "Unknown advancement option".to_owned(),
             ));
+        }
+        if id == "domain_card" {
+            let domain_id = choice
+                .get("domain_id")
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    AppError::Validation("Choose a domain for the domain card".to_owned())
+                })?;
+            let card_id = choice
+                .get("value")
+                .and_then(Value::as_str)
+                .ok_or_else(|| AppError::Validation("Choose a domain card".to_owned()))?;
+            if !class_domain_ids.iter().any(|item| *item == domain_id) {
+                return Err(AppError::Validation(
+                    "That domain is not available to this class".to_owned(),
+                ));
+            }
+            let selected_card = find_domain_card(&book.content, domain_id, card_id, request.level)
+                .ok_or_else(|| {
+                    AppError::Validation(
+                        "That domain card is not available at this level".to_owned(),
+                    )
+                })?;
+            let already_owned = domain_cards_history.iter().any(|card| {
+                card.get("id").and_then(Value::as_str) == Some(card_id)
+                    && card.get("domainId").and_then(Value::as_str) == Some(domain_id)
+            });
+            if already_owned {
+                return Err(AppError::Validation(
+                    "That domain card is already on this character".to_owned(),
+                ));
+            }
+            domain_cards_history.push(selected_card);
         }
     }
     let mut advancements = character.advancements.clone();
@@ -234,10 +290,42 @@ pub async fn advance(
         request.level,
         &advancements,
         &experiences,
+        &domain_cards,
     )
     .await?
     .map(Json)
     .ok_or_else(|| AppError::NotFound("Character changed before it could be advanced".to_owned()))
+}
+
+fn find_domain_card(book: &Value, domain_id: &str, card_id: &str, max_level: i32) -> Option<Value> {
+    let domain = book
+        .get("domains")
+        .and_then(Value::as_array)?
+        .iter()
+        .find(|domain| domain.get("id").and_then(Value::as_str) == Some(domain_id))?;
+    for level in 1..=max_level {
+        let key = format!("level_{level}_cards");
+        let Some(cards) = domain.get(&key).and_then(Value::as_array) else {
+            continue;
+        };
+        if let Some(card) = cards
+            .iter()
+            .find(|card| card.get("id").and_then(Value::as_str) == Some(card_id))
+        {
+            let mut canonical = card.as_object()?.clone();
+            canonical.insert("domainId".to_owned(), json!(domain_id));
+            canonical.insert(
+                "domain".to_owned(),
+                domain
+                    .get("name")
+                    .cloned()
+                    .unwrap_or(Value::String(domain_id.to_owned())),
+            );
+            canonical.insert("level".to_owned(), json!(level));
+            return Some(Value::Object(canonical));
+        }
+    }
+    None
 }
 
 pub async fn link_adventure(

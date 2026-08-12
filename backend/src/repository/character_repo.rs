@@ -153,15 +153,17 @@ pub async fn advance(
     next_level: i32,
     advancements: &serde_json::Value,
     experiences: &serde_json::Value,
+    domain_cards: &serde_json::Value,
 ) -> Result<Option<Character>, sqlx::Error> {
     let query = format!(
-        "UPDATE characters SET level = $1, advancements = $2, experiences = $3, updated_at = now()
-         WHERE id = $4 AND user_id = $5 AND level = $6 RETURNING {CHARACTER_FIELDS}"
+        "UPDATE characters SET level = $1, advancements = $2, experiences = $3, domain_cards = $4, updated_at = now()
+         WHERE id = $5 AND user_id = $6 AND level = $7 RETURNING {CHARACTER_FIELDS}"
     );
     sqlx::query_as::<_, Character>(&query)
         .bind(next_level)
         .bind(advancements)
         .bind(experiences)
+        .bind(domain_cards)
         .bind(character_id)
         .bind(user_id)
         .bind(current_level)
