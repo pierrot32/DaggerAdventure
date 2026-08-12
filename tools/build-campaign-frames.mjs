@@ -46,6 +46,15 @@ function readSections(text) {
     }
     if (current) sections[current].push(line);
   }
+  if (!sections['THE PITCH']?.some((line) => line.trim())) {
+    const pitchMarker = lines.findIndex((line) => ['---', '--'].includes(line.trim()));
+    const pitchStart = pitchMarker >= 0 ? pitchMarker + 1 : 0;
+    const pitchEnd = lines.findIndex((line, index) => (
+      index > pitchStart && topSections.includes(line.trim()) && line.trim() !== 'THE PITCH'
+    ));
+    const pitch = lines.slice(pitchStart, pitchEnd >= 0 ? pitchEnd : lines.length).join('\n').trim();
+    if (pitch) sections['THE PITCH'] = [pitch];
+  }
   return Object.fromEntries(Object.entries(sections).map(([key, value]) => [key, value.join('\n').trim()]));
 }
 

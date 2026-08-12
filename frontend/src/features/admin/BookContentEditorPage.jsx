@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Button from '../../components/Button/Button';
 import { exportBooks, listBooks, updateBookContent } from './adminApi';
+import { FrameDraftForm } from '../adventures/CreateAdventurePage';
+import { contentToForm, draftToContent, emptyFrame } from '../frames/frameDraft';
 import {
   BEAST_FEATURES_KEY, DOMAIN_LEVELS, WEAPON_GROUPS, beastForm, beastFormKey, clone, domainCard, domainCardKey,
   feature, flattenBeastForms, flattenDomainCards, flattenWeapons, newAncestry, newClass, newCommunity,
@@ -224,6 +226,9 @@ export default function BookContentEditorPage() {
   const [weaponOriginalId, setWeaponOriginalId] = useState('');
   const [weaponOriginalGroup, setWeaponOriginalGroup] = useState('');
   const [weaponForm, setWeaponForm] = useState(null);
+  const [selectedFrameId, setSelectedFrameId] = useState('');
+  const [frameOriginalId, setFrameOriginalId] = useState('');
+  const [frameForm, setFrameForm] = useState(null);
   const [connections, setConnections] = useState('');
   const [state, setState] = useState({ loading: true, saving: false, error: '', message: '' });
 
@@ -241,12 +246,14 @@ export default function BookContentEditorPage() {
     const nextCommunity = nextContent.communities[0];
     const nextDomain = nextContent.domains[0];
     const nextDomainCard = flattenDomainCards(nextContent.domains)[0];
+    const nextFrame = nextContent.frames?.[0];
     setSelectedBeastFormKey(nextBeastForm?.key || '');
     setSelectedWeaponKey(nextWeapon?.key || '');
     setSelectedAncestryId(nextAncestry?.id || '');
     setSelectedCommunityId(nextCommunity?.id || '');
     setSelectedDomainId(nextDomain?.id || '');
     setSelectedDomainCardKey(nextDomainCard?.key || '');
+    setSelectedFrameId(nextFrame?.id || '');
     setEditorType('classes');
     setConnections(nextContent.character_creation?.connections_prompt || '');
     setState((current) => ({ ...current, error: '', message: '' }));
@@ -298,6 +305,12 @@ export default function BookContentEditorPage() {
   }, [content, selectedDomainId]);
 
   useEffect(() => {
+    const selected = (content?.frames || []).find((item) => item.id === selectedFrameId);
+    setFrameOriginalId(selected?.id || '');
+    setFrameForm(selected ? contentToForm(selected) : null);
+  }, [content, selectedFrameId]);
+
+  useEffect(() => {
     const selected = flattenDomainCards(content?.domains).find((item) => item.key === selectedDomainCardKey);
     setDomainCardOriginalId(selected?.id || '');
     setDomainCardOriginalLevel(selected?.level || 1);
@@ -311,6 +324,7 @@ export default function BookContentEditorPage() {
   const ancestries = content?.ancestries || [];
   const communities = content?.communities || [];
   const domains = content?.domains || [];
+  const frames = content?.frames || [];
   const domainCards = flattenDomainCards(domains).filter((item) => item.domainId === selectedDomainId);
   const weapons = flattenWeapons(content?.equipment);
   const weaponGroups = WEAPON_GROUPS.map((group) => ({
@@ -467,6 +481,21 @@ export default function BookContentEditorPage() {
     setSelectedDomainCardKey('');
   };
 
+  const addFrame = () => {
+    const id = `new-frame-${frames.length + 1}`;
+    const nextFrame = { ...emptyFrame(), id, name: 'New campaign frame' };
+    setContent((current) => ({ ...current, frames: [...(current.frames || []), nextFrame] }));
+    setSelectedFrameId(id);
+    setEditorType('frames');
+  };
+
+  const removeFrame = () => {
+    if (!frameForm || !window.confirm(`Remove ${frameForm.name || frameForm.id}?`)) return;
+    const remaining = frames.filter((item) => item.id !== frameOriginalId);
+    setContent((current) => ({ ...current, frames: current.frames.filter((item) => item.id !== frameOriginalId) }));
+    setSelectedFrameId(remaining[0]?.id || '');
+  };
+
   const save = async () => {
     if (!content) return;
     if (editorType === 'classes' && (!classForm?.id || !classForm.name.trim())) {
@@ -495,6 +524,10 @@ export default function BookContentEditorPage() {
     }
     if (isWeaponEditor && (!weaponForm?.id || !weaponForm.name.trim())) {
       setState((current) => ({ ...current, error: 'A weapon or armor item needs an ID and name.', message: '' }));
+      return;
+    }
+    if (editorType === 'frames' && (!frameForm?.id || !frameForm.name.trim() || !frameForm.pitch.trim() || !frameForm.overview.trim())) {
+      setState((current) => ({ ...current, error: 'A campaign frame needs an ID, name, pitch, and overview.', message: '' }));
       return;
     }
     const nextContent = clone(content);
@@ -539,6 +572,10 @@ export default function BookContentEditorPage() {
           return nextDomain;
         });
       }
+    } else if (editorType === 'frames') {
+      nextContent.frames = nextContent.frames.map((item) => item.id === frameOriginalId
+        ? { ...item, ...draftToContent(frameForm) }
+        : item);
     }
     nextContent.character_creation = { ...(nextContent.character_creation || {}), connections_prompt: connections };
     setState({ loading: false, saving: true, error: '', message: '' });
@@ -562,6 +599,8 @@ export default function BookContentEditorPage() {
       } else if (editorType === 'domains') {
         setSelectedDomainId(domainForm.id);
         setSelectedDomainCardKey(domainCardForm ? domainCardKey(domainForm.id, Number(domainCardForm.level) || domainCardOriginalLevel, domainCardForm.id) : '');
+      } else if (editorType === 'frames') {
+        setSelectedFrameId(frameForm.id);
       }
       setState({ loading: false, saving: false, error: '', message: 'Book content saved.' });
     } catch (error) {
@@ -585,12 +624,12 @@ export default function BookContentEditorPage() {
   };
 
   if (state.loading) return <p className="muted">Loading book content...</p>;
-  if (!selectedBook || !content) return <section className={styles.notice}><p className="eyebrow">CONTENT LIBRARY</p><h2>No books imported</h2><p className="muted">Import a book before editing its classes.</p></section>;
+  if (!selectedBook || !content) return <section className={styles.notice}><p className="eyebrow">CONTENT LIBRARY</p><h2>No books imported</h2><p className="muted">Import a book before editing its content.</p></section>;
 
   return (
     <section className={styles.page}>
       <header className={styles.header}>
-        <div><p className="eyebrow">ADMINISTRATION / CONTENT</p><h2>Book content studio</h2><p className="muted">Edit stored classes, equipment, domains, and cards, then save the complete book.</p></div>
+        <div><p className="eyebrow">ADMINISTRATION / CONTENT</p><h2>Book content studio</h2><p className="muted">Edit stored classes, equipment, domains, frames, and cards, then save the complete book.</p></div>
         <Button type="button" variant="text" onClick={download}>Export all books</Button>
       </header>
       <div className={styles.toolbar}>
@@ -603,6 +642,7 @@ export default function BookContentEditorPage() {
         <button type="button" className={editorType === 'ancestries' ? styles.activeTab : ''} onClick={() => setEditorType('ancestries')}>Ancestries</button>
         <button type="button" className={editorType === 'communities' ? styles.activeTab : ''} onClick={() => setEditorType('communities')}>Communities</button>
         <button type="button" className={editorType === 'domains' ? styles.activeTab : ''} onClick={() => setEditorType('domains')}>Domains</button>
+        <button type="button" className={editorType === 'frames' ? styles.activeTab : ''} onClick={() => setEditorType('frames')}>Frames</button>
         {weaponGroups.map((group) => <button type="button" className={editorType === group.id ? styles.activeTab : ''} onClick={() => openWeaponGroup(group)} key={group.id}>{group.label}</button>)}
         <Link to="/admin/content/books/beast-features" className={styles.featureLink}>Manage shared beast features</Link>
       </div>
@@ -637,6 +677,11 @@ export default function BookContentEditorPage() {
             <div className={styles.sectionHeading}><h3>Cards</h3><button type="button" className={styles.smallButton} onClick={addDomainCard}>Add card</button></div>
             <LevelGroups items={domainCards} selectedKey={selectedDomainCardKey} onSelect={(item) => setSelectedDomainCardKey(item.key)} emptyLabel="No cards at this level." />
           </>}
+        </aside>}
+        {editorType === 'frames' && <aside className={styles.sidebar}>
+          <div className={styles.sectionHeading}><h3>Campaign frames</h3><button type="button" className={styles.smallButton} onClick={addFrame}>Add frame</button></div>
+          {frames.map((item) => <button type="button" className={`${styles.classButton} ${item.id === selectedFrameId ? styles.selected : ''}`} key={item.id} onClick={() => setSelectedFrameId(item.id)}><strong>{item.name || 'Unnamed frame'}</strong><span>{item.id}</span></button>)}
+          {frames.length === 0 && <p className="muted">No campaign frames added.</p>}
         </aside>}
         {editorType === 'classes' && classForm && (
           <div className={styles.editor}>
@@ -696,6 +741,16 @@ export default function BookContentEditorPage() {
             {domainCardForm ? <DomainCardEditor card={domainCardForm} onChange={updateDomainCard} onRemove={removeDomainCard} /> : <p className="muted">Select a level in the sidebar to edit a domain card, or add a new card.</p>}
             {(state.error || state.message) && <p className={state.error ? styles.error : styles.message} role="status">{state.error || state.message}</p>}
             <Button type="button" disabled={state.saving} onClick={save}>{state.saving ? 'Saving book...' : 'Save book content'}</Button>
+          </div>
+        )}
+        {editorType === 'frames' && frameForm && (
+          <div className={styles.editor}>
+            <div className={styles.editorHeading}><div><p className="eyebrow">CAMPAIGN FRAME</p><h3>{frameForm.name || 'Unnamed frame'}</h3></div><button type="button" className={styles.removeButton} onClick={removeFrame}>Remove frame</button></div>
+            <div className={styles.frameForm}>
+              <FrameDraftForm form={frameForm} update={(field, value) => setFrameForm((current) => ({ ...current, [field]: value }))} />
+            </div>
+            {(state.error || state.message) && <p className={state.error ? styles.error : styles.message} role="status">{state.error || state.message}</p>}
+            <Button type="button" disabled={state.saving} onClick={save}>{state.saving ? 'Saving book...' : 'Save frame'}</Button>
           </div>
         )}
       </div>
