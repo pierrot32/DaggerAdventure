@@ -4,6 +4,7 @@ pub mod ai;
 pub mod auth;
 pub mod characters;
 pub mod content;
+pub mod frames;
 pub mod notifications;
 pub mod users;
 
@@ -72,6 +73,15 @@ pub fn router(state: AppState) -> Router {
             "/api/ai/character-image",
             post(ai::generate_character_image),
         )
+        .route("/api/frames/builtins", get(frames::builtins))
+        .route(
+            "/api/frames/library",
+            get(frames::list_library).post(frames::create_library),
+        )
+        .route(
+            "/api/frames/library/:frame_id",
+            axum::routing::put(frames::update_library).delete(frames::delete_library),
+        )
         .route(
             "/api/adventures",
             get(adventures::list).post(adventures::create),
@@ -88,6 +98,16 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/adventures/:adventure_id/fear",
             axum::routing::patch(adventures::update_fear),
+        )
+        .route(
+            "/api/adventures/:adventure_id/frame",
+            get(frames::get_adventure_frame)
+                .post(frames::attach_adventure_frame)
+                .put(frames::update_adventure_frame),
+        )
+        .route(
+            "/api/adventures/:adventure_id/character-context",
+            get(frames::character_context),
         )
         .route("/api/invites", get(adventures::my_invites))
         .route(
