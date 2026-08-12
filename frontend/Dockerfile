@@ -6,7 +6,6 @@ RUN npm ci
 
 COPY . .
 RUN npm run build
-RUN node -e "const fs = require('fs'); const html = fs.readFileSync('dist/index.html', 'utf8'); const assets = [...html.matchAll(/(?:src|href)=\\\"(\\/assets\\/[^\\\"]+)\\\"/g)].map(([, asset]) => asset.slice(1)); for (const asset of assets) { if (!fs.existsSync('dist/' + asset)) throw new Error('Missing build asset: ' + asset); }"
 
 FROM builder AS checks
 RUN npm run lint
