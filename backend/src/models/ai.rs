@@ -20,6 +20,8 @@ pub struct GenerateCharacterRequest {
     pub fields: Vec<String>,
     pub options: Value,
     #[serde(default)]
+    pub adventure_id: Option<Uuid>,
+    #[serde(default)]
     pub expand_current: bool,
 }
 

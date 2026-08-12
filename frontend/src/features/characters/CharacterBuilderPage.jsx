@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Button from '../../components/Button/Button';
+import { getAdventureCharacterContext } from '../frames/frameApi';
 import { createCharacter, generateCharacter, getCharacterCreationBook } from './characterApi';
 import styles from './CharacterBuilderPage.module.css';
 
@@ -76,14 +77,34 @@ function normalizeFamilyMembers(members) {
   }));
 }
 
+function normalizedText(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function frameGuidance(frameContent, kind, option) {
+  if (!frameContent || !option) return [];
+  const entries = frameContent.modifications?.[kind] || [];
+  const optionName = normalizedText(option.name);
+  const matching = entries.filter((entry) => {
+    const title = normalizedText(entry.title);
+    return title.includes(optionName) || optionName.split(' ').some((word) => word.length > 3 && title.includes(word));
+  });
+  if (matching.length > 0) return matching;
+  const broad = entries.filter((entry) => /\ball\b|\bavailable\b|\bwithin\b/.test(normalizedText(entry.title)));
+  return broad.length > 0 ? broad : entries;
+}
+
 export default function CharacterBuilderPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const adventureId = searchParams.get('adventure') || '';
   const [book, setBook] = useState(null);
   const [step, setStep] = useState(0);
   const [form, setForm] = useState(emptyForm);
   const [locks, setLocks] = useState(emptyLocks);
   const [state, setState] = useState({ loading: true, saving: false, error: '', success: '' });
   const [aiState, setAiState] = useState({ loading: false, error: '' });
+  const [frameState, setFrameState] = useState({ loading: Boolean(adventureId), error: '', content: null });
 
   useEffect(() => {
     getCharacterCreationBook()
@@ -93,6 +114,17 @@ export default function CharacterBuilderPage() {
       })
       .catch((error) => setState({ loading: false, saving: false, error: error.message, success: '' }));
   }, []);
+
+  useEffect(() => {
+    if (!adventureId) {
+      setFrameState({ loading: false, error: '', content: null });
+      return;
+    }
+    setFrameState({ loading: true, error: '', content: null });
+    getAdventureCharacterContext(adventureId)
+      .then((response) => setFrameState({ loading: false, error: '', content: response.content }))
+      .catch((error) => setFrameState({ loading: false, error: error.message, content: null }));
+  }, [adventureId]);
 
   const classes = book?.classes || [];
   const ancestries = book?.ancestries || [];
@@ -193,7 +225,7 @@ export default function CharacterBuilderPage() {
     if (requestedFields.length === 0) return;
     setAiState({ loading: true, error: '' });
     try {
-      const response = await generateCharacter({ values: generationValues, locked_fields: generationFields.filter((field) => locks[field]), fields: requestedFields, options: generationOptions, expand_current: expandCurrent });
+      const response = await generateCharacter({ adventure_id: adventureId || undefined, values: generationValues, locked_fields: generationFields.filter((field) => locks[field]), fields: requestedFields, options: generationOptions, expand_current: expandCurrent });
       applyGeneratedValues(response.values);
       setAiState({ loading: false, error: '' });
     } catch (error) {
@@ -227,6 +259,7 @@ export default function CharacterBuilderPage() {
     setState({ loading: false, saving: true, error: '', success: '' });
     try {
       const createdCharacter = await createCharacter({
+        adventure_id: adventureId || undefined,
         // Trackers count marked boxes, so a new character starts unmarked with 2 Hope.
         stats: {
           hit_points: { current: selectedClass?.hit_points || 0, max: selectedClass?.hit_points || 0 },
@@ -265,6 +298,7 @@ export default function CharacterBuilderPage() {
         <div><p className="eyebrow">DAGGERHEART · LEVEL 1</p><h2>Create your character</h2></div>
         <Link to="/characters" className={styles.back}>Back to vault</Link>
       </header>
+      {adventureId && <FrameContextBanner frameState={frameState} />}
       <div className={styles.layout}>
         <aside className={styles.sidebar}>
           {stepDetails.map((item, index) => (
@@ -276,7 +310,7 @@ export default function CharacterBuilderPage() {
         <div className={styles.content}>
           <div className={styles.stepTitle}><span>STEP {step + 1} OF {stepIds.length}</span><h3>{stepDetails[step].title}</h3><p>{stepDetails[step].description}</p></div>
           {['identity', 'appearance', 'background', 'experiences'].includes(stepIds[step]) && <GenerationToolbar loading={aiState.loading} locks={locks} fields={activeGenerationFields} onGenerate={() => generateFields(activeGenerationFields)} onToggleAll={() => toggleAllLocks(activeGenerationFields)} />}
-          {stepIds[step] === 'identity' && <Identity classes={classes} ancestries={ancestries} communities={communities} selectedClass={selectedClass} selectedAncestry={selectedAncestry} selectedFirstAncestry={selectedFirstAncestry} selectedSecondAncestry={selectedSecondAncestry} selectedCommunity={selectedCommunity} subclasses={subclasses} form={form} setField={setField} setClass={setClass} setAncestry={setAncestry} setFirstAncestry={setFirstAncestry} setSubclass={setSubclass} locks={locks} toggleLock={toggleLock} generate={generateFields} />}
+          {stepIds[step] === 'identity' && <Identity classes={classes} ancestries={ancestries} communities={communities} frameContent={frameState.content} selectedClass={selectedClass} selectedAncestry={selectedAncestry} selectedFirstAncestry={selectedFirstAncestry} selectedSecondAncestry={selectedSecondAncestry} selectedCommunity={selectedCommunity} subclasses={subclasses} form={form} setField={setField} setClass={setClass} setAncestry={setAncestry} setFirstAncestry={setFirstAncestry} setSubclass={setSubclass} locks={locks} toggleLock={toggleLock} generate={generateFields} />}
           {stepIds[step] === 'appearance' && <Appearance form={form} setField={setField} locks={locks} toggleLock={toggleLock} generate={generateFields} expand={expandField} />}
           {stepIds[step] === 'traits' && <TraitsStep form={form} updateTrait={updateTrait} selectedClass={selectedClass} selectedSubclass={selectedSubclass} traitProposals={traitProposals} />}
           {stepIds[step] === 'equipment' && <EquipmentStep equipment={book.equipment} form={form} setField={setField} />}
@@ -293,6 +327,13 @@ export default function CharacterBuilderPage() {
       </div>
     </section>
   );
+}
+
+function FrameContextBanner({ frameState }) {
+  if (frameState.loading) return <div className={styles.frameBanner}><strong>Loading campaign frame...</strong></div>;
+  if (frameState.error) return <div className={`${styles.frameBanner} ${styles.frameError}`}><strong>Campaign frame unavailable</strong><span>{frameState.error}</span></div>;
+  if (!frameState.content) return null;
+  return <div className={styles.frameBanner}><div><p className="eyebrow">CAMPAIGN FRAME</p><strong>{frameState.content.name}</strong></div><p>{frameState.content.pitch}</p></div>;
 }
 
 function GenerationToolbar({ loading, locks, fields, onGenerate, onToggleAll }) {
@@ -313,7 +354,7 @@ function FieldLabel({ field, label, locked, toggleLock, generate, expand, expand
   return <label className={className}><span className={styles.fieldHeading}>{label}<FieldActions field={field} locked={locked} toggleLock={toggleLock} generate={generate} expand={expand} expandDisabled={expandDisabled} /></span>{children}</label>;
 }
 
-function Identity({ classes, ancestries, communities, selectedClass, selectedAncestry, selectedFirstAncestry, selectedSecondAncestry, selectedCommunity, subclasses, form, setField, setClass, setAncestry, setFirstAncestry, setSubclass, locks, toggleLock, generate }) {
+function Identity({ classes, ancestries, communities, frameContent, selectedClass, selectedAncestry, selectedFirstAncestry, selectedSecondAncestry, selectedCommunity, subclasses, form, setField, setClass, setAncestry, setFirstAncestry, setSubclass, locks, toggleLock, generate }) {
   const firstLineageFeature = selectedFirstAncestry?.features?.[0];
   const secondLineageFeature = selectedSecondAncestry?.features?.[1] || selectedSecondAncestry?.features?.[0];
   return <div className={styles.formGrid}>
@@ -331,7 +372,16 @@ function Identity({ classes, ancestries, communities, selectedClass, selectedAnc
     {selectedAncestry?.id === 'mixed-ancestry' && <div className={styles.detailPanel}><strong>{selectedAncestry.name} lineage</strong><p>{selectedAncestry.selection_rules}</p>{firstLineageFeature && <p><b>{selectedFirstAncestry.name} · {firstLineageFeature.name}.</b> {firstLineageFeature.text}</p>}{secondLineageFeature && <p><b>{selectedSecondAncestry.name} · {secondLineageFeature.name}.</b> {secondLineageFeature.text}</p>}</div>}
     {selectedAncestry && selectedAncestry.id !== 'mixed-ancestry' && <div className={styles.detailPanel}><strong>{selectedAncestry.name} features</strong>{selectedAncestry.features.map((feature, index) => <p key={`${feature.name}-${index}`}><b>{feature.name}.</b> {feature.text}</p>)}</div>}
     {selectedCommunity && <div className={styles.detailPanel}><strong>{selectedCommunity.name} · {selectedCommunity.feature.name}</strong><p>{selectedCommunity.feature.text}</p><p className={styles.adjectives}>{selectedCommunity.adjectives.join(' · ')}</p></div>}
+    <FrameHint kind="classes" option={selectedClass} frameContent={frameContent} />
+    {selectedAncestry?.id === 'mixed-ancestry' ? <><FrameHint kind="ancestries" option={selectedFirstAncestry} frameContent={frameContent} /><FrameHint kind="ancestries" option={selectedSecondAncestry} frameContent={frameContent} /></> : <FrameHint kind="ancestries" option={selectedAncestry} frameContent={frameContent} />}
+    <FrameHint kind="communities" option={selectedCommunity} frameContent={frameContent} />
   </div>;
+}
+
+function FrameHint({ kind, option, frameContent }) {
+  const entries = frameGuidance(frameContent, kind, option);
+  if (entries.length === 0) return null;
+  return <div className={styles.frameHint}><strong>Frame guidance for {option.name}</strong>{entries.map((entry) => <div key={entry.id}><b>{entry.title}</b><p>{entry.description}</p>{entry.questions?.map((question) => <small key={question}>{question}</small>)}</div>)}</div>;
 }
 
 function Appearance({ form, setField, locks, toggleLock, generate, expand }) {

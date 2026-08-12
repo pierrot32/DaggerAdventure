@@ -8,6 +8,7 @@ use crate::{
     middleware::{access_guard::require_at_least, auth_guard::AuthUser},
     models::{AccessLevel, ImportBookRequest, SourceBook, UpdateBookContentRequest},
     repository::content_repo,
+    routes::frames,
     state::AppState,
 };
 
@@ -125,6 +126,24 @@ fn validate_book_content(content: &serde_json::Value) -> Result<(), AppError> {
             }
         }
     }
+    if let Some(frame_values) = content.get("frames") {
+        let frames = frame_values.as_array().ok_or_else(|| {
+            AppError::Validation("The book frames field must be an array".to_owned())
+        })?;
+        let mut ids = std::collections::HashSet::new();
+        for frame in frames {
+            let id = frame
+                .get("id")
+                .and_then(serde_json::Value::as_str)
+                .ok_or_else(|| {
+                    AppError::Validation("Each frame needs a non-empty id".to_owned())
+                })?;
+            if !ids.insert(id.to_owned()) {
+                return Err(AppError::Validation(format!("Duplicate frame id {id}")));
+            }
+            frames::validate_frame_content(frame)?;
+        }
+    }
     Ok(())
 }
 
@@ -198,5 +217,41 @@ mod tests {
                 "expected validation to reject {name}"
             );
         }
+    }
+
+    #[test]
+    fn accepts_structured_campaign_frames() {
+        let mut content = valid_book();
+        content["frames"] = serde_json::json!([{
+            "id": "witherwild",
+            "name": "The Witherwild",
+            "pitch": "An overgrowth spreads.",
+            "overview": "Fanewick is in danger.",
+            "complexity_rating": 4,
+            "modifications": {
+                "communities": [{"id": "loreborne", "title": "Loreborne", "description": "Knowledge matters."}],
+                "ancestries": [],
+                "classes": []
+            },
+            "player_principles": [],
+            "gm_principles": [],
+            "distinctions": [],
+            "campaign_mechanics": [],
+            "session_zero_questions": ["What do you protect?"]
+        }]);
+        assert!(validate_book_content(&content).is_ok());
+    }
+
+    #[test]
+    fn rejects_duplicate_campaign_frame_ids() {
+        let mut content = valid_book();
+        let frame = serde_json::json!({
+            "id": "same",
+            "name": "Same",
+            "pitch": "Pitch",
+            "overview": "Overview"
+        });
+        content["frames"] = serde_json::json!([frame.clone(), frame]);
+        assert!(validate_book_content(&content).is_err());
     }
 }

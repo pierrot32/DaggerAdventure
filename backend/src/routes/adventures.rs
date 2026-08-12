@@ -47,12 +47,32 @@ pub async fn create(
         .as_deref()
         .map(str::trim)
         .filter(|value| !value.is_empty());
+    let frame_source = request.frame_source;
     if description.is_some_and(|value| value.chars().count() > 2000) {
         return Err(AppError::Validation(
             "Description must be 2000 characters or fewer".to_owned(),
         ));
     }
     let adventure = adventure_repo::create(&state.db, user.id, &name, description).await?;
+    if let Some(frame_source) = frame_source {
+        let (source_type, source_id, content) = crate::routes::frames::resolve_source(
+            &state,
+            &user,
+            &frame_source.source_type,
+            frame_source.source_id.as_deref(),
+            frame_source.content.as_ref(),
+        )
+        .await?;
+        crate::repository::frame_repo::attach(
+            &state.db,
+            &user,
+            adventure.id,
+            &source_type,
+            source_id.as_deref(),
+            &content,
+        )
+        .await?;
+    }
     Ok((axum::http::StatusCode::CREATED, Json(adventure)))
 }
 

@@ -3,6 +3,11 @@
 .header h2 { margin-top: var(--space-2); }
 .back { color: var(--color-muted-inverse); font-size: 14px; text-decoration: none; }
 .back:hover { color: var(--color-accent); }
+.frameBanner { display: grid; grid-template-columns: minmax(170px, .55fr) minmax(0, 1.45fr); gap: var(--space-5); margin-bottom: var(--space-6); padding: var(--space-4) var(--space-5); border-left: 3px solid var(--color-accent); background: rgba(244, 238, 228, .08); }
+.frameBanner strong { display: block; color: var(--color-text-inverse); }
+.frameBanner p:last-child { margin: 0; color: var(--color-muted-inverse); line-height: 1.55; }
+.frameError { border-left-color: var(--color-danger); }
+.frameError span { display: block; margin-top: var(--space-2); color: var(--color-danger); font-size: 13px; }
 .layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: var(--space-7); }
 .sidebar { display: flex; flex-direction: column; gap: 2px; }
 .sidebar button { display: flex; align-items: center; gap: var(--space-3); padding: 12px 10px; border: 0; border-left: 2px solid transparent; background: transparent; color: var(--color-muted-inverse); text-align: left; font-size: 13px; }
@@ -33,6 +38,12 @@
 .detailPanel strong { display: block; color: var(--color-text); }
 .detailPanel span { display: block; margin-top: var(--space-2); color: var(--color-accent-strong); font-size: 11px; font-weight: 700; letter-spacing: 1px; }
 .detailPanel p { margin-top: var(--space-3); color: var(--color-muted); font-size: 14px; line-height: 1.5; }
+.frameHint { grid-column: 1 / -1; display: grid; gap: var(--space-3); padding: var(--space-4); border: 1px solid rgba(180, 119, 63, .35); background: rgba(180, 119, 63, .08); }
+.frameHint > strong { color: var(--color-accent-strong); }
+.frameHint > div { padding-left: var(--space-3); border-left: 2px solid var(--color-accent); }
+.frameHint b { color: var(--color-text); font-size: 13px; }
+.frameHint p { margin: var(--space-1) 0 0; color: var(--color-muted); font-size: 13px; line-height: 1.5; }
+.frameHint small { display: block; margin-top: var(--space-2); color: var(--color-muted); font-size: 12px; }
 .statRow { display: flex; flex-wrap: wrap; gap: var(--space-5); margin-top: var(--space-4); }
 .statRow span { color: var(--color-muted); font-size: 12px; text-transform: uppercase; }
 .statRow b { display: block; margin-top: 3px; color: var(--color-text); font-size: 18px; }
@@ -79,5 +90,6 @@
   .familyRow { grid-template-columns: 1fr; }
   .sidebar { grid-template-columns: repeat(2, 1fr); }
   .aiToolbar { align-items: flex-start; flex-direction: column; }
+  .frameBanner { grid-template-columns: 1fr; }
   .fieldActions { flex-wrap: wrap; justify-content: flex-end; }
 }

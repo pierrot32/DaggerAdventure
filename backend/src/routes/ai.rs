@@ -10,7 +10,7 @@ use crate::{
         Character, GenerateCharacterRequest, GenerateCharacterResponse, GenerateRequest,
         GenerateResponse,
     },
-    repository::{ai_repo, character_repo},
+    repository::{ai_repo, character_repo, frame_repo},
     services::openai_service,
     state::AppState,
 };
@@ -131,20 +131,32 @@ pub async fn generate_character(
     } else {
         json!({})
     };
-
+    let frame_context = if let Some(adventure_id) = request.adventure_id {
+        let frame = frame_repo::find_for_user(&state.db, &user, adventure_id)
+            .await?
+            .ok_or_else(|| {
+                AppError::Forbidden(
+                    "You must belong to an adventure with an attached frame".to_owned(),
+                )
+            })?;
+        crate::routes::frames::filter_content(&frame.content, &frame.selections)
+    } else {
+        Value::Null
+    };
     let prompt_instruction = if request.expand_current {
         "Expand the current value for the requested long description field. Preserve its core facts, voice, and meaning, but add concrete sensory, visual, behavioral, and story details. Return one polished paragraph and do not invent unrelated character changes."
     } else {
         "Keep generated text concise and distinct."
     };
     let prompt = format!(
-        "Return ONLY a JSON object with exactly these unlocked character fields: {}. Do not return any other keys. Keep locked values unchanged and do not generate them. For choice fields, use an id exactly from the allowed choices. {}\nUnlocked fields: {}\nLocked values: {}\nCurrent character context: {}\nAllowed choices: {}",
+        "Return ONLY a JSON object with exactly these unlocked character fields: {}. Do not return any other keys. Keep locked values unchanged and do not generate them. For choice fields, use an id exactly from the allowed choices. {}\nUnlocked fields: {}\nLocked values: {}\nCurrent character context: {}\nAllowed choices: {}\nCampaign frame context: {}",
         serde_json::to_string(&requested_fields).unwrap_or_default(),
         prompt_instruction,
         requested_fields.join(", "),
         serde_json::to_string(&locked_values).unwrap_or_default(),
         serde_json::to_string(&context_values).unwrap_or_default(),
         serde_json::to_string(&options).unwrap_or_default(),
+        serde_json::to_string(&frame_context).unwrap_or_default(),
     );
     let raw_response = openai_service::generate_with_system_prompt(
         &state.config,

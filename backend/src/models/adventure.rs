@@ -6,6 +6,8 @@ use uuid::Uuid;
 pub struct CreateAdventureRequest {
     pub name: String,
     pub description: Option<String>,
+    #[serde(default)]
+    pub frame_source: Option<super::AttachAdventureFrameRequest>,
 }
 
 #[derive(Debug, Deserialize)]
