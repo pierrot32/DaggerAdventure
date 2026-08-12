@@ -42,7 +42,7 @@ const familyRelations = [
 
 const emptyForm = {
   name: '', pronouns: '', description: '', size: '', height: '', weight: '', eyeColor: '', hairColor: '', skinColor: '', lookDescription: '',
-  classId: '', subclassId: '', ancestryId: '', secondaryAncestryId: '', communityId: '',
+  classId: '', subclassId: '', ancestryId: '', firstAncestryId: '', secondaryAncestryId: '', communityId: '',
   traits: Object.fromEntries(traitIds.map((trait) => [trait, ''])),
   primaryWeapon: '', secondaryWeapon: '', armor: '', potion: 'minor-health-potion',
   experiences: ['', ''], backgroundStory: '', backgroundNotes: '', familyMembers: [], background: '', connections: '', domainCards: [],
@@ -100,6 +100,8 @@ export default function CharacterBuilderPage() {
   const traitProposals = book?.character_creation?.trait_proposals || {};
   const selectedClass = classes.find((item) => item.id === form.classId);
   const selectedAncestry = ancestries.find((item) => item.id === form.ancestryId);
+  const selectedFirstAncestry = ancestries.find((item) => item.id === form.firstAncestryId);
+  const selectedSecondAncestry = ancestries.find((item) => item.id === form.secondaryAncestryId);
   const selectedCommunity = communities.find((item) => item.id === form.communityId);
   const subclasses = selectedClass?.subclasses || [];
   const selectedSubclass = subclasses.find((item) => item.id === form.subclassId);
@@ -119,6 +121,17 @@ export default function CharacterBuilderPage() {
       domainCards: [],
     }));
   };
+  const setAncestry = (ancestryId) => setForm((current) => ({
+    ...current,
+    ancestryId,
+    firstAncestryId: ancestryId === 'mixed-ancestry' ? current.firstAncestryId : '',
+    secondaryAncestryId: ancestryId === 'mixed-ancestry' ? current.secondaryAncestryId : '',
+  }));
+  const setFirstAncestry = (firstAncestryId) => setForm((current) => ({
+    ...current,
+    firstAncestryId,
+    secondaryAncestryId: current.secondaryAncestryId === firstAncestryId ? '' : current.secondaryAncestryId,
+  }));
   const setSubclass = (subclassId) => setForm((current) => ({
     ...current,
     subclassId,
@@ -169,6 +182,10 @@ export default function CharacterBuilderPage() {
       const nextSubclass = nextClass?.subclasses.find((item) => item.id === next.subclassId);
       next.traits = proposedTraitsFor(nextClass, nextSubclass, traitProposals);
     }
+    if (next.ancestryId !== 'mixed-ancestry') {
+      next.firstAncestryId = '';
+      next.secondaryAncestryId = '';
+    }
     return next;
   });
   const generateFields = async (fields, expandCurrent = false) => {
@@ -197,7 +214,7 @@ export default function CharacterBuilderPage() {
 
   const selectedCards = availableCards.filter((card) => form.domainCards.includes(card.id));
   const canContinue = () => {
-    if (stepIds[step] === 'identity') return form.name.trim() && form.pronouns.trim() && form.classId && form.subclassId && form.ancestryId && form.communityId && (form.ancestryId !== 'mixed-ancestry' || form.secondaryAncestryId);
+    if (stepIds[step] === 'identity') return form.name.trim() && form.pronouns.trim() && form.classId && form.subclassId && form.ancestryId && form.communityId && (form.ancestryId !== 'mixed-ancestry' || (form.firstAncestryId && form.secondaryAncestryId));
     if (stepIds[step] === 'appearance') return [form.description, form.size, form.height, form.weight, form.eyeColor, form.hairColor, form.skinColor, form.lookDescription].every((value) => value.trim());
     if (stepIds[step] === 'traits') return traitIds.every((trait) => form.traits[trait] !== '') && Object.values(form.traits).sort().join(',') === '-1,0,0,1,1,2';
     if (stepIds[step] === 'equipment') return form.primaryWeapon && form.secondaryWeapon && form.armor;
@@ -221,8 +238,9 @@ export default function CharacterBuilderPage() {
         name: form.name.trim(), pronouns: form.pronouns.trim(), description: form.description.trim(),
         size: form.size.trim(), height: form.height.trim(), weight: form.weight.trim(), eye_color: form.eyeColor.trim(),
         hair_color: form.hairColor.trim(), skin_color: form.skinColor.trim(), look_description: form.lookDescription.trim(),
-        class_id: form.classId, subclass_id: form.subclassId, ancestry_id: form.ancestryId,
-        secondary_ancestry_id: form.secondaryAncestryId || null, community_id: form.communityId,
+        class_id: form.classId, subclass_id: form.subclassId,
+        ancestry_id: form.ancestryId === 'mixed-ancestry' ? form.firstAncestryId : form.ancestryId,
+        secondary_ancestry_id: form.ancestryId === 'mixed-ancestry' ? form.secondaryAncestryId || null : null, community_id: form.communityId,
         traits: form.traits, experiences: form.experiences.map((name) => ({ name, modifier: 2 })),
         background_answers: form.backgroundNotes.split('\n').filter(Boolean),
         background_story: form.backgroundStory.trim(),
@@ -258,7 +276,7 @@ export default function CharacterBuilderPage() {
         <div className={styles.content}>
           <div className={styles.stepTitle}><span>STEP {step + 1} OF {stepIds.length}</span><h3>{stepDetails[step].title}</h3><p>{stepDetails[step].description}</p></div>
           {['identity', 'appearance', 'background', 'experiences'].includes(stepIds[step]) && <GenerationToolbar loading={aiState.loading} locks={locks} fields={activeGenerationFields} onGenerate={() => generateFields(activeGenerationFields)} onToggleAll={() => toggleAllLocks(activeGenerationFields)} />}
-          {stepIds[step] === 'identity' && <Identity classes={classes} ancestries={ancestries} communities={communities} selectedClass={selectedClass} selectedAncestry={selectedAncestry} selectedCommunity={selectedCommunity} subclasses={subclasses} form={form} setField={setField} setClass={setClass} setSubclass={setSubclass} locks={locks} toggleLock={toggleLock} generate={generateFields} />}
+          {stepIds[step] === 'identity' && <Identity classes={classes} ancestries={ancestries} communities={communities} selectedClass={selectedClass} selectedAncestry={selectedAncestry} selectedFirstAncestry={selectedFirstAncestry} selectedSecondAncestry={selectedSecondAncestry} selectedCommunity={selectedCommunity} subclasses={subclasses} form={form} setField={setField} setClass={setClass} setAncestry={setAncestry} setFirstAncestry={setFirstAncestry} setSubclass={setSubclass} locks={locks} toggleLock={toggleLock} generate={generateFields} />}
           {stepIds[step] === 'appearance' && <Appearance form={form} setField={setField} locks={locks} toggleLock={toggleLock} generate={generateFields} expand={expandField} />}
           {stepIds[step] === 'traits' && <TraitsStep form={form} updateTrait={updateTrait} selectedClass={selectedClass} selectedSubclass={selectedSubclass} traitProposals={traitProposals} />}
           {stepIds[step] === 'equipment' && <EquipmentStep equipment={book.equipment} form={form} setField={setField} />}
@@ -295,17 +313,23 @@ function FieldLabel({ field, label, locked, toggleLock, generate, expand, expand
   return <label className={className}><span className={styles.fieldHeading}>{label}<FieldActions field={field} locked={locked} toggleLock={toggleLock} generate={generate} expand={expand} expandDisabled={expandDisabled} /></span>{children}</label>;
 }
 
-function Identity({ classes, ancestries, communities, selectedClass, selectedAncestry, selectedCommunity, subclasses, form, setField, setClass, setSubclass, locks, toggleLock, generate }) {
+function Identity({ classes, ancestries, communities, selectedClass, selectedAncestry, selectedFirstAncestry, selectedSecondAncestry, selectedCommunity, subclasses, form, setField, setClass, setAncestry, setFirstAncestry, setSubclass, locks, toggleLock, generate }) {
+  const firstLineageFeature = selectedFirstAncestry?.features?.[0];
+  const secondLineageFeature = selectedSecondAncestry?.features?.[1] || selectedSecondAncestry?.features?.[0];
   return <div className={styles.formGrid}>
     <FieldLabel field="name" label="Character name" locked={locks.name} toggleLock={toggleLock} generate={generate}><input autoFocus value={form.name} onChange={(event) => setField('name', event.target.value)} /></FieldLabel>
     <FieldLabel field="pronouns" label="Pronouns" locked={locks.pronouns} toggleLock={toggleLock} generate={generate}><input value={form.pronouns} onChange={(event) => setField('pronouns', event.target.value)} placeholder="she / her" /></FieldLabel>
     <FieldLabel field="class_id" label="Class" locked={locks.class_id} toggleLock={toggleLock} generate={generate}><select value={form.classId} onChange={(event) => setClass(event.target.value)}><option value="">Choose a class</option>{classes.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></FieldLabel>
     <FieldLabel field="subclass_id" label="Subclass" locked={locks.subclass_id} toggleLock={toggleLock} generate={generate}><select value={form.subclassId} onChange={(event) => setSubclass(event.target.value)} disabled={!selectedClass}><option value="">Choose a subclass</option>{subclasses.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></FieldLabel>
-    <FieldLabel field="ancestry_id" label="Ancestry" locked={locks.ancestry_id} toggleLock={toggleLock} generate={generate}><select value={form.ancestryId} onChange={(event) => setField('ancestryId', event.target.value)}><option value="">Choose an ancestry</option>{ancestries.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></FieldLabel>
-    {form.ancestryId === 'mixed-ancestry' && <FieldLabel field="secondary_ancestry_id" label="Second ancestry" locked={locks.secondary_ancestry_id} toggleLock={toggleLock} generate={generate}><select value={form.secondaryAncestryId} onChange={(event) => setField('secondaryAncestryId', event.target.value)}><option value="">Choose a lineage</option>{ancestries.filter((item) => item.id !== 'mixed-ancestry').map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></FieldLabel>}
+    <FieldLabel field="ancestry_id" label="Ancestry" locked={locks.ancestry_id} toggleLock={toggleLock} generate={generate}><select value={form.ancestryId} onChange={(event) => setAncestry(event.target.value)}><option value="">Choose an ancestry</option>{ancestries.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></FieldLabel>
+    {form.ancestryId === 'mixed-ancestry' && <>
+      <label>First ancestry<select value={form.firstAncestryId} onChange={(event) => setFirstAncestry(event.target.value)}><option value="">Choose a lineage</option>{ancestries.filter((item) => item.id !== 'mixed-ancestry').map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label>
+      <FieldLabel field="secondary_ancestry_id" label="Second ancestry" locked={locks.secondary_ancestry_id} toggleLock={toggleLock} generate={generate}><select value={form.secondaryAncestryId} onChange={(event) => setField('secondaryAncestryId', event.target.value)}><option value="">Choose a lineage</option>{ancestries.filter((item) => item.id !== 'mixed-ancestry' && item.id !== form.firstAncestryId).map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></FieldLabel>
+    </>}
     <FieldLabel field="community_id" label="Community" locked={locks.community_id} toggleLock={toggleLock} generate={generate}><select value={form.communityId} onChange={(event) => setField('communityId', event.target.value)}><option value="">Choose a community</option>{communities.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></FieldLabel>
     {selectedClass && <div className={styles.detailPanel}><div><strong>{selectedClass.name}</strong><span>{selectedClass.domains.map((domain) => domain.toUpperCase()).join(' · ')}</span></div><div className={styles.statRow}><span>Evasion <b>{selectedClass.evasion}</b></span><span>Hit Points <b>{selectedClass.hit_points}</b></span><span>Spellcast <b>{subclasses.find((item) => item.id === form.subclassId)?.spellcast_trait || '—'}</b></span></div><p>{selectedClass.class_features.map((feature) => `${feature.name}: ${feature.text}`).join(' ')}</p></div>}
-    {selectedAncestry && <div className={styles.detailPanel}><strong>{selectedAncestry.name} features</strong>{selectedAncestry.features.map((feature, index) => <p key={`${feature.name}-${index}`}><b>{feature.name}.</b> {feature.text}</p>)}</div>}
+    {selectedAncestry?.id === 'mixed-ancestry' && <div className={styles.detailPanel}><strong>{selectedAncestry.name} lineage</strong><p>{selectedAncestry.selection_rules}</p>{firstLineageFeature && <p><b>{selectedFirstAncestry.name} · {firstLineageFeature.name}.</b> {firstLineageFeature.text}</p>}{secondLineageFeature && <p><b>{selectedSecondAncestry.name} · {secondLineageFeature.name}.</b> {secondLineageFeature.text}</p>}</div>}
+    {selectedAncestry && selectedAncestry.id !== 'mixed-ancestry' && <div className={styles.detailPanel}><strong>{selectedAncestry.name} features</strong>{selectedAncestry.features.map((feature, index) => <p key={`${feature.name}-${index}`}><b>{feature.name}.</b> {feature.text}</p>)}</div>}
     {selectedCommunity && <div className={styles.detailPanel}><strong>{selectedCommunity.name} · {selectedCommunity.feature.name}</strong><p>{selectedCommunity.feature.text}</p><p className={styles.adjectives}>{selectedCommunity.adjectives.join(' · ')}</p></div>}
   </div>;
 }
@@ -332,8 +356,10 @@ function EquipmentStep({ equipment, form, setField }) {
   const weaponOption = (item) => `${item.name} · ${item.burden === 'one-handed' ? '1 hand' : '2 hands'} · ${item.damage} · ${item.feature || 'No special feature'}`;
   const select = (label, field, items, formatOption, extraOptions = null) => <label>{label}<select value={form[field]} onChange={(event) => setField(field, event.target.value)}><option value="">Choose {label.toLowerCase()}</option>{extraOptions}{items.map((item) => <option value={item.id} key={item.id}>{formatOption(item)}</option>)}</select></label>;
   const armorOption = (item) => `${item.name} · Thresholds ${item.thresholds} · Armor ${item.armor_score} · ${item.feature || 'No special feature'}`;
+  const tierOne = (items) => (Array.isArray(items) ? items : []).filter((item) => Number(item.tier) === 1);
+  const startingPotions = (Array.isArray(equipment.potions) ? equipment.potions : []).filter((item) => item.tier === undefined || Number(item.tier) === 1);
   const startingInventory = equipment.starting_inventory.filter((item) => !/gold/i.test(item));
-  return <div className={styles.formGrid}>{select('Primary weapon', 'primaryWeapon', equipment.primary_weapons, weaponOption)}{select('Secondary weapon', 'secondaryWeapon', equipment.secondary_weapons, weaponOption, <option value="none" key="none">No secondary weapon</option>)}{select('Armor', 'armor', equipment.armor, armorOption)}<label>First potion<select value={form.potion} onChange={(event) => setField('potion', event.target.value)}>{equipment.potions.map((item) => <option value={item.id} key={item.id}>{item.name} · {item.text}</option>)}</select></label><div className={styles.detailPanel}><strong>Always added to inventory</strong><p>{startingInventory.join(' · ')}</p></div></div>;
+  return <div className={styles.formGrid}>{select('Primary weapon', 'primaryWeapon', tierOne(equipment.primary_weapons), weaponOption)}{select('Secondary weapon', 'secondaryWeapon', tierOne(equipment.secondary_weapons), weaponOption, <option value="none" key="none">No secondary weapon</option>)}{select('Armor', 'armor', tierOne(equipment.armor), armorOption)}<label>First potion<select value={form.potion} onChange={(event) => setField('potion', event.target.value)}>{startingPotions.map((item) => <option value={item.id} key={item.id}>{item.name} · {item.text}</option>)}</select></label><div className={styles.detailPanel}><strong>Always added to inventory</strong><p>{startingInventory.join(' · ')}</p></div></div>;
 }
 
 function BackgroundStep({ form, setField, locks, toggleLock, generate, expand, updateFamilyMember, addFamilyMember, removeFamilyMember, questions }) {

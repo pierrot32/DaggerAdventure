@@ -45,14 +45,14 @@ const milestoneLevels = new Set([2, 5, 8]);
 function domainCardsFromBook(book) {
   return (book?.domains || []).flatMap((domain) => Object.entries(domain)
     .filter(([key, cards]) => /^level_\d+_cards$/.test(key) && Array.isArray(cards))
-    .flatMap(([key, cards]) => cards.map((card) => ({ ...card, level: Number(key.match(/\d+/)[0]), domain: domain.name }))));
+    .flatMap(([key, cards]) => cards.map((card) => ({ ...card, level: Number(key.match(/\d+/)[0]), domain: domain.name, domainId: domain.id }))));
 }
 
 function choiceSummary(choice, character, book) {
   if (choice?.id === 'traits') return `Traits: ${(choice.values || []).map(titleize).join(', ')}`;
   if (choice?.id === 'experiences') return `Experiences: ${(choice.values || []).map((index) => character.experiences?.[index]?.name || `Experience ${Number(index) + 1}`).join(', ')}`;
   if (choice?.id === 'domain_card') {
-    const card = domainCardsFromBook(book).find((item) => item.id === choice.value);
+    const card = domainCardsFromBook(book).find((item) => item.id === choice.value && item.domainId === choice.domain_id);
     return `Domain card: ${card?.name || choice.value || 'selected card'}`;
   }
   if (choice?.id === 'multiclass') return `Multiclass: ${titleize(choice.value)}`;
@@ -444,7 +444,11 @@ function AdvancementPanel({ character, book, onClose, onAdvanced }) {
   const [showPreviousUpgrades, setShowPreviousUpgrades] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const availableCards = domainCardsFromBook(book).filter((card) => Number(card.level || 1) <= nextLevel);
+  const classDomains = new Set(book?.classes?.find((item) => item.id === character.class_id)?.domains || []);
+  const ownedCardKeys = new Set((character.domain_cards || []).map((card) => `${card.domainId || card.domain_id || ''}:${card.id || ''}`));
+  const availableCards = domainCardsFromBook(book).filter((card) => classDomains.has(card.domainId))
+    .filter((card) => Number(card.level || 1) <= nextLevel)
+    .filter((card) => !ownedCardKeys.has(`${card.domainId}:${card.id}`));
   const availableTraits = (() => {
     const marked = new Set();
     (character.advancements || []).forEach((entry) => {
@@ -510,7 +514,10 @@ function AdvancementPanel({ character, book, onClose, onAdvanced }) {
       <label><input type="checkbox" checked={Boolean(choice)} onChange={() => toggleOption(option.id, sourceTier)} /><span><strong>{option.title}</strong><small>{option.detail}</small></span></label>
       {choice?.id === 'traits' && <div className={styles.choiceDetails}><span>Available traits</span>{availableTraits.map((trait) => <label key={trait}><input type="checkbox" checked={choice.values.includes(trait)} onChange={() => toggleValue('traits', trait)} />{titleize(trait)}</label>)}</div>}
       {choice?.id === 'experiences' && <div className={styles.choiceDetails}><span>Experiences to improve</span>{(character.experiences || []).map((item, index) => <label key={index}><input type="checkbox" checked={choice.values.includes(index)} onChange={() => toggleValue('experiences', index)} />{item.name || item}</label>)}</div>}
-      {choice?.id === 'domain_card' && <div className={styles.choiceDetails}><span>Domain card</span><select value={choice.value || ''} onChange={(event) => setChoices((current) => current.map((item) => item.id === 'domain_card' ? { ...item, value: event.target.value } : item))}><option value="">Choose a card</option>{availableCards.map((card) => <option value={card.id} key={card.id}>{card.name} · {card.domain}</option>)}</select></div>}
+      {choice?.id === 'domain_card' && <div className={styles.choiceDetails}><span>Domain card (current level or lower)</span><select value={choice.value ? `${choice.domain_id}:${choice.value}` : ''} onChange={(event) => {
+        const [domainId, cardId] = event.target.value.split(':');
+        setChoices((current) => current.map((item) => item.id === 'domain_card' ? { ...item, value: cardId || '', domain_id: domainId || '' } : item));
+      }}><option value="">Choose a card</option>{Object.entries(availableCards.reduce((groups, card) => ({ ...groups, [card.domainId]: [...(groups[card.domainId] || []), card] }), {})).map(([domainId, cards]) => <optgroup label={cards[0].domain} key={domainId}>{cards.map((card) => <option value={`${card.domainId}:${card.id}`} key={`${card.domainId}:${card.id}`}>Level {card.level}: {card.name}</option>)}</optgroup>)}</select></div>}
       {choice?.id === 'multiclass' && <div className={styles.choiceDetails}><span>Additional class</span><select value={choice.value || ''} onChange={(event) => setChoices((current) => current.map((item) => item.id === 'multiclass' ? { ...item, value: event.target.value } : item))}><option value="">Choose a class</option>{(book?.classes || []).filter((item) => item.id !== character.class_id).map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></div>}
     </div>;
   };

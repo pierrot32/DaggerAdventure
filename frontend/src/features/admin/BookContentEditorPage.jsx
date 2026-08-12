@@ -4,8 +4,8 @@ import Button from '../../components/Button/Button';
 import { exportBooks, listBooks, updateBookContent } from './adminApi';
 import {
   BEAST_FEATURES_KEY, DOMAIN_LEVELS, WEAPON_GROUPS, beastForm, beastFormKey, clone, domainCard, domainCardKey,
-  feature, flattenBeastForms, flattenDomainCards, flattenWeapons, newClass, newDomain, normalizeBookContent,
-  normalizeSubclass, normalizeWeapon,
+  feature, flattenBeastForms, flattenDomainCards, flattenWeapons, newAncestry, newClass, newCommunity,
+  newDomain, normalizeBookContent, normalizeSubclass, normalizeWeapon,
 } from './bookContentEditorUtils';
 import styles from './BookContentEditorPage.module.css';
 
@@ -130,6 +130,43 @@ function DomainCardEditor({ card, onChange, onRemove }) {
   );
 }
 
+function AncestryEditor({ ancestry, onChange, onRemove }) {
+  const update = (field, value) => onChange({ ...ancestry, [field]: value });
+  return (
+    <div className={styles.editor}>
+      <div className={styles.editorHeading}><div><p className="eyebrow">ANCESTRY</p><h3>{ancestry.name || 'Unnamed ancestry'}</h3></div><button type="button" className={styles.removeButton} onClick={onRemove}>Remove ancestry</button></div>
+      <div className={styles.formGrid}>
+        <label>Ancestry ID<input value={ancestry.id} onChange={(event) => update('id', event.target.value)} /></label>
+        <label>Ancestry name<input value={ancestry.name} onChange={(event) => update('name', event.target.value)} /></label>
+        <label className={styles.wide}>Selection rules<textarea value={ancestry.selection_rules} onChange={(event) => update('selection_rules', event.target.value)} /></label>
+      </div>
+      <FeatureList title="Ancestry features" items={ancestry.features} onAdd={() => update('features', [...ancestry.features, feature()])} onRemove={(index) => update('features', ancestry.features.filter((_, itemIndex) => itemIndex !== index))} onChange={(index, field, value) => update('features', ancestry.features.map((item, itemIndex) => itemIndex === index ? { ...item, [field]: value } : item))} />
+    </div>
+  );
+}
+
+function CommunityEditor({ community, onChange, onRemove }) {
+  const update = (field, value) => onChange({ ...community, [field]: value });
+  const updateFeature = (field, value) => update('feature', { ...community.feature, [field]: value });
+  return (
+    <div className={styles.editor}>
+      <div className={styles.editorHeading}><div><p className="eyebrow">COMMUNITY</p><h3>{community.name || 'Unnamed community'}</h3></div><button type="button" className={styles.removeButton} onClick={onRemove}>Remove community</button></div>
+      <div className={styles.formGrid}>
+        <label>Community ID<input value={community.id} onChange={(event) => update('id', event.target.value)} /></label>
+        <label>Community name<input value={community.name} onChange={(event) => update('name', event.target.value)} /></label>
+        <label className={styles.wide}>Adjectives<textarea value={community.adjectives.join('\n')} onChange={(event) => update('adjectives', event.target.value.split('\n').map((value) => value.trim()).filter(Boolean))} placeholder="amiable\ncandid\nenterprising" /></label>
+      </div>
+      <div className={styles.panel}>
+        <h3>Community feature</h3>
+        <div className={styles.formGrid}>
+          <label>Feature name<input value={community.feature.name} onChange={(event) => updateFeature('name', event.target.value)} /></label>
+          <label className={styles.wide}>Feature description<textarea value={community.feature.text} onChange={(event) => updateFeature('text', event.target.value)} /></label>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TierGroups({ items, selectedKey, onSelect, emptyLabel, itemLabel }) {
   return [1, 2, 3, 4].map((tier) => {
     const tierItems = items.filter((item) => Number(item.tier) === tier);
@@ -168,6 +205,10 @@ export default function BookContentEditorPage() {
   const [selectedClassId, setSelectedClassId] = useState('');
   const [classForm, setClassForm] = useState(null);
   const [selectedSubclassId, setSelectedSubclassId] = useState('');
+  const [selectedAncestryId, setSelectedAncestryId] = useState('');
+  const [ancestryForm, setAncestryForm] = useState(null);
+  const [selectedCommunityId, setSelectedCommunityId] = useState('');
+  const [communityForm, setCommunityForm] = useState(null);
   const [selectedDomainId, setSelectedDomainId] = useState('');
   const [domainForm, setDomainForm] = useState(null);
   const [selectedDomainCardKey, setSelectedDomainCardKey] = useState('');
@@ -196,10 +237,14 @@ export default function BookContentEditorPage() {
     setSelectedClassId(nextClasses[0]?.id || '');
     const nextBeastForm = flattenBeastForms(nextClasses)[0];
     const nextWeapon = flattenWeapons(nextContent.equipment)[0];
+    const nextAncestry = nextContent.ancestries[0];
+    const nextCommunity = nextContent.communities[0];
     const nextDomain = nextContent.domains[0];
     const nextDomainCard = flattenDomainCards(nextContent.domains)[0];
     setSelectedBeastFormKey(nextBeastForm?.key || '');
     setSelectedWeaponKey(nextWeapon?.key || '');
+    setSelectedAncestryId(nextAncestry?.id || '');
+    setSelectedCommunityId(nextCommunity?.id || '');
     setSelectedDomainId(nextDomain?.id || '');
     setSelectedDomainCardKey(nextDomainCard?.key || '');
     setEditorType('classes');
@@ -238,6 +283,16 @@ export default function BookContentEditorPage() {
   }, [content, selectedWeaponKey]);
 
   useEffect(() => {
+    const selected = (content?.ancestries || []).find((item) => item.id === selectedAncestryId);
+    setAncestryForm(selected ? clone(selected) : null);
+  }, [content, selectedAncestryId]);
+
+  useEffect(() => {
+    const selected = (content?.communities || []).find((item) => item.id === selectedCommunityId);
+    setCommunityForm(selected ? clone(selected) : null);
+  }, [content, selectedCommunityId]);
+
+  useEffect(() => {
     const selected = (content?.domains || []).find((item) => item.id === selectedDomainId);
     setDomainForm(selected ? clone(selected) : null);
   }, [content, selectedDomainId]);
@@ -253,6 +308,8 @@ export default function BookContentEditorPage() {
   const selectedSubclass = classForm?.subclasses.find((item) => item.id === selectedSubclassId);
   const beastFeatures = (content?.[BEAST_FEATURES_KEY] || []).slice().sort((left, right) => left.name.localeCompare(right.name));
   const beastForms = flattenBeastForms(classes);
+  const ancestries = content?.ancestries || [];
+  const communities = content?.communities || [];
   const domains = content?.domains || [];
   const domainCards = flattenDomainCards(domains).filter((item) => item.domainId === selectedDomainId);
   const weapons = flattenWeapons(content?.equipment);
@@ -344,6 +401,34 @@ export default function BookContentEditorPage() {
     setSelectedSubclassId(remaining[0]?.id || '');
   };
 
+  const addAncestry = () => {
+    const id = `new-ancestry-${ancestries.length + 1}`;
+    setContent((current) => ({ ...current, ancestries: [...(current.ancestries || []), newAncestry(id)] }));
+    setSelectedAncestryId(id);
+    setEditorType('ancestries');
+  };
+
+  const removeAncestry = () => {
+    if (!ancestryForm || !window.confirm(`Remove ${ancestryForm.name || ancestryForm.id}?`)) return;
+    const remaining = ancestries.filter((item) => item.id !== selectedAncestryId);
+    setContent((current) => ({ ...current, ancestries: current.ancestries.filter((item) => item.id !== selectedAncestryId) }));
+    setSelectedAncestryId(remaining[0]?.id || '');
+  };
+
+  const addCommunity = () => {
+    const id = `new-community-${communities.length + 1}`;
+    setContent((current) => ({ ...current, communities: [...(current.communities || []), newCommunity(id)] }));
+    setSelectedCommunityId(id);
+    setEditorType('communities');
+  };
+
+  const removeCommunity = () => {
+    if (!communityForm || !window.confirm(`Remove ${communityForm.name || communityForm.id}?`)) return;
+    const remaining = communities.filter((item) => item.id !== selectedCommunityId);
+    setContent((current) => ({ ...current, communities: current.communities.filter((item) => item.id !== selectedCommunityId) }));
+    setSelectedCommunityId(remaining[0]?.id || '');
+  };
+
   const addDomain = () => {
     const id = `new-domain-${domains.length + 1}`;
     const nextDomain = newDomain(id);
@@ -392,6 +477,14 @@ export default function BookContentEditorPage() {
       setState((current) => ({ ...current, error: 'A beast form needs an ID and name.', message: '' }));
       return;
     }
+    if (editorType === 'ancestries' && (!ancestryForm?.id || !ancestryForm.name.trim())) {
+      setState((current) => ({ ...current, error: 'An ancestry needs an ID and name.', message: '' }));
+      return;
+    }
+    if (editorType === 'communities' && (!communityForm?.id || !communityForm.name.trim())) {
+      setState((current) => ({ ...current, error: 'A community needs an ID and name.', message: '' }));
+      return;
+    }
     if (editorType === 'domains' && (!domainForm?.id || !domainForm.name.trim())) {
       setState((current) => ({ ...current, error: 'A domain needs an ID and name.', message: '' }));
       return;
@@ -416,6 +509,10 @@ export default function BookContentEditorPage() {
         ...item,
         beast_forms: item.beast_forms.map((form) => form.id === beastFormOriginalId ? persistedBeastForm : form),
       } : item);
+    } else if (editorType === 'ancestries') {
+      nextContent.ancestries = nextContent.ancestries.map((item) => item.id === selectedAncestryId ? clone(ancestryForm) : item);
+    } else if (editorType === 'communities') {
+      nextContent.communities = nextContent.communities.map((item) => item.id === selectedCommunityId ? clone(communityForm) : item);
     } else if (isWeaponEditor) {
       const persistedWeapon = clone(weaponForm);
       delete persistedWeapon.group;
@@ -456,6 +553,10 @@ export default function BookContentEditorPage() {
         setSelectedSubclassId(selectedSubclass?.id || '');
       } else if (editorType === 'beastforms') {
         setSelectedBeastFormKey(beastFormKey(beastFormOwnerId, beastFormForm.id));
+      } else if (editorType === 'ancestries') {
+        setSelectedAncestryId(ancestryForm.id);
+      } else if (editorType === 'communities') {
+        setSelectedCommunityId(communityForm.id);
       } else if (isWeaponEditor) {
         setSelectedWeaponKey(`${weaponOriginalGroup}::${weaponForm.id}`);
       } else if (editorType === 'domains') {
@@ -499,6 +600,8 @@ export default function BookContentEditorPage() {
       <div className={styles.entityTabs}>
         <button type="button" className={editorType === 'classes' ? styles.activeTab : ''} onClick={() => setEditorType('classes')}>Classes</button>
         <button type="button" className={editorType === 'beastforms' ? styles.activeTab : ''} onClick={() => setEditorType('beastforms')}>Beast forms</button>
+        <button type="button" className={editorType === 'ancestries' ? styles.activeTab : ''} onClick={() => setEditorType('ancestries')}>Ancestries</button>
+        <button type="button" className={editorType === 'communities' ? styles.activeTab : ''} onClick={() => setEditorType('communities')}>Communities</button>
         <button type="button" className={editorType === 'domains' ? styles.activeTab : ''} onClick={() => setEditorType('domains')}>Domains</button>
         {weaponGroups.map((group) => <button type="button" className={editorType === group.id ? styles.activeTab : ''} onClick={() => openWeaponGroup(group)} key={group.id}>{group.label}</button>)}
         <Link to="/admin/content/books/beast-features" className={styles.featureLink}>Manage shared beast features</Link>
@@ -514,6 +617,14 @@ export default function BookContentEditorPage() {
             {classes.map((item) => <option value={item.id} key={item.id}>{item.name || item.id}</option>)}
           </select></label>
           <TierGroups items={beastForms} selectedKey={selectedBeastFormKey} onSelect={(item) => { setSelectedBeastFormKey(item.key); setSelectedClassId(item.classId); setBeastFormOwnerId(item.classId); }} emptyLabel="No beast forms added." itemLabel="beast form" />
+        </aside>}
+        {editorType === 'ancestries' && <aside className={styles.sidebar}>
+          <div className={styles.sectionHeading}><h3>Ancestries</h3><button type="button" className={styles.smallButton} onClick={addAncestry}>Add ancestry</button></div>
+          {ancestries.map((item) => <button type="button" className={`${styles.classButton} ${item.id === selectedAncestryId ? styles.selected : ''}`} key={item.id} onClick={() => setSelectedAncestryId(item.id)}><strong>{item.name || 'Unnamed ancestry'}</strong><span>{item.id}</span></button>)}
+        </aside>}
+        {editorType === 'communities' && <aside className={styles.sidebar}>
+          <div className={styles.sectionHeading}><h3>Communities</h3><button type="button" className={styles.smallButton} onClick={addCommunity}>Add community</button></div>
+          {communities.map((item) => <button type="button" className={`${styles.classButton} ${item.id === selectedCommunityId ? styles.selected : ''}`} key={item.id} onClick={() => setSelectedCommunityId(item.id)}><strong>{item.name || 'Unnamed community'}</strong><span>{item.id}</span></button>)}
         </aside>}
         {isWeaponEditor && <aside className={styles.sidebar}>
           <div className={styles.sectionHeading}><h3>{activeWeaponGroup.label}</h3><button type="button" className={styles.smallButton} onClick={() => addWeapon(activeWeaponGroup.id)}>Add {activeWeaponGroup.label.toLowerCase().replace('weapons', 'weapon')}</button></div>
@@ -568,6 +679,8 @@ export default function BookContentEditorPage() {
             <Button type="button" disabled={state.saving} onClick={save}>{state.saving ? 'Saving book...' : 'Save beast form'}</Button>
           </div>
         )}
+        {editorType === 'ancestries' && ancestryForm && <AncestryEditor ancestry={ancestryForm} onChange={setAncestryForm} onRemove={removeAncestry} />}
+        {editorType === 'communities' && communityForm && <CommunityEditor community={communityForm} onChange={setCommunityForm} onRemove={removeCommunity} />}
         {isWeaponEditor && weaponForm && (
           <WeaponEditor item={weaponForm} onChange={updateWeapon} onRemove={removeWeapon} />
         )}
