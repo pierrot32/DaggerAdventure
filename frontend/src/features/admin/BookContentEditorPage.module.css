@@ -30,6 +30,7 @@
 .frameForm label { display: grid; gap: var(--space-2); color: var(--color-muted); font-size: 13px; }
 .frameForm input, .frameForm textarea, .frameForm select { width: 100%; padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text); font: inherit; }
 .frameForm textarea { min-height: 100px; resize: vertical; }
+.frameForm .gmNote textarea { min-height: 2.5em; }
 .editorHeading h3, .editorHeading h4 { margin: 0; }
 .formGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
 .wide { grid-column: 1 / -1; }
