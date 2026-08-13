@@ -85,13 +85,17 @@ function frameGuidance(frameContent, kind, option) {
   if (!frameContent || !option) return [];
   const entries = frameContent.modifications?.[kind] || [];
   const optionName = normalizedText(option.name);
-  const matching = entries.filter((entry) => {
+  const targeted = entries.filter((entry) => Array.isArray(entry.target_ids) && entry.target_ids.length > 0);
+  const targetMatches = targeted.filter((entry) => entry.target_ids.includes(option.id));
+  if (targetMatches.length > 0) return targetMatches;
+  const general = entries.filter((entry) => !Array.isArray(entry.target_ids) || entry.target_ids.length === 0);
+  const matching = general.filter((entry) => {
     const title = normalizedText(entry.title);
     return title.includes(optionName) || optionName.split(' ').some((word) => word.length > 3 && title.includes(word));
   });
   if (matching.length > 0) return matching;
-  const broad = entries.filter((entry) => /\ball\b|\bavailable\b|\bwithin\b/.test(normalizedText(entry.title)));
-  return broad.length > 0 ? broad : entries;
+  const broad = general.filter((entry) => /\ball\b|\bavailable\b|\bwithin\b/.test(normalizedText(entry.title)));
+  return broad.length > 0 ? broad : general;
 }
 
 export default function CharacterBuilderPage() {
@@ -355,8 +359,8 @@ function FieldLabel({ field, label, locked, toggleLock, generate, expand, expand
 }
 
 function Identity({ classes, ancestries, communities, frameContent, selectedClass, selectedAncestry, selectedFirstAncestry, selectedSecondAncestry, selectedCommunity, subclasses, form, setField, setClass, setAncestry, setFirstAncestry, setSubclass, locks, toggleLock, generate }) {
-  const firstLineageFeature = selectedFirstAncestry?.features?.[0];
-  const secondLineageFeature = selectedSecondAncestry?.features?.[1] || selectedSecondAncestry?.features?.[0];
+  const communityFeatures = selectedCommunity?.features || (selectedCommunity?.feature ? [selectedCommunity.feature] : []);
+  const subclassFeatures = selectedSubclass ? ['foundation', 'specialization', 'mastery'].flatMap((tier) => (selectedSubclass[tier] || []).map((feature) => ({ ...feature, tier }))) : [];
   return <div className={styles.formGrid}>
     <FieldLabel field="name" label="Character name" locked={locks.name} toggleLock={toggleLock} generate={generate}><input autoFocus value={form.name} onChange={(event) => setField('name', event.target.value)} /></FieldLabel>
     <FieldLabel field="pronouns" label="Pronouns" locked={locks.pronouns} toggleLock={toggleLock} generate={generate}><input value={form.pronouns} onChange={(event) => setField('pronouns', event.target.value)} placeholder="she / her" /></FieldLabel>
@@ -368,14 +372,23 @@ function Identity({ classes, ancestries, communities, frameContent, selectedClas
       <FieldLabel field="secondary_ancestry_id" label="Second ancestry" locked={locks.secondary_ancestry_id} toggleLock={toggleLock} generate={generate}><select value={form.secondaryAncestryId} onChange={(event) => setField('secondaryAncestryId', event.target.value)}><option value="">Choose a lineage</option>{ancestries.filter((item) => item.id !== 'mixed-ancestry' && item.id !== form.firstAncestryId).map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></FieldLabel>
     </>}
     <FieldLabel field="community_id" label="Community" locked={locks.community_id} toggleLock={toggleLock} generate={generate}><select value={form.communityId} onChange={(event) => setField('communityId', event.target.value)}><option value="">Choose a community</option>{communities.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></FieldLabel>
-    {selectedClass && <div className={styles.detailPanel}><div><strong>{selectedClass.name}</strong><span>{selectedClass.domains.map((domain) => domain.toUpperCase()).join(' · ')}</span></div><div className={styles.statRow}><span>Evasion <b>{selectedClass.evasion}</b></span><span>Hit Points <b>{selectedClass.hit_points}</b></span><span>Spellcast <b>{subclasses.find((item) => item.id === form.subclassId)?.spellcast_trait || '—'}</b></span></div><p>{selectedClass.class_features.map((feature) => `${feature.name}: ${feature.text}`).join(' ')}</p></div>}
-    {selectedAncestry?.id === 'mixed-ancestry' && <div className={styles.detailPanel}><strong>{selectedAncestry.name} lineage</strong><p>{selectedAncestry.selection_rules}</p>{firstLineageFeature && <p><b>{selectedFirstAncestry.name} · {firstLineageFeature.name}.</b> {firstLineageFeature.text}</p>}{secondLineageFeature && <p><b>{selectedSecondAncestry.name} · {secondLineageFeature.name}.</b> {secondLineageFeature.text}</p>}</div>}
-    {selectedAncestry && selectedAncestry.id !== 'mixed-ancestry' && <div className={styles.detailPanel}><strong>{selectedAncestry.name} features</strong>{selectedAncestry.features.map((feature, index) => <p key={`${feature.name}-${index}`}><b>{feature.name}.</b> {feature.text}</p>)}</div>}
-    {selectedCommunity && <div className={styles.detailPanel}><strong>{selectedCommunity.name} · {selectedCommunity.feature.name}</strong><p>{selectedCommunity.feature.text}</p><p className={styles.adjectives}>{selectedCommunity.adjectives.join(' · ')}</p></div>}
+    {selectedClass && <div className={styles.detailPanel}><div><strong>{selectedClass.name}</strong><span>{selectedClass.domains.map((domain) => domain.toUpperCase()).join(' · ')}</span></div><div className={styles.statRow}><span>Evasion <b>{selectedClass.evasion}</b></span><span>Hit Points <b>{selectedClass.hit_points}</b></span><span>Spellcast <b>{subclasses.find((item) => item.id === form.subclassId)?.spellcast_trait || '—'}</b></span></div></div>}
+    {selectedClass && <FeaturePanel title={`${selectedClass.name} features`} features={[...(selectedClass.class_features || []), selectedClass.hope_feature ? { ...selectedClass.hope_feature, name: `Hope · ${selectedClass.hope_feature.name}` } : null].filter(Boolean)} />}
+    {selectedSubclass && <FeaturePanel title={`${selectedSubclass.name} features`} features={subclassFeatures} />}
+    {selectedAncestry?.id === 'mixed-ancestry' && <div className={styles.detailPanel}><strong>{selectedAncestry.name} lineage</strong><p>{selectedAncestry.selection_rules}</p></div>}
+    {selectedAncestry && selectedAncestry.id !== 'mixed-ancestry' && <FeaturePanel title={`${selectedAncestry.name} features`} features={selectedAncestry.features} />}
+    {selectedAncestry?.id === 'mixed-ancestry' && selectedFirstAncestry && <FeaturePanel title={`${selectedFirstAncestry.name} lineage features`} features={selectedFirstAncestry.features} />}
+    {selectedAncestry?.id === 'mixed-ancestry' && selectedSecondAncestry && <FeaturePanel title={`${selectedSecondAncestry.name} lineage features`} features={selectedSecondAncestry.features} />}
+    {selectedCommunity && <div className={styles.detailPanel}><strong>{selectedCommunity.name} features</strong>{communityFeatures.map((feature, index) => <p key={feature.id || `${feature.name}-${index}`}><b>{feature.name}.</b> {feature.text}</p>)}<p className={styles.adjectives}>{selectedCommunity.adjectives.join(' · ')}</p></div>}
     <FrameHint kind="classes" option={selectedClass} frameContent={frameContent} />
     {selectedAncestry?.id === 'mixed-ancestry' ? <><FrameHint kind="ancestries" option={selectedFirstAncestry} frameContent={frameContent} /><FrameHint kind="ancestries" option={selectedSecondAncestry} frameContent={frameContent} /></> : <FrameHint kind="ancestries" option={selectedAncestry} frameContent={frameContent} />}
     <FrameHint kind="communities" option={selectedCommunity} frameContent={frameContent} />
   </div>;
+}
+
+function FeaturePanel({ title, features = [] }) {
+  if (features.length === 0) return null;
+  return <div className={styles.detailPanel}><strong>{title}</strong>{features.map((feature, index) => <p key={feature.id || `${feature.name}-${index}`}><b>{feature.name}.</b> {feature.text}</p>)}</div>;
 }
 
 function FrameHint({ kind, option, frameContent }) {

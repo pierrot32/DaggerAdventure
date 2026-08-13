@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Button from '../../components/Button/Button';
 import { createLibraryFrame, deleteLibraryFrame, listLibraryFrames, updateLibraryFrame } from './frameApi';
+import { getCharacterCreationBook } from '../characters/characterApi';
 import { contentToForm, draftToContent, emptyFrame } from './frameDraft';
 import { FrameDraftForm, FramePreview } from '../adventures/CreateAdventurePage';
 import styles from './FrameLibraryPage.module.css';
@@ -11,12 +12,14 @@ export default function FrameLibraryPage() {
   const [frames, setFrames] = useState([]);
   const [selectedId, setSelectedId] = useState('');
   const [form, setForm] = useState(emptyForm);
+  const [book, setBook] = useState(null);
   const [state, setState] = useState({ loading: true, saving: false, error: '', message: '' });
 
   useEffect(() => {
-    listLibraryFrames()
-      .then((items) => {
+    Promise.all([listLibraryFrames(), getCharacterCreationBook().catch(() => ({ content: null }))])
+      .then(([items, nextBook]) => {
         setFrames(items);
+        setBook(nextBook.content);
         setState({ loading: false, saving: false, error: '', message: '' });
       })
       .catch((error) => setState({ loading: false, saving: false, error: error.message, message: '' }));
@@ -87,7 +90,7 @@ export default function FrameLibraryPage() {
         </aside>
         <div className={styles.editor}>
           <form onSubmit={save}>
-            <FrameDraftForm form={form} update={update} />
+            <FrameDraftForm form={form} update={update} optionLists={book} />
             <div className={styles.actions}><Button type="submit" disabled={state.saving}>{state.saving ? 'Saving...' : selectedId ? 'Save changes' : 'Create frame'}</Button>{selectedId && <Button type="button" variant="text" onClick={remove} disabled={state.saving}>Delete frame</Button>}</div>
           </form>
           <FramePreview content={draftToContent(form)} />

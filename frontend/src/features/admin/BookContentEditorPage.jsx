@@ -149,7 +149,6 @@ function AncestryEditor({ ancestry, onChange, onRemove }) {
 
 function CommunityEditor({ community, onChange, onRemove }) {
   const update = (field, value) => onChange({ ...community, [field]: value });
-  const updateFeature = (field, value) => update('feature', { ...community.feature, [field]: value });
   return (
     <div className={styles.editor}>
       <div className={styles.editorHeading}><div><p className="eyebrow">COMMUNITY</p><h3>{community.name || 'Unnamed community'}</h3></div><button type="button" className={styles.removeButton} onClick={onRemove}>Remove community</button></div>
@@ -158,13 +157,7 @@ function CommunityEditor({ community, onChange, onRemove }) {
         <label>Community name<input value={community.name} onChange={(event) => update('name', event.target.value)} /></label>
         <label className={styles.wide}>Adjectives<textarea value={community.adjectives.join('\n')} onChange={(event) => update('adjectives', event.target.value.split('\n').map((value) => value.trim()).filter(Boolean))} placeholder="amiable\ncandid\nenterprising" /></label>
       </div>
-      <div className={styles.panel}>
-        <h3>Community feature</h3>
-        <div className={styles.formGrid}>
-          <label>Feature name<input value={community.feature.name} onChange={(event) => updateFeature('name', event.target.value)} /></label>
-          <label className={styles.wide}>Feature description<textarea value={community.feature.text} onChange={(event) => updateFeature('text', event.target.value)} /></label>
-        </div>
-      </div>
+      <FeatureList title="Community features" items={community.features} onAdd={() => update('features', [...community.features, feature()])} onRemove={(index) => update('features', community.features.filter((_, itemIndex) => itemIndex !== index))} onChange={(index, field, value) => update('features', community.features.map((item, itemIndex) => itemIndex === index ? { ...item, [field]: value } : item))} />
     </div>
   );
 }
@@ -747,7 +740,7 @@ export default function BookContentEditorPage() {
           <div className={styles.editor}>
             <div className={styles.editorHeading}><div><p className="eyebrow">CAMPAIGN FRAME</p><h3>{frameForm.name || 'Unnamed frame'}</h3></div><button type="button" className={styles.removeButton} onClick={removeFrame}>Remove frame</button></div>
             <div className={styles.frameForm}>
-              <FrameDraftForm form={frameForm} update={(field, value) => setFrameForm((current) => ({ ...current, [field]: value }))} />
+              <FrameDraftForm form={frameForm} update={(field, value) => setFrameForm((current) => ({ ...current, [field]: value }))} optionLists={content} />
             </div>
             {(state.error || state.message) && <p className={state.error ? styles.error : styles.message} role="status">{state.error || state.message}</p>}
             <Button type="button" disabled={state.saving} onClick={save}>{state.saving ? 'Saving book...' : 'Save frame'}</Button>

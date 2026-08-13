@@ -229,10 +229,11 @@ mod tests {
             "overview": "Fanewick is in danger.",
             "complexity_rating": 4,
             "modifications": {
-                "communities": [{"id": "loreborne", "title": "Loreborne", "description": "Knowledge matters."}],
+                "communities": [{"id": "loreborne", "title": "Loreborne", "description": "Knowledge matters.", "target_ids": ["loreborne"], "gm_message": "Ask what knowledge costs them."}],
                 "ancestries": [],
                 "classes": []
             },
+            "gm_messages": {"pitch": "Keep the pressure personal."},
             "player_principles": [],
             "gm_principles": [],
             "distinctions": [],

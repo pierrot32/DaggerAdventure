@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../../components/Button/Button';
 import { listBuiltinFrames, listLibraryFrames } from '../frames/frameApi';
-import { contentToForm, draftToContent, emptyFrame } from '../frames/frameDraft';
+import { getCharacterCreationBook } from '../characters/characterApi';
+import { contentToForm, draftToContent, emptyFrame, frameModificationKinds, newModificationEntry } from '../frames/frameDraft';
 import { useAdventureStore } from './adventureStore';
 import styles from './CreateAdventurePage.module.css';
 
@@ -16,13 +17,15 @@ export default function CreateAdventurePage() {
   const [builtins, setBuiltins] = useState([]);
   const [library, setLibrary] = useState([]);
   const [frameForm, setFrameForm] = useState(contentToForm(emptyFrame()));
+  const [book, setBook] = useState(null);
   const [frameState, setFrameState] = useState({ loading: true, error: '' });
 
   useEffect(() => {
-    Promise.all([listBuiltinFrames(), listLibraryFrames()])
-      .then(([nextBuiltins, nextLibrary]) => {
+    Promise.all([listBuiltinFrames(), listLibraryFrames(), getCharacterCreationBook().catch(() => ({ content: null }))])
+      .then(([nextBuiltins, nextLibrary, nextBook]) => {
         setBuiltins(nextBuiltins);
         setLibrary(nextLibrary);
+        setBook(nextBook.content);
         setFrameState({ loading: false, error: '' });
       })
       .catch((requestError) => setFrameState({ loading: false, error: requestError.message }));
@@ -78,7 +81,7 @@ export default function CreateAdventurePage() {
           </button>)}
         </div>
 
-        {source.type === 'blank' ? <FrameDraftForm form={frameForm} update={updateFrameField} /> : <FramePreview content={selectedSource} />}
+        {source.type === 'blank' ? <FrameDraftForm form={frameForm} update={updateFrameField} optionLists={book} /> : <FramePreview content={selectedSource} />}
         {error && <p className={styles.error}>{error}</p>}
         <Button type="submit" disabled={loading}>{loading ? 'Creating adventure...' : 'Create adventure'}</Button>
       </form>
@@ -91,32 +94,76 @@ export function FramePreview({ content }) {
   return <article className={styles.preview}><div className={styles.previewTop}><div><p className="eyebrow">SELECTED FRAME</p><h3>{content.name}</h3></div><span>Complexity {content.complexity_rating}/5</span></div><p>{content.description}</p><p className={styles.pitch}>{content.pitch}</p><div className={styles.tags}>{(content.tone_and_feel || []).map((tone) => <span key={tone}>{tone}</span>)}</div></article>;
 }
 
-export function FrameDraftForm({ form, update }) {
+export function FrameDraftForm({ form, update, optionLists = {} }) {
+  const availableOptions = optionLists || {};
+  const updateGmMessage = (section, value) => update('gm_messages', { ...(form.gm_messages || {}), [section]: value });
+  const updateModification = (kind, entries) => update('modifications', { ...(form.modifications || {}), [kind]: entries });
   return <div className={styles.draft}>
-    <div className={styles.draftIntro}><p className="eyebrow">HAND-AUTHORED FRAME</p><h3>Give the campaign a playable spine</h3><p>Use blank lines to separate individual guidance entries. The GM can turn each section or entry on and off later.</p></div>
+    <div className={styles.draftIntro}><p className="eyebrow">HAND-AUTHORED FRAME</p><h3>Give the campaign a playable spine</h3><p>Build character guidance as individual features. The GM can turn each section or feature on and off later.</p></div>
     <div className={styles.frameGrid}>
       <label>Name<input required value={form.name} onChange={(event) => update('name', event.target.value)} /></label>
       <label>Frame ID<input required pattern="[a-z0-9][a-z0-9-]*" value={form.id} onChange={(event) => update('id', event.target.value)} /></label>
       <label>Complexity<select value={form.complexity_rating} onChange={(event) => update('complexity_rating', event.target.value)}>{[1, 2, 3, 4, 5].map((value) => <option value={value} key={value}>{value} / 5</option>)}</select></label>
       <TextField label="Description" value={form.description} update={update} field="description" />
       <TextField label="Pitch" value={form.pitch} update={update} field="pitch" required />
+      <TextField className={styles.full} label="GM-only note for Pitch" value={form.gm_messages?.pitch} update={updateGmMessage} field="pitch" />
       <TextField label="Overview" value={form.overview} update={update} field="overview" required />
+      <TextField className={styles.full} label="GM-only note for Overview" value={form.gm_messages?.overview} update={updateGmMessage} field="overview" />
       <TextField label="Tone & feel" value={form.tone_and_feel} update={update} field="tone_and_feel" hint="Comma-separated" />
+      <TextField className={styles.full} label="GM-only note for Tone & feel" value={form.gm_messages?.tone_and_feel} update={updateGmMessage} field="tone_and_feel" />
       <TextField label="Themes" value={form.themes} update={update} field="themes" hint="Comma-separated" />
+      <TextField className={styles.full} label="GM-only note for Themes" value={form.gm_messages?.themes} update={updateGmMessage} field="themes" />
       <TextField label="Touchstones" value={form.touchstones} update={update} field="touchstones" hint="Comma-separated" />
+      <TextField className={styles.full} label="GM-only note for Touchstones" value={form.gm_messages?.touchstones} update={updateGmMessage} field="touchstones" />
       <TextField label="The inciting incident" value={form.inciting_incident} update={update} field="inciting_incident" />
+      <TextField className={styles.full} label="GM-only note for The inciting incident" value={form.gm_messages?.inciting_incident} update={updateGmMessage} field="inciting_incident" />
       <TextField label="Session-zero questions" value={form.session_zero_questions} update={update} field="session_zero_questions" hint="One question per line" />
-      <TextField className={styles.full} label="Community guidance" value={form.communities} update={update} field="communities" hint="Separate entries with a blank line" />
-      <TextField className={styles.full} label="Ancestry guidance" value={form.ancestries} update={update} field="ancestries" hint="Separate entries with a blank line" />
-      <TextField className={styles.full} label="Class guidance" value={form.classes} update={update} field="classes" hint="Separate entries with a blank line" />
+      <TextField className={styles.full} label="GM-only note for Session-zero questions" value={form.gm_messages?.session_zero_questions} update={updateGmMessage} field="session_zero_questions" />
+      <div className={styles.full}>
+        {frameModificationKinds.map((kind) => <ModificationList key={kind.id} kind={kind} entries={form.modifications?.[kind.id] || []} options={availableOptions[kind.id] || []} onChange={(entries) => updateModification(kind.id, entries)} />)}
+      </div>
+      <TextField className={styles.full} label="GM-only note for Character guidance" value={form.gm_messages?.modifications} update={updateGmMessage} field="modifications" />
       <TextField className={styles.full} label="Player principles" value={form.player_principles} update={update} field="player_principles" hint="Separate entries with a blank line" />
+      <TextField className={styles.full} label="GM-only note for Player principles" value={form.gm_messages?.player_principles} update={updateGmMessage} field="player_principles" />
       <TextField className={styles.full} label="GM principles" value={form.gm_principles} update={update} field="gm_principles" hint="Separate entries with a blank line" />
+      <TextField className={styles.full} label="GM-only note for GM principles" value={form.gm_messages?.gm_principles} update={updateGmMessage} field="gm_principles" />
       <TextField className={styles.full} label="Distinctions" value={form.distinctions} update={update} field="distinctions" hint="Separate entries with a blank line" />
+      <TextField className={styles.full} label="GM-only note for Distinctions" value={form.gm_messages?.distinctions} update={updateGmMessage} field="distinctions" />
       <TextField className={styles.full} label="Campaign mechanics" value={form.campaign_mechanics} update={update} field="campaign_mechanics" hint="Separate entries with a blank line" />
+      <TextField className={styles.full} label="GM-only note for Campaign mechanics" value={form.gm_messages?.campaign_mechanics} update={updateGmMessage} field="campaign_mechanics" />
     </div>
   </div>;
 }
 
 function TextField({ label, value, update, field, hint, required = false, className = '' }) {
-  return <label className={className}>{label}{hint && <small>{hint}</small>}<textarea required={required} value={value} onChange={(event) => update(field, event.target.value)} /></label>;
+  return <label className={className}>{label}{hint && <small>{hint}</small>}<textarea required={required} value={value || ''} onChange={(event) => update(field, event.target.value)} /></label>;
+}
+
+function ModificationList({ kind, entries, options, onChange }) {
+  const updateEntry = (index, field, value) => onChange(entries.map((entry, entryIndex) => entryIndex === index ? { ...entry, [field]: value } : entry));
+  const addEntry = () => onChange([...entries, newModificationEntry(kind.id, entries.length + 1)]);
+  const removeEntry = (index) => onChange(entries.filter((_, entryIndex) => entryIndex !== index));
+  return <section className={styles.modificationSection}>
+    <div className={styles.modificationHeader}><div><h4>{kind.label}</h4><p>Add each feature separately. Leave the target list empty to show it for every {kind.optionLabel}.</p></div><button type="button" className={styles.smallButton} onClick={addEntry}>Add feature</button></div>
+    {entries.map((entry, index) => <article className={styles.modificationEntry} key={entry.id || `${kind.id}-${index}`}>
+      <div className={styles.modificationEntryHeader}><strong>Feature {index + 1}</strong><button type="button" className={styles.removeButton} onClick={() => removeEntry(index)}>Remove</button></div>
+      <div className={styles.modificationGrid}>
+        <label>Feature ID<input value={entry.id || ''} onChange={(event) => updateEntry(index, 'id', event.target.value)} /></label>
+        <label>Feature title<input value={entry.title || ''} onChange={(event) => updateEntry(index, 'title', event.target.value)} /></label>
+        <label className={styles.full}>Player-facing guidance<textarea value={entry.description || ''} onChange={(event) => updateEntry(index, 'description', event.target.value)} /></label>
+        <TargetPicker kind={kind} options={options} selected={entry.target_ids || []} onChange={(value) => updateEntry(index, 'target_ids', value)} />
+        <label className={styles.full}>GM-only note for this feature<textarea value={entry.gm_message || ''} onChange={(event) => updateEntry(index, 'gm_message', event.target.value)} /></label>
+      </div>
+    </article>)}
+    {entries.length === 0 && <p className="muted">No {kind.optionLabel} features added.</p>}
+  </section>;
+}
+
+function TargetPicker({ kind, options, selected, onChange }) {
+  const updateText = (value) => onChange(value.split(',').map((item) => item.trim()).filter(Boolean));
+  return <fieldset className={`${styles.targetPicker} ${styles.full}`}>
+    <legend>Applies to {kind.optionPlural}</legend>
+    {options.length > 0 ? <div className={styles.targetOptions}>{options.map((option) => <label key={option.id}><input type="checkbox" checked={selected.includes(option.id)} onChange={(event) => onChange(event.target.checked ? [...selected, option.id] : selected.filter((id) => id !== option.id))} /><span>{option.name} <small>{option.id}</small></span></label>)}</div> : <input aria-label={`Target ${kind.optionLabel} IDs`} value={selected.join(', ')} onChange={(event) => updateText(event.target.value)} placeholder={`Enter ${kind.optionLabel} IDs, separated by commas`} />}
+    <small>Leave empty to make this feature general.</small>
+  </fieldset>;
 }

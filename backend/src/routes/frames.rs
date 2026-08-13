@@ -12,7 +12,7 @@ use crate::{
         AccessLevel, AdventureFrame, AttachAdventureFrameRequest, CampaignFrame,
         CreateCampaignFrameRequest, UpdateAdventureFrameRequest, UpdateCampaignFrameRequest,
     },
-    repository::frame_repo,
+    repository::{adventure_repo, frame_repo},
     state::AppState,
     utils::validation,
 };
@@ -100,10 +100,15 @@ pub async fn get_adventure_frame(
     AuthUser(user): AuthUser,
     Path(adventure_id): Path<Uuid>,
 ) -> Result<Json<AdventureFrame>, AppError> {
-    frame_repo::find_for_user(&state.db, &user, adventure_id)
+    let mut frame = frame_repo::find_for_user(&state.db, &user, adventure_id)
         .await?
-        .map(Json)
-        .ok_or_else(|| AppError::NotFound("No campaign frame is attached".to_owned()))
+        .ok_or_else(|| AppError::NotFound("No campaign frame is attached".to_owned()))?;
+    let is_gm = user.access_level == AccessLevel::Admin.as_str()
+        || adventure_repo::is_creator(&state.db, adventure_id, user.id).await?;
+    if !is_gm {
+        frame.content = filter_content(&frame.content, &frame.selections);
+    }
+    Ok(Json(frame))
 }
 
 pub async fn attach_adventure_frame(
@@ -230,6 +235,20 @@ pub fn blank_frame() -> Value {
         "touchstones": [],
         "overview": "Define the setting, pressures, and boundaries that make this campaign distinct.",
         "modifications": {"communities": [], "ancestries": [], "classes": []},
+        "gm_messages": {
+            "pitch": "",
+            "tone_and_feel": "",
+            "themes": "",
+            "touchstones": "",
+            "overview": "",
+            "modifications": "",
+            "player_principles": "",
+            "gm_principles": "",
+            "distinctions": "",
+            "inciting_incident": "",
+            "campaign_mechanics": "",
+            "session_zero_questions": ""
+        },
         "player_principles": [],
         "gm_principles": [],
         "distinctions": [],
@@ -291,6 +310,16 @@ pub fn validate_frame_content(content: &Value) -> Result<(), AppError> {
             }
         }
     }
+    if let Some(messages) = object.get("gm_messages") {
+        let messages = messages.as_object().ok_or_else(|| {
+            AppError::Validation("Frame GM messages must be a JSON object".to_owned())
+        })?;
+        if messages.values().any(|message| !message.is_string()) {
+            return Err(AppError::Validation(
+                "Each frame GM message must be a string".to_owned(),
+            ));
+        }
+    }
     for field in [
         "player_principles",
         "gm_principles",
@@ -350,6 +379,23 @@ fn validate_entries(value: &Value, field: &str) -> Result<(), AppError> {
                 "Questions in {field} must be an array of strings"
             )));
         }
+        if let Some(target_ids) = object.get("target_ids")
+            && (!target_ids.is_array()
+                || !target_ids
+                    .as_array()
+                    .is_some_and(|items| items.iter().all(Value::is_string)))
+        {
+            return Err(AppError::Validation(format!(
+                "Target IDs in {field} must be an array of strings"
+            )));
+        }
+        if let Some(gm_message) = object.get("gm_message")
+            && !gm_message.is_string()
+        {
+            return Err(AppError::Validation(format!(
+                "GM messages in {field} must be strings"
+            )));
+        }
     }
     Ok(())
 }
@@ -359,7 +405,9 @@ pub fn filter_content(content: &Value, selections: &Value) -> Value {
         return content.clone();
     };
     let Some(selection_object) = selections.as_object() else {
-        return content.clone();
+        let mut filtered = content.clone();
+        strip_gm_only(&mut filtered);
+        return filtered;
     };
     let mut filtered = Map::new();
     for (key, value) in content_object {
@@ -372,7 +420,27 @@ pub fn filter_content(content: &Value, selections: &Value) -> Value {
             filtered.insert(key.clone(), value.clone());
         }
     }
-    Value::Object(filtered)
+    let mut filtered = Value::Object(filtered);
+    strip_gm_only(&mut filtered);
+    filtered
+}
+
+fn strip_gm_only(value: &mut Value) {
+    match value {
+        Value::Object(object) => {
+            object.remove("gm_message");
+            object.remove("gm_messages");
+            for child in object.values_mut() {
+                strip_gm_only(child);
+            }
+        }
+        Value::Array(items) => {
+            for item in items {
+                strip_gm_only(item);
+            }
+        }
+        _ => {}
+    }
 }
 
 fn filter_modifications(value: &Value, selections: &Map<String, Value>) -> Value {
@@ -460,5 +528,31 @@ mod tests {
         let filtered = filter_content(&content, &json!({"modifications": false}));
 
         assert!(filtered.get("modifications").is_none());
+    }
+
+    #[test]
+    fn strips_gm_only_messages_from_player_context() {
+        let content = json!({
+            "pitch": "A pitch",
+            "gm_messages": {"pitch": "Secret direction"},
+            "modifications": {
+                "classes": [{
+                    "id": "class-a",
+                    "title": "A",
+                    "description": "Player guidance",
+                    "target_ids": ["class-a"],
+                    "gm_message": "Secret class direction"
+                }]
+            }
+        });
+
+        let filtered = filter_content(&content, &serde_json::json!({}));
+
+        assert!(filtered.get("gm_messages").is_none());
+        assert!(
+            filtered["modifications"]["classes"][0]
+                .get("gm_message")
+                .is_none()
+        );
     }
 }
