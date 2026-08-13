@@ -17,7 +17,7 @@ spec:
       containers:
         - name: frontend
           # image tag is rewritten in the Jenkins production promotion branch
-          image: docker.io/pierrot32/daggeradventure_frontend:57-63f92929ae59
+          image: docker.io/pierrot32/daggeradventure_frontend:63-fad896e2b365
           ports:
             - containerPort: 80
           readinessProbe:
