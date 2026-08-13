@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import * as adventureApi from './adventureApi';
 
+let adventureFetchGeneration = 0;
+
 // Adventure state centralizes loading and mutation errors for all adventure pages
 export const useAdventureStore = create((set) => ({
   adventures: [],
@@ -10,6 +12,8 @@ export const useAdventureStore = create((set) => ({
   loading: false,
   error: null,
 
+  clearInvites: () => set({ invites: [] }),
+
   fetchAdventures: async () => {
     set({ loading: true, error: null });
     try { set({ adventures: await adventureApi.listAdventures(), loading: false }); }
@@ -17,9 +21,18 @@ export const useAdventureStore = create((set) => ({
   },
 
   fetchAdventure: async (id) => {
-    set({ loading: true, error: null });
-    try { set({ current: await adventureApi.getAdventure(id), loading: false }); }
-    catch (error) { set({ error: error.message, loading: false }); }
+    const requestGeneration = ++adventureFetchGeneration;
+    set((state) => ({
+      loading: true,
+      error: null,
+      current: state.current?.id === id ? state.current : null,
+    }));
+    try {
+      const adventure = await adventureApi.getAdventure(id);
+      if (requestGeneration === adventureFetchGeneration) set({ current: adventure, loading: false });
+    } catch (error) {
+      if (requestGeneration === adventureFetchGeneration) set({ error: error.message, loading: false });
+    }
   },
 
   create: async (payload) => {
@@ -34,20 +47,41 @@ export const useAdventureStore = create((set) => ({
     }
   },
 
-  fetchInvites: async (id) => {
+  deleteAdventure: async (id, canCommit = () => true) => {
     set({ loading: true, error: null });
-    try { set({ invites: await adventureApi.listInvites(id), loading: false }); }
-    catch (error) { set({ error: error.message, loading: false }); }
+    try {
+      await adventureApi.deleteAdventure(id);
+      if (!canCommit()) return;
+      set((state) => ({
+        adventures: state.adventures.filter((adventure) => adventure.id !== id),
+        current: state.current?.id === id ? null : state.current,
+        loading: false,
+      }));
+    } catch (error) {
+      if (canCommit()) set({ error: error.message, loading: false });
+      throw error;
+    }
   },
 
-  invite: async (id, email) => {
+  fetchInvites: async (id, canCommit = () => true) => {
+    set({ invites: [], loading: true, error: null });
+    try {
+      const invites = await adventureApi.listInvites(id);
+      if (canCommit()) set({ invites, loading: false });
+      return invites;
+    } catch (error) {
+      if (canCommit()) set({ error: error.message, loading: false });
+    }
+  },
+
+  invite: async (id, email, canCommit = () => true) => {
     set({ loading: true, error: null });
     try {
       const invite = await adventureApi.createInvite(id, email);
-      set((state) => ({ invites: [invite, ...state.invites], loading: false }));
+      if (canCommit()) set((state) => ({ invites: [invite, ...state.invites], loading: false }));
       return invite;
     } catch (error) {
-      set({ error: error.message, loading: false });
+      if (canCommit()) set({ error: error.message, loading: false });
       throw error;
     }
   },
@@ -75,13 +109,14 @@ export const useAdventureStore = create((set) => ({
     catch (error) { set({ error: error.message }); }
   },
 
-  setFear: async (id, fear) => {
+  setFear: async (id, fear, canCommit = () => true) => {
     const previous = useAdventureStore.getState().current;
     set({ current: { ...previous, fear } });
     try {
-      set({ current: await adventureApi.updateFear(id, fear) });
+      const updated = await adventureApi.updateFear(id, fear);
+      if (canCommit()) set({ current: updated });
     } catch (error) {
-      set({ current: previous, error: error.message });
+      if (canCommit()) set({ current: previous, error: error.message });
     }
   },
 }));

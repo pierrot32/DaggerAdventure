@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../../components/Button/Button';
 import { listBuiltinFrames, listLibraryFrames } from '../frames/frameApi';
 import { getCharacterCreationBook } from '../characters/characterApi';
-import { autoFeatureIds, contentToForm, draftToContent, emptyFrame, frameModificationKinds, newModificationEntry } from '../frames/frameDraft';
+import { autoFeatureIds, contentToForm, draftToContent, emptyFrame, frameModificationKinds, newModificationEntry, preserveFrameEntryMapShape } from '../frames/frameDraft';
 import { useAdventureStore } from './adventureStore';
 import styles from './CreateAdventurePage.module.css';
 
@@ -108,17 +108,17 @@ export function FrameDraftForm({ form, update, optionLists = {}, activeSection =
       <TextField className={styles.full} label="Description" value={form.description} update={update} field="description" />
     </div>}
     {showSection('pitch') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Pitch" value={form.gm_messages?.pitch} update={updateGmMessage} field="pitch" />}><TextField label="Pitch" value={form.pitch} update={update} field="pitch" required /></SectionFields>}
-    {showSection('overview') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Overview" value={form.gm_messages?.overview} update={updateGmMessage} field="overview" />}><TextField label="Overview" value={form.overview} update={update} field="overview" required /></SectionFields>}
-    {showSection('inciting_incident') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for The inciting incident" value={form.gm_messages?.inciting_incident} update={updateGmMessage} field="inciting_incident" />}><TextField label="The inciting incident" value={form.inciting_incident} update={update} field="inciting_incident" /></SectionFields>}
     {showSection('tone_and_feel') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Tone & feel" value={form.gm_messages?.tone_and_feel} update={updateGmMessage} field="tone_and_feel" />}><RepeatableTextList label="Tone & feel" values={form.tone_and_feel} onChange={(value) => update('tone_and_feel', value)} addLabel="tone" placeholder="A tone or feeling" /></SectionFields>}
     {showSection('themes') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Themes" value={form.gm_messages?.themes} update={updateGmMessage} field="themes" />}><RepeatableTextList label="Themes" values={form.themes} onChange={(value) => update('themes', value)} addLabel="theme" placeholder="A theme" /></SectionFields>}
     {showSection('touchstones') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Touchstones" value={form.gm_messages?.touchstones} update={updateGmMessage} field="touchstones" />}><RepeatableTextList label="Touchstones" values={form.touchstones} onChange={(value) => update('touchstones', value)} addLabel="touchstone" placeholder="A touchstone" /></SectionFields>}
-    {showSection('session_zero_questions') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Session-zero questions" value={form.gm_messages?.session_zero_questions} update={updateGmMessage} field="session_zero_questions" />}><RepeatableTextList label="Session-zero questions" values={form.session_zero_questions} onChange={(value) => update('session_zero_questions', value)} addLabel="question" placeholder="A question for session zero" /></SectionFields>}
+    {showSection('overview') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Overview" value={form.gm_messages?.overview} update={updateGmMessage} field="overview" />}><TextField label="Overview" value={form.overview} update={update} field="overview" required /></SectionFields>}
     {frameModificationKinds.map((kind) => showSection(kind.id) && <SectionFields key={kind.id} note={<TextField className={`${styles.full} ${styles.gmNote}`} label={`GM-only note for ${kind.label}`} value={form.gm_messages?.[kind.id]} update={updateGmMessage} field={kind.id} />}><ModificationList kind={kind} frameName={form.name} entries={form.modifications?.[kind.id] || []} options={availableOptions[kind.id] || []} onChange={(entries) => updateModification(kind.id, entries)} /></SectionFields>)}
     {showSection('player_principles') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Player principles" value={form.gm_messages?.player_principles} update={updateGmMessage} field="player_principles" />}><RepeatableTextList label="Player principles" values={form.player_principles} onChange={(value) => update('player_principles', value)} addLabel="principle" placeholder="A principle for players" /></SectionFields>}
     {showSection('gm_principles') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for GM principles" value={form.gm_messages?.gm_principles} update={updateGmMessage} field="gm_principles" />}><RepeatableTextList label="GM principles" values={form.gm_principles} onChange={(value) => update('gm_principles', value)} addLabel="principle" placeholder="A principle for the GM" /></SectionFields>}
     {showSection('distinctions') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Distinctions" value={form.gm_messages?.distinctions} update={updateGmMessage} field="distinctions" />}><RepeatableTextList label="Distinctions" values={form.distinctions} onChange={(value) => update('distinctions', value)} addLabel="distinction" placeholder="A distinction" /></SectionFields>}
+    {showSection('inciting_incident') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for The inciting incident" value={form.gm_messages?.inciting_incident} update={updateGmMessage} field="inciting_incident" />}><TextField label="The inciting incident" value={form.inciting_incident} update={update} field="inciting_incident" /></SectionFields>}
     {showSection('campaign_mechanics') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Campaign mechanics" value={form.gm_messages?.campaign_mechanics} update={updateGmMessage} field="campaign_mechanics" />}><RepeatableTextList label="Campaign mechanics" values={form.campaign_mechanics} onChange={(value) => update('campaign_mechanics', value)} addLabel="mechanic" placeholder="A campaign rule or procedure" tableEditor /></SectionFields>}
+    {showSection('session_zero_questions') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Session-zero questions" value={form.gm_messages?.session_zero_questions} update={updateGmMessage} field="session_zero_questions" />}><RepeatableTextList label="Session-zero questions" values={form.session_zero_questions} onChange={(value) => update('session_zero_questions', value)} addLabel="question" placeholder="A question for session zero" /></SectionFields>}
   </div>;
 }
 
@@ -127,8 +127,15 @@ function SectionFields({ note, children }) {
 }
 
 function TextField({ label, value, update, field, hint, required = false, className = '' }) {
-  const stripNewlines = () => update(field, (value || '').replace(/\n/g, ''));
-  return <label className={className}>{label}{hint && <small>{hint}</small>}<span className={styles.textareaControl}><textarea required={required} value={value || ''} onChange={(event) => update(field, event.target.value)} /><button type="button" className={styles.stripNewlines} onClick={stripNewlines} title="Remove all newline characters" aria-label={`Remove all newline characters from ${label}`}>Remove newlines</button></span></label>;
+  const stripNewlines = () => update(field, normalizeNewlineRuns(value));
+  return <label className={className}>{label}{hint && <small>{hint}</small>}<span className={styles.textareaControl}><textarea required={required} value={value || ''} onChange={(event) => update(field, event.target.value)} /><button type="button" className={styles.stripNewlines} onClick={stripNewlines} title="Normalize line breaks" aria-label={`Normalize line breaks in ${label}`}>Normalize line breaks</button></span></label>;
+}
+
+function normalizeNewlineRuns(value) {
+  return String(value || '').replace(/(?:\r\n|\r|\n)+/g, (run) => {
+    const newlineCount = run.match(/\r\n|\r|\n/g)?.length || 0;
+    return newlineCount > 1 ? '\n' : ' ';
+  });
 }
 
 export function RepeatableTextList({ label, values, onChange, addLabel = 'item', placeholder, tableEditor = false }) {
@@ -146,7 +153,7 @@ export function RepeatableTextList({ label, values, onChange, addLabel = 'item',
   return <fieldset className={styles.repeatableList}>
     <legend>{label}</legend>
     {items.map((item, index) => <div className={styles.repeatableItem} key={`${label}-${index}`}>
-      <input value={itemValue(item)} onChange={(event) => updateItem(index, event.target.value)} placeholder={placeholder} aria-label={`${label} ${index + 1}`} />
+      <TextField className={styles.repeatableField} label={`${label} ${index + 1}`} value={itemValue(item)} update={(_field, value) => updateItem(index, value)} field="value" hint={placeholder} />
       <button type="button" className={styles.removeButton} onClick={() => removeItem(index)} aria-label={`Remove ${label} ${index + 1}`}>Remove</button>
       {tableEditor && <TableEditor table={item?.table} onChange={(table) => updateItemTable(index, table)} label={`${label} ${index + 1} table`} />}
     </div>)}
@@ -155,7 +162,7 @@ export function RepeatableTextList({ label, values, onChange, addLabel = 'item',
 }
 
 function normalizeTable(table) {
-  if (!table) return null;
+  if (!table || typeof table !== 'object') return null;
   const headers = Array.isArray(table.headers) ? table.headers.map((header) => String(header ?? '')) : [];
   const rows = Array.isArray(table.rows) ? table.rows.map((row) => headers.map((_, index) => String(row?.[index] ?? ''))) : [];
   return { ...table, headers, rows };
@@ -163,12 +170,17 @@ function normalizeTable(table) {
 
 export function TableEditor({ table, onChange, label = 'Table' }) {
   const normalized = normalizeTable(table);
+  const setupId = `table-setup-${useId().replace(/:/g, '')}`;
+  const [setupOpen, setSetupOpen] = useState(false);
   const [initialRows, setInitialRows] = useState(2);
   const [initialColumns, setInitialColumns] = useState(2);
-  const createTable = () => onChange({
-    headers: Array.from({ length: initialColumns }, (_, index) => `Column ${index + 1}`),
-    rows: Array.from({ length: initialRows }, () => Array.from({ length: initialColumns }, () => '')),
-  });
+  const createTable = () => {
+    onChange({
+      headers: Array.from({ length: initialColumns }, (_, index) => `Column ${index + 1}`),
+      rows: Array.from({ length: initialRows }, () => Array.from({ length: initialColumns }, () => '')),
+    });
+    setSetupOpen(false);
+  };
   const updateTable = (nextTable) => onChange(normalizeTable(nextTable));
   const updateHeader = (index, value) => updateTable({ ...normalized, headers: normalized.headers.map((header, headerIndex) => headerIndex === index ? value : header) });
   const updateCell = (rowIndex, columnIndex, value) => updateTable({ ...normalized, rows: normalized.rows.map((row, currentRow) => currentRow === rowIndex ? row.map((cell, currentColumn) => currentColumn === columnIndex ? value : cell) : row) });
@@ -176,7 +188,7 @@ export function TableEditor({ table, onChange, label = 'Table' }) {
   const removeRow = (index) => updateTable({ ...normalized, rows: normalized.rows.filter((_, rowIndex) => rowIndex !== index) });
   const addColumn = () => updateTable({ headers: [...normalized.headers, `Column ${normalized.headers.length + 1}`], rows: normalized.rows.map((row) => [...row, '']) });
   const removeColumn = (index) => updateTable({ headers: normalized.headers.filter((_, columnIndex) => columnIndex !== index), rows: normalized.rows.map((row) => row.filter((_, columnIndex) => columnIndex !== index)) });
-  if (!normalized) return <fieldset className={styles.tableEditor}><legend>{label}</legend><div className={styles.tableSetup}><label>Initial rows<input type="number" min="1" max="50" value={initialRows} onChange={(event) => setInitialRows(Math.max(1, Number(event.target.value) || 1))} /></label><label>Initial columns<input type="number" min="1" max="20" value={initialColumns} onChange={(event) => setInitialColumns(Math.max(1, Number(event.target.value) || 1))} /></label><button type="button" className={styles.smallButton} onClick={createTable}>Add table</button></div></fieldset>;
+  if (!normalized) return <fieldset className={styles.tableEditor}><legend>{label}</legend><button type="button" className={styles.smallButton} aria-expanded={setupOpen} aria-controls={setupId} onClick={() => setSetupOpen((current) => !current)}>Add table</button>{setupOpen && <div id={setupId} className={styles.tableSetup} role="dialog" aria-label={`Set up ${label}`}><label>Rows<input type="number" min="1" max="50" value={initialRows} onChange={(event) => setInitialRows(Math.min(50, Math.max(1, Number(event.target.value) || 1)))} /></label><label>Columns<input type="number" min="1" max="20" value={initialColumns} onChange={(event) => setInitialColumns(Math.min(20, Math.max(1, Number(event.target.value) || 1)))} /></label><div className={styles.tableSetupActions}><button type="button" className={styles.smallButton} onClick={createTable}>Create table</button><button type="button" className={styles.removeButton} onClick={() => setSetupOpen(false)}>Cancel</button></div></div>}</fieldset>;
   return <fieldset className={styles.tableEditor}><legend>{label}</legend><div className={styles.tableActions}><button type="button" className={styles.smallButton} onClick={addRow}>Add row</button><button type="button" className={styles.smallButton} onClick={addColumn}>Add column</button><button type="button" className={styles.removeButton} onClick={() => onChange(undefined)}>Remove table</button></div><div className={styles.tableScroll}><table><thead><tr>{normalized.headers.map((header, index) => <th key={`header-${index}`}><input aria-label={`${label} column ${index + 1}`} value={header} onChange={(event) => updateHeader(index, event.target.value)} /><button type="button" className={styles.removeButton} onClick={() => removeColumn(index)} aria-label={`Remove ${label} column ${index + 1}`}>Remove</button></th>)}</tr></thead><tbody>{normalized.rows.map((row, rowIndex) => <tr key={`row-${rowIndex}`}>{row.map((cell, columnIndex) => <td key={`cell-${rowIndex}-${columnIndex}`}><input aria-label={`${label} row ${rowIndex + 1} column ${columnIndex + 1}`} value={cell} onChange={(event) => updateCell(rowIndex, columnIndex, event.target.value)} /></td>)}<td><button type="button" className={styles.removeButton} onClick={() => removeRow(rowIndex)} aria-label={`Remove ${label} row ${rowIndex + 1}`}>Remove row</button></td></tr>)}</tbody></table></div></fieldset>;
 }
 
@@ -187,7 +199,7 @@ function ModificationList({ kind, frameName, entries, options, onChange }) {
   }, [options, selectedTargetId]);
 
   const entriesWithIds = autoFeatureIds(entries, kind.id, frameName, options);
-  const updateEntries = (nextEntries) => onChange(autoFeatureIds(nextEntries, kind.id, frameName, options));
+  const updateEntries = (nextEntries) => onChange(autoFeatureIds(preserveFrameEntryMapShape(nextEntries, entries), kind.id, frameName, options));
   const updateEntry = (index, field, value) => updateEntries(entries.map((entry, entryIndex) => entryIndex === index ? { ...entry, [field]: value } : entry));
   const addEntry = () => updateEntries([...entries, { ...newModificationEntry(kind.id, entries.length + 1), target_ids: selectedTargetId ? [selectedTargetId] : [] }]);
   const removeEntry = (index) => updateEntries(entries.filter((_, entryIndex) => entryIndex !== index));

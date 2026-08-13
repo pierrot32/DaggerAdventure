@@ -23,13 +23,15 @@
 .frameGrid small { color: var(--color-muted-inverse); font-size: 12px; }
 .sectionFields { display: grid; gap: var(--space-4); }
 .textareaControl { display: grid; gap: var(--space-2); }
+.textareaControl textarea { min-height: 140px; }
 .stripNewlines { justify-self: start; padding: 3px 7px; border: 1px solid var(--color-border); background: transparent; color: var(--color-muted-inverse); cursor: pointer; font: inherit; font-size: 11px; }
 .stripNewlines:hover { border-color: var(--color-accent); color: var(--color-accent); }
 .form .gmNote textarea { min-height: 2.5em; }
 .repeatableList { display: grid; gap: var(--space-3); min-width: 0; margin: 0; padding: 0; border: 0; }
 .repeatableList legend { padding: 0; color: var(--color-muted-inverse); font-size: 14px; }
-.repeatableItem { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2); align-items: center; }
-.repeatableItem input { min-width: 0; }
+.repeatableItem { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2); align-items: start; }
+.repeatableField { min-width: 0; }
+.repeatableField textarea { min-height: 180px; }
 .modificationSection { display: grid; gap: var(--space-3); margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid rgba(244, 238, 228, .14); }
 .modificationHeader { display: flex; align-items: end; justify-content: space-between; gap: var(--space-4); }
 .modificationHeader h4 { margin: 0; color: var(--color-text-inverse); font-size: 18px; }
@@ -52,6 +54,17 @@
 .smallButton:hover { border-color: var(--color-accent); background: rgba(201, 157, 99, .1); }
 .removeButton { padding: 6px 8px; border: 1px solid var(--color-border); background: transparent; color: var(--color-muted-inverse); cursor: pointer; }
 .removeButton:hover { border-color: var(--color-danger); color: var(--color-danger); }
+.tableEditor { display: grid; gap: var(--space-3); min-width: 0; margin: 0; padding: var(--space-3); border: 1px solid rgba(244, 238, 228, .16); }
+.tableEditor legend { padding: 0 var(--space-2); color: var(--color-muted-inverse); font-size: 13px; }
+.tableSetup { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-3); padding: var(--space-3); border-left: 2px solid var(--color-accent); background: rgba(244, 238, 228, .05); }
+.tableSetup label { min-width: 90px; }
+.tableSetup input { padding: 7px 10px; }
+.tableSetupActions, .tableActions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.tableScroll { overflow-x: auto; }
+.tableScroll table { width: 100%; border-collapse: collapse; }
+.tableScroll th, .tableScroll td { min-width: 130px; padding: var(--space-2); border: 1px solid rgba(244, 238, 228, .14); vertical-align: top; }
+.tableScroll th { color: var(--color-muted-inverse); text-align: left; }
+.tableScroll th input, .tableScroll td input { min-width: 110px; }
 .error { color: #ffb4ac; }
 @media (max-width: 700px) { .adventureFields, .frameGrid { grid-template-columns: 1fr; } .adventureFields label:last-child, .full { grid-column: auto; } .frameHeader, .previewTop { align-items: start; flex-direction: column; } }
 @media (max-width: 560px) { .modificationHeader { align-items: start; flex-direction: column; } .addFeatureControls { width: 100%; } .addFeatureControls select { flex: 1; min-width: 0; } .modificationGrid { grid-template-columns: 1fr; } }

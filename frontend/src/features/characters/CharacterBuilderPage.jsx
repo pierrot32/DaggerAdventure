@@ -83,35 +83,85 @@ function normalizedText(value) {
   return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
+function frameContentObject(value) {
+  let current = value;
+  while (current && typeof current === 'object' && !Array.isArray(current) && current.content && typeof current.content === 'object' && !Array.isArray(current.content)) current = current.content;
+  return current && typeof current === 'object' && !Array.isArray(current) ? current : {};
+}
+
+function singularize(value) {
+  if (value.endsWith('ies')) return `${value.slice(0, -3)}y`;
+  if (value.endsWith('sses')) return value.slice(0, -2);
+  if (value.endsWith('s') && !value.endsWith('ss')) return value.slice(0, -1);
+  return value;
+}
+
+function pluralize(value) {
+  if (value.endsWith('y')) return `${value.slice(0, -1)}ies`;
+  if (value.endsWith('s')) return value;
+  return `${value}s`;
+}
+
+function textVariants(value) {
+  const normalized = normalizedText(value);
+  if (!normalized) return [];
+  const words = normalized.split(' ');
+  const lastWord = words[words.length - 1];
+  const stem = words.slice(0, -1).join(' ');
+  return [...new Set([normalized, `${stem}${singularize(lastWord)}`, `${stem}${pluralize(lastWord)}`].filter(Boolean))];
+}
+
+function objectText(value) {
+  if (!value || typeof value !== 'object') return String(value || '');
+  return value.id || value.name || value.title || value.value || '';
+}
+
+function modificationEntries(frameContent, kind) {
+  const content = frameContentObject(frameContent);
+  const modifications = content.modifications && typeof content.modifications === 'object' ? content.modifications : content;
+  const singularKind = singularize(normalizedText(kind));
+  const rawEntries = modifications[kind] ?? modifications[singularKind] ?? [];
+  if (Array.isArray(rawEntries)) return rawEntries.filter((entry) => entry && typeof entry === 'object');
+  if (!rawEntries || typeof rawEntries !== 'object') return [];
+  return Object.entries(rawEntries).flatMap(([id, entry]) => entry && typeof entry === 'object' ? [{ ...entry, id: entry.id || id }] : []);
+}
+
+function optionValues(option) {
+  return [option?.id, option?.name, option?.title].flatMap(textVariants);
+}
+
+function entryTargetValues(entry, kind) {
+  const legacyTargetKey = { communities: 'community_ids', ancestries: 'ancestry_ids', classes: 'class_ids' }[kind];
+  return [entry.target_ids, entry[legacyTargetKey], entry.target_id, entry.target, entry.targets]
+    .flatMap((value) => Array.isArray(value) ? value : value ? [value] : [])
+    .map(objectText)
+    .flatMap(textVariants);
+}
+
+function hasMatchingValue(values, candidates) {
+  return values.some((value) => candidates.includes(value));
+}
+
 function frameGuidance(frameContent, kind, option) {
   if (!frameContent || !option) return [];
-  const entries = frameContent.modifications?.[kind] || [];
-  const optionName = normalizedText(option.name);
-  const targeted = entries.filter((entry) => Array.isArray(entry.target_ids) && entry.target_ids.length > 0);
-  const targetMatches = targeted.filter((entry) => entry.target_ids.includes(option.id));
+  const entries = modificationEntries(frameContent, kind);
+  const optionNames = optionValues(option);
+  const targeted = entries.filter((entry) => entryTargetValues(entry, kind).length > 0);
+  const targetMatches = targeted.filter((entry) => hasMatchingValue(entryTargetValues(entry, kind), optionNames));
   if (targetMatches.length > 0) return targetMatches;
-  const general = entries.filter((entry) => !Array.isArray(entry.target_ids) || entry.target_ids.length === 0);
+  const general = entries.filter((entry) => entryTargetValues(entry, kind).length === 0);
   const matching = general.filter((entry) => {
-    const title = normalizedText(entry.title);
-    return title.includes(optionName) || optionName.split(' ').some((word) => word.length > 3 && title.includes(word));
+    const entryNames = [entry.id, entry.name, entry.title].flatMap(textVariants);
+    return hasMatchingValue(entryNames, optionNames) || optionNames.some((name) => entryNames.some((entryName) => entryName.includes(name) || name.includes(entryName)));
   });
   if (matching.length > 0) return matching;
-  const broad = general.filter((entry) => /\ball\b|\bavailable\b|\bwithin\b/.test(normalizedText(entry.title)));
+  const broad = general.filter((entry) => /\ball\b|\bavailable\b|\bwithin\b/.test(normalizedText(`${entry.title} ${entry.name}`)));
   return broad.length > 0 ? broad : general;
 }
 
 function frameGuidanceForOptions(frameContent, kind, options) {
   const seen = new Set();
-  const entriesForOption = (option) => {
-    const optionName = normalizedText(option.name);
-    const generalEntries = (frameContent?.modifications?.[kind] || []).filter((entry) => !Array.isArray(entry.target_ids) || entry.target_ids.length === 0);
-    const matchingGeneral = generalEntries.filter((entry) => {
-      const title = normalizedText(entry.title);
-      return title.includes(optionName) || optionName.split(' ').some((word) => word.length > 3 && title.includes(word)) || /\ball\b|\bavailable\b|\bwithin\b/.test(title);
-    });
-    return [...frameGuidance(frameContent, kind, option), ...matchingGeneral];
-  };
-  return options.flatMap(entriesForOption).filter((entry) => {
+  return options.flatMap((option) => frameGuidance(frameContent, kind, option)).filter((entry) => {
     const key = entry.id || `${entry.title}-${entry.description}`;
     if (seen.has(key)) return false;
     seen.add(key);
@@ -167,7 +217,7 @@ export default function CharacterBuilderPage() {
     setFrameState({ loading: true, error: '', content: null });
     getAdventureCharacterContext(selectedAdventureId)
       .then((response) => {
-        if (frameRequestRef.current === requestId) setFrameState({ loading: false, error: '', content: response.content });
+        if (frameRequestRef.current === requestId) setFrameState({ loading: false, error: '', content: frameContentObject(response?.content ?? response) });
       })
       .catch((error) => {
         if (frameRequestRef.current === requestId) setFrameState({ loading: false, error: error.message, content: null });

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Button from '../../components/Button/Button';
+import { useAuth } from '../../hooks/useAuth';
 import { useAdventureStore } from './adventureStore';
 import styles from './AdventureListPage.module.css';
 
@@ -8,14 +9,21 @@ import styles from './AdventureListPage.module.css';
 export default function AdventureListPage() {
   const {
     adventures, pendingInvites, loading, error,
-    fetchAdventures, fetchPendingInvites, respondToInvite,
+    fetchAdventures, fetchPendingInvites, respondToInvite, deleteAdventure,
   } = useAdventureStore();
+  const { user } = useAuth();
 
   useEffect(() => { fetchAdventures(); }, [fetchAdventures]);
   useEffect(() => { fetchPendingInvites(); }, [fetchPendingInvites]);
 
   const respond = async (inviteId, accepted) => {
     try { await respondToInvite(inviteId, accepted); } catch { /* store surfaces the error */ }
+  };
+
+  const remove = async (event, adventure) => {
+    event.preventDefault();
+    if (!window.confirm(`Delete ${adventure.name}? This removes the table, invitations, and frame. Player characters are unlinked from the adventure but preserved.`)) return;
+    try { await deleteAdventure(adventure.id); } catch { /* store surfaces the error */ }
   };
 
   return (
@@ -45,12 +53,13 @@ export default function AdventureListPage() {
       {loading ? <p className="muted">Loading adventures...</p> : (
         <div className={styles.grid}>
           {adventures.length === 0 && <p className="muted">No adventures are available yet.</p>}
-          {adventures.map((adventure) => (
-            <Link className={styles.card} to={`/adventures/${adventure.id}`} key={adventure.id}>
+          {adventures.map((adventure) => <article className={styles.card} key={adventure.id}>
+            <Link className={styles.cardLink} to={`/adventures/${adventure.id}`}>
               <h3>{adventure.name}</h3>
               <p>{adventure.description || 'No description yet.'}</p>
             </Link>
-          ))}
+            {adventure.creator_id === user?.id && <div className={styles.cardActions}><Button type="button" variant="text" onClick={(event) => remove(event, adventure)} disabled={loading}>Delete</Button></div>}
+          </article>)}
         </div>
       )}
     </section>

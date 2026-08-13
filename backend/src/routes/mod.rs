@@ -91,7 +91,10 @@ pub fn router(state: AppState) -> Router {
             "/api/adventures",
             get(adventures::list).post(adventures::create),
         )
-        .route("/api/adventures/:adventure_id", get(adventures::get))
+        .route(
+            "/api/adventures/:adventure_id",
+            get(adventures::get).delete(adventures::delete),
+        )
         .route(
             "/api/adventures/:adventure_id/characters",
             get(adventures::characters),

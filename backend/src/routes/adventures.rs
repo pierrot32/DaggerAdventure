@@ -53,26 +53,33 @@ pub async fn create(
             "Description must be 2000 characters or fewer".to_owned(),
         ));
     }
-    let adventure = adventure_repo::create(&state.db, user.id, &name, description).await?;
-    if let Some(frame_source) = frame_source {
-        let (source_type, source_id, content) = crate::routes::frames::resolve_source(
-            &state,
-            &user,
-            &frame_source.source_type,
-            frame_source.source_id.as_deref(),
-            frame_source.content.as_ref(),
+    let resolved_frame = if let Some(frame_source) = frame_source {
+        Some(
+            crate::routes::frames::resolve_source(
+                &state,
+                &user,
+                &frame_source.source_type,
+                frame_source.source_id.as_deref(),
+                frame_source.content.as_ref(),
+            )
+            .await?,
         )
-        .await?;
-        crate::repository::frame_repo::attach(
-            &state.db,
-            &user,
-            adventure.id,
-            &source_type,
-            source_id.as_deref(),
-            &content,
-        )
-        .await?;
-    }
+    } else {
+        None
+    };
+    let resolved_frame = resolved_frame
+        .as_ref()
+        .map(|(source_type, source_id, content)| {
+            (source_type.as_str(), source_id.as_deref(), content)
+        });
+    let adventure = adventure_repo::create_with_frame(
+        &state.db,
+        user.id,
+        &name,
+        description,
+        resolved_frame.as_ref(),
+    )
+    .await?;
     Ok((axum::http::StatusCode::CREATED, Json(adventure)))
 }
 
@@ -92,6 +99,18 @@ pub async fn get(
         .await?
         .map(Json)
         .ok_or_else(|| AppError::NotFound("Adventure not found".to_owned()))
+}
+
+pub async fn delete(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+    Path(adventure_id): Path<Uuid>,
+) -> Result<axum::http::StatusCode, AppError> {
+    require_at_least(&user, AccessLevel::AdventureMaker)?;
+    if !adventure_repo::delete_adventure(&state.db, &user, adventure_id).await? {
+        return Err(AppError::NotFound("Adventure not found".to_owned()));
+    }
+    Ok(axum::http::StatusCode::NO_CONTENT)
 }
 
 pub async fn create_invite(
