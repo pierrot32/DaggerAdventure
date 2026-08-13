@@ -37,7 +37,7 @@ export const newCommunity = (id = 'new-community') => ({
   id,
   name: 'New community',
   adjectives: [],
-  feature: feature(),
+  features: [],
 });
 
 export const beastForm = (id = 'new-beast-form') => ({
@@ -106,9 +106,9 @@ export function normalizeSubclass(item) {
     name: item.name || '',
     site_description: item.site_description || '',
     spellcast_trait: item.spellcast_trait || '',
-    foundation: Array.isArray(item.foundation) ? item.foundation : [],
-    specialization: Array.isArray(item.specialization) ? item.specialization : [],
-    mastery: Array.isArray(item.mastery) ? item.mastery : [],
+    foundation: Array.isArray(item.foundation) ? item.foundation.map((entry) => normalizeFeature(entry)) : [],
+    specialization: Array.isArray(item.specialization) ? item.specialization.map((entry) => normalizeFeature(entry)) : [],
+    mastery: Array.isArray(item.mastery) ? item.mastery.map((entry) => normalizeFeature(entry)) : [],
   };
 }
 
@@ -118,11 +118,11 @@ export function normalizeClass(item) {
     ...clone(item),
     domains: Array.isArray(item.domains) ? item.domains : [],
     class_items: Array.isArray(item.class_items) ? item.class_items : [],
-    class_features: Array.isArray(item.class_features) ? item.class_features : [],
+    class_features: Array.isArray(item.class_features) ? item.class_features.map((entry) => normalizeFeature(entry)) : [],
     beast_forms: Array.isArray(item.beast_forms) ? item.beast_forms.map(normalizeBeastForm) : [],
     background_questions: Array.isArray(item.background_questions) ? item.background_questions : [],
     subclasses: Array.isArray(item.subclasses) ? item.subclasses.map(normalizeSubclass) : [],
-    hope_feature: item.hope_feature || feature(),
+    hope_feature: normalizeFeature(item.hope_feature || feature()),
   };
 }
 
@@ -177,14 +177,16 @@ export function normalizeAncestry(item) {
 }
 
 export function normalizeCommunity(item) {
-  return {
+  const normalized = {
     ...newCommunity(item.id),
     ...clone(item),
     id: item.id || '',
     name: item.name || '',
     adjectives: Array.isArray(item.adjectives) ? item.adjectives : [],
-    feature: normalizeFeature(item.feature || feature()),
+    features: (Array.isArray(item.features) ? item.features : item.feature ? [item.feature] : []).map((entry) => normalizeFeature(entry)),
   };
+  delete normalized.feature;
+  return normalized;
 }
 
 function slugify(value) {

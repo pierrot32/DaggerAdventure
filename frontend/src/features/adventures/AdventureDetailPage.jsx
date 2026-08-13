@@ -88,7 +88,7 @@ export default function AdventureDetailPage() {
       {error && <p className={styles.error}>{error}</p>}
       {frame && <section className={styles.frameSection}>
         <div className={styles.frameHeading}><div><p className="eyebrow">ACTIVE CAMPAIGN FRAME</p><h3>{frame.content.name}</h3></div><span>Complexity {frame.content.complexity_rating}/5</span></div>
-        <FrameViewer content={filterFrame(frame.content, frame.selections)} />
+        <FrameViewer content={filterFrame(frame.content, frame.selections)} showGmNotes={isCreator} />
         {canCreateCharacter && <Link className={styles.characterLink} to={`/characters/create?adventure=${adventureId}`}>Create a character for this adventure</Link>}
         {isCreator && <FrameManager frame={frame} updateSelection={updateSelection} updateEntrySelection={updateEntrySelection} onSave={saveFrame} onSaveLibrary={saveFrameToLibrary} saving={frameState.saving} />}
         {frameState.message && <p className="muted">{frameState.message}</p>}
@@ -130,17 +130,17 @@ export default function AdventureDetailPage() {
 const frameSectionKeys = ['pitch', 'tone_and_feel', 'themes', 'touchstones', 'overview', 'modifications', 'player_principles', 'gm_principles', 'distinctions', 'inciting_incident', 'campaign_mechanics', 'session_zero_questions'];
 const frameSectionLabels = { pitch: 'Pitch', tone_and_feel: 'Tone & feel', themes: 'Themes', touchstones: 'Touchstones', overview: 'Overview', modifications: 'Character guidance', player_principles: 'Player principles', gm_principles: 'GM principles', distinctions: 'Distinctions', inciting_incident: 'The inciting incident', campaign_mechanics: 'Campaign mechanics', session_zero_questions: 'Session-zero questions' };
 
-function FrameViewer({ content }) {
+function FrameViewer({ content, showGmNotes = false }) {
   return <div className={styles.frameViewer}>
-    {content.pitch && <TextBlock title="Pitch" text={content.pitch} />}
-    {content.tone_and_feel?.length > 0 && <TagBlock title="Tone & feel" values={content.tone_and_feel} />}
-    {content.themes?.length > 0 && <TagBlock title="Themes" values={content.themes} />}
-    {content.touchstones?.length > 0 && <TagBlock title="Touchstones" values={content.touchstones} />}
-    {content.overview && <TextBlock title="Overview" text={content.overview} />}
-    {content.modifications && Object.entries(content.modifications).map(([kind, entries]) => <EntryBlock title={kind} entries={entries} key={kind} />)}
-    {['player_principles', 'gm_principles', 'distinctions', 'campaign_mechanics'].map((key) => <EntryBlock title={key.replaceAll('_', ' ')} entries={content[key]} key={key} />)}
-    {content.inciting_incident && <TextBlock title="The inciting incident" text={content.inciting_incident} />}
-    {content.session_zero_questions?.length > 0 && <ul className={styles.questions}>{content.session_zero_questions.map((question) => <li key={question}>{question}</li>)}</ul>}
+    {content.pitch && <TextBlock title="Pitch" text={content.pitch} gmMessage={content.gm_messages?.pitch} showGmNotes={showGmNotes} />}
+    {content.tone_and_feel?.length > 0 && <TagBlock title="Tone & feel" values={content.tone_and_feel} gmMessage={content.gm_messages?.tone_and_feel} showGmNotes={showGmNotes} />}
+    {content.themes?.length > 0 && <TagBlock title="Themes" values={content.themes} gmMessage={content.gm_messages?.themes} showGmNotes={showGmNotes} />}
+    {content.touchstones?.length > 0 && <TagBlock title="Touchstones" values={content.touchstones} gmMessage={content.gm_messages?.touchstones} showGmNotes={showGmNotes} />}
+    {content.overview && <TextBlock title="Overview" text={content.overview} gmMessage={content.gm_messages?.overview} showGmNotes={showGmNotes} />}
+    {content.modifications && Object.entries(content.modifications).map(([kind, entries]) => <EntryBlock title={kind} entries={entries} gmMessage={content.gm_messages?.modifications} key={kind} showGmNotes={showGmNotes} />)}
+    {['player_principles', 'gm_principles', 'distinctions', 'campaign_mechanics'].map((key) => <EntryBlock title={key.replaceAll('_', ' ')} entries={content[key]} gmMessage={content.gm_messages?.[key]} key={key} showGmNotes={showGmNotes} />)}
+    {content.inciting_incident && <TextBlock title="The inciting incident" text={content.inciting_incident} gmMessage={content.gm_messages?.inciting_incident} showGmNotes={showGmNotes} />}
+    {content.session_zero_questions?.length > 0 && <div className={styles.textBlock}><h4>Session-zero questions</h4><ul className={styles.questions}>{content.session_zero_questions.map((question) => <li key={question}>{question}</li>)}</ul><GmNote message={content.gm_messages?.session_zero_questions} show={showGmNotes} /></div>}
   </div>;
 }
 
@@ -148,9 +148,10 @@ function FrameManager({ frame, updateSelection, updateEntrySelection, onSave, on
   return <div className={styles.frameManager}><div className={styles.managerHeader}><div><strong>GM frame controls</strong><p className="muted">Choose what players see during character creation and play.</p></div><div className={styles.managerActions}><Button type="button" variant="text" onClick={onSaveLibrary}>Save as library frame</Button><Button type="button" onClick={onSave} disabled={saving}>{saving ? 'Saving...' : 'Save selections'}</Button></div></div><div className={styles.selectionGrid}>{frameSectionKeys.map((key) => <label key={key} className={styles.selection}><input type="checkbox" checked={frame.selections?.[key] !== false} onChange={(event) => updateSelection(key, event.target.checked)} /><span>{frameSectionLabels[key]}</span></label>)}</div><div className={styles.entrySelections}>{Object.entries(frame.content.modifications || {}).map(([kind, entries]) => <div key={kind}><strong>{kind}</strong>{entries.map((entry) => <label className={styles.selection} key={entry.id}><input type="checkbox" checked={frame.selections?.[kind]?.[entry.id] !== false} onChange={(event) => updateEntrySelection(kind, entry.id, event.target.checked)} /><span>{entry.title}</span></label>)}</div>)}</div></div>;
 }
 
-function TextBlock({ title, text }) { return <div className={styles.textBlock}><h4>{title}</h4><p>{text}</p></div>; }
-function TagBlock({ title, values }) { return <div className={styles.textBlock}><h4>{title}</h4><div className={styles.tags}>{values.map((value) => <span key={value}>{value}</span>)}</div></div>; }
-function EntryBlock({ title, entries = [] }) { return entries?.length > 0 ? <div className={styles.textBlock}><h4>{title}</h4>{entries.map((entry) => <article className={styles.entry} key={entry.id}><strong>{entry.title}</strong><p>{entry.description}</p>{entry.questions?.map((question) => <small key={question}>{question}</small>)}</article>)}</div> : null; }
+function TextBlock({ title, text, gmMessage, showGmNotes }) { return <div className={styles.textBlock}><h4>{title}</h4><p>{text}</p><GmNote message={gmMessage} show={showGmNotes} /></div>; }
+function TagBlock({ title, values, gmMessage, showGmNotes }) { return <div className={styles.textBlock}><h4>{title}</h4><div className={styles.tags}>{values.map((value) => <span key={value}>{value}</span>)}</div><GmNote message={gmMessage} show={showGmNotes} /></div>; }
+function EntryBlock({ title, entries = [], gmMessage, showGmNotes = false }) { return entries?.length > 0 ? <div className={styles.textBlock}><h4>{title}</h4>{entries.map((entry) => <article className={styles.entry} key={entry.id}><strong>{entry.title}</strong><p>{entry.description}</p>{entry.questions?.map((question) => <small key={question}>{question}</small>)}<GmNote message={entry.gm_message} show={showGmNotes} /></article>)}<GmNote message={gmMessage} show={showGmNotes} /></div> : null; }
+function GmNote({ message, show }) { return show && message ? <aside className={styles.gmNote}><strong>GM-only note</strong><p>{message}</p></aside> : null; }
 
 function filterFrame(content, selections) {
   const filtered = Object.fromEntries(Object.entries(content).filter(([key]) => key === 'id' || key === 'name' || key === 'description' || key === 'complexity_rating' || (key === 'modifications' ? selections?.modifications !== false : selections?.[key] !== false)));

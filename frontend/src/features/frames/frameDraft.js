@@ -2,7 +2,24 @@ export const frameSectionLabels = {
   pitch: 'Pitch',
   overview: 'Overview',
   inciting_incident: 'The inciting incident',
+  tone_and_feel: 'Tone & feel',
+  themes: 'Themes',
+  touchstones: 'Touchstones',
+  modifications: 'Character guidance',
+  player_principles: 'Player principles',
+  gm_principles: 'GM principles',
+  distinctions: 'Distinctions',
+  campaign_mechanics: 'Campaign mechanics',
+  session_zero_questions: 'Session-zero questions',
 };
+
+export const frameModificationKinds = [
+  { id: 'communities', label: 'Community features', optionLabel: 'community', optionPlural: 'communities' },
+  { id: 'ancestries', label: 'Ancestry features', optionLabel: 'ancestry', optionPlural: 'ancestries' },
+  { id: 'classes', label: 'Class features', optionLabel: 'class', optionPlural: 'classes' },
+];
+
+const emptyGmMessages = () => Object.fromEntries(Object.keys(frameSectionLabels).map((key) => [key, '']));
 
 export const emptyFrame = () => ({
   id: 'custom-frame',
@@ -15,6 +32,7 @@ export const emptyFrame = () => ({
   touchstones: [],
   overview: 'Define the setting, pressures, and boundaries that make this campaign distinct.',
   modifications: { communities: [], ancestries: [], classes: [] },
+  gm_messages: emptyGmMessages(),
   player_principles: [],
   gm_principles: [],
   distinctions: [],
@@ -32,18 +50,48 @@ export function lineList(value) {
 }
 
 export function contentToDraft(content) {
+  const defaults = emptyFrame();
+  const sourceModifications = content?.modifications || {};
   return {
-    ...emptyFrame(),
+    ...defaults,
     ...content,
     modifications: {
-      ...emptyFrame().modifications,
-      ...(content?.modifications || {}),
+      ...defaults.modifications,
+      ...Object.fromEntries(frameModificationKinds.map(({ id }) => [id, normalizeFrameEntries(sourceModifications[id], id)])),
     },
+    gm_messages: { ...defaults.gm_messages, ...(content?.gm_messages || {}) },
   };
 }
 
 export function entryListToText(entries = []) {
   return entries.map((entry) => `${entry.title}: ${entry.description}`).join('\n\n');
+}
+
+function normalizeFrameEntries(entries, kind) {
+  return (Array.isArray(entries) ? entries : []).map((entry, index) => {
+    const legacyTargetKey = { communities: 'community_ids', ancestries: 'ancestry_ids', classes: 'class_ids' }[kind];
+    const targetIds = Array.isArray(entry.target_ids)
+      ? entry.target_ids
+      : Array.isArray(entry[legacyTargetKey]) ? entry[legacyTargetKey] : [];
+    return {
+      ...entry,
+      id: entry.id || `${kind}-feature-${index + 1}`,
+      title: entry.title || '',
+      description: entry.description || '',
+      target_ids: targetIds,
+      gm_message: entry.gm_message || '',
+    };
+  });
+}
+
+export function newModificationEntry(kind, index = 1) {
+  return {
+    id: `${kind}-feature-${index}`,
+    title: '',
+    description: '',
+    target_ids: [],
+    gm_message: '',
+  };
 }
 
 export function textToEntries(value, prefix) {
@@ -59,6 +107,7 @@ export function textToEntries(value, prefix) {
 }
 
 export function draftToContent(form) {
+  const defaults = emptyFrame();
   const id = form.id.trim() || form.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'custom-frame';
   return {
     id,
@@ -70,11 +119,8 @@ export function draftToContent(form) {
     themes: commaList(form.themes),
     touchstones: commaList(form.touchstones),
     overview: form.overview.trim(),
-    modifications: {
-      communities: textToEntries(form.communities, 'Community guidance'),
-      ancestries: textToEntries(form.ancestries, 'Ancestry guidance'),
-      classes: textToEntries(form.classes, 'Class guidance'),
-    },
+    modifications: Object.fromEntries(frameModificationKinds.map(({ id }) => [id, normalizeFrameEntries(form.modifications?.[id], id)])),
+    gm_messages: { ...defaults.gm_messages, ...(form.gm_messages || {}) },
     player_principles: textToEntries(form.player_principles, 'Player principle'),
     gm_principles: textToEntries(form.gm_principles, 'GM principle'),
     distinctions: textToEntries(form.distinctions, 'Distinction'),
@@ -96,9 +142,8 @@ export function contentToForm(content) {
     themes: (frame.themes || []).join(', '),
     touchstones: (frame.touchstones || []).join(', '),
     overview: frame.overview || '',
-    communities: entryListToText(frame.modifications?.communities),
-    ancestries: entryListToText(frame.modifications?.ancestries),
-    classes: entryListToText(frame.modifications?.classes),
+    modifications: frame.modifications,
+    gm_messages: frame.gm_messages,
     player_principles: entryListToText(frame.player_principles),
     gm_principles: entryListToText(frame.gm_principles),
     distinctions: entryListToText(frame.distinctions),

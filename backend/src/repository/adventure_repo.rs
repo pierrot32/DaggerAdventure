@@ -80,6 +80,22 @@ pub async fn find_visible(
     .await
 }
 
+pub async fn is_creator(
+    pool: &PgPool,
+    adventure_id: Uuid,
+    user_id: Uuid,
+) -> Result<bool, sqlx::Error> {
+    sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(
+             SELECT 1 FROM adventures WHERE id = $1 AND creator_id = $2
+         )",
+    )
+    .bind(adventure_id)
+    .bind(user_id)
+    .fetch_one(pool)
+    .await
+}
+
 pub async fn create_invite(
     pool: &PgPool,
     inviter: &User,
