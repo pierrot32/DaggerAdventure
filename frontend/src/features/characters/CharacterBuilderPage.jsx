@@ -358,7 +358,7 @@ function FieldLabel({ field, label, locked, toggleLock, generate, expand, expand
   return <label className={className}><span className={styles.fieldHeading}>{label}<FieldActions field={field} locked={locked} toggleLock={toggleLock} generate={generate} expand={expand} expandDisabled={expandDisabled} /></span>{children}</label>;
 }
 
-function Identity({ classes, ancestries, communities, frameContent, selectedClass, selectedAncestry, selectedFirstAncestry, selectedSecondAncestry, selectedCommunity, subclasses, form, setField, setClass, setAncestry, setFirstAncestry, setSubclass, locks, toggleLock, generate }) {
+function Identity({ classes, ancestries, communities, frameContent, selectedClass, selectedSubclass, selectedAncestry, selectedFirstAncestry, selectedSecondAncestry, selectedCommunity, subclasses, form, setField, setClass, setAncestry, setFirstAncestry, setSubclass, locks, toggleLock, generate }) {
   const communityFeatures = selectedCommunity?.features || (selectedCommunity?.feature ? [selectedCommunity.feature] : []);
   const subclassFeatures = selectedSubclass ? ['foundation', 'specialization', 'mastery'].flatMap((tier) => (selectedSubclass[tier] || []).map((feature) => ({ ...feature, tier }))) : [];
   return <div className={styles.formGrid}>

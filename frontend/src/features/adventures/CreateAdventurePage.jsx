@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Button from '../../components/Button/Button';
 import { listBuiltinFrames, listLibraryFrames } from '../frames/frameApi';
 import { getCharacterCreationBook } from '../characters/characterApi';
-import { contentToForm, draftToContent, emptyFrame, frameModificationKinds, newModificationEntry } from '../frames/frameDraft';
+import { autoFeatureIds, contentToForm, draftToContent, emptyFrame, frameModificationKinds, newModificationEntry } from '../frames/frameDraft';
 import { useAdventureStore } from './adventureStore';
 import styles from './CreateAdventurePage.module.css';
 
@@ -35,7 +35,7 @@ export default function CreateAdventurePage() {
     ? builtins.find((frame) => frame.id === source.id)
     : source.type === 'library'
       ? library.find((frame) => frame.id === source.id)?.content
-      : draftToContent(frameForm);
+      : draftToContent(frameForm, book);
 
   const chooseSource = (type, id = '') => {
     setSource({ type, id });
@@ -47,7 +47,7 @@ export default function CreateAdventurePage() {
   const submit = async (event) => {
     event.preventDefault();
     const frameSource = source.type === 'blank'
-      ? { source_type: 'blank', source_id: null, content: draftToContent(frameForm) }
+      ? { source_type: 'blank', source_id: null, content: draftToContent(frameForm, book) }
       : { source_type: source.type, source_id: source.id };
     const created = await create({ ...adventure, frame_source: frameSource });
     navigate(`/adventures/${created.id}`);
@@ -120,9 +120,9 @@ export function FrameDraftForm({ form, update, optionLists = {} }) {
       <TextField label="Session-zero questions" value={form.session_zero_questions} update={update} field="session_zero_questions" hint="One question per line" />
       <TextField className={styles.full} label="GM-only note for Session-zero questions" value={form.gm_messages?.session_zero_questions} update={updateGmMessage} field="session_zero_questions" />
       <div className={styles.full}>
-        {frameModificationKinds.map((kind) => <ModificationList key={kind.id} kind={kind} entries={form.modifications?.[kind.id] || []} options={availableOptions[kind.id] || []} onChange={(entries) => updateModification(kind.id, entries)} />)}
+        {frameModificationKinds.map((kind) => <ModificationList key={kind.id} kind={kind} frameName={form.name} entries={form.modifications?.[kind.id] || []} options={availableOptions[kind.id] || []} onChange={(entries) => updateModification(kind.id, entries)} />)}
       </div>
-      <TextField className={styles.full} label="GM-only note for Character guidance" value={form.gm_messages?.modifications} update={updateGmMessage} field="modifications" />
+      {frameModificationKinds.map((kind) => <TextField key={kind.id} className={styles.full} label={`GM-only note for ${kind.label}`} value={form.gm_messages?.[kind.id]} update={updateGmMessage} field={kind.id} />)}
       <TextField className={styles.full} label="Player principles" value={form.player_principles} update={update} field="player_principles" hint="Separate entries with a blank line" />
       <TextField className={styles.full} label="GM-only note for Player principles" value={form.gm_messages?.player_principles} update={updateGmMessage} field="player_principles" />
       <TextField className={styles.full} label="GM principles" value={form.gm_principles} update={update} field="gm_principles" hint="Separate entries with a blank line" />
@@ -139,20 +139,26 @@ function TextField({ label, value, update, field, hint, required = false, classN
   return <label className={className}>{label}{hint && <small>{hint}</small>}<textarea required={required} value={value || ''} onChange={(event) => update(field, event.target.value)} /></label>;
 }
 
-function ModificationList({ kind, entries, options, onChange }) {
-  const updateEntry = (index, field, value) => onChange(entries.map((entry, entryIndex) => entryIndex === index ? { ...entry, [field]: value } : entry));
-  const addEntry = () => onChange([...entries, newModificationEntry(kind.id, entries.length + 1)]);
-  const removeEntry = (index) => onChange(entries.filter((_, entryIndex) => entryIndex !== index));
+function ModificationList({ kind, frameName, entries, options, onChange }) {
+  const [selectedTargetId, setSelectedTargetId] = useState(options[0]?.id || '');
+  useEffect(() => {
+    if (!options.some((option) => option.id === selectedTargetId)) setSelectedTargetId(options[0]?.id || '');
+  }, [options, selectedTargetId]);
+
+  const entriesWithIds = autoFeatureIds(entries, kind.id, frameName, options);
+  const updateEntries = (nextEntries) => onChange(autoFeatureIds(nextEntries, kind.id, frameName, options));
+  const updateEntry = (index, field, value) => updateEntries(entries.map((entry, entryIndex) => entryIndex === index ? { ...entry, [field]: value } : entry));
+  const addEntry = () => updateEntries([...entries, { ...newModificationEntry(kind.id, entries.length + 1), target_ids: selectedTargetId ? [selectedTargetId] : [] }]);
+  const removeEntry = (index) => updateEntries(entries.filter((_, entryIndex) => entryIndex !== index));
   return <section className={styles.modificationSection}>
-    <div className={styles.modificationHeader}><div><h4>{kind.label}</h4><p>Add each feature separately. Leave the target list empty to show it for every {kind.optionLabel}.</p></div><button type="button" className={styles.smallButton} onClick={addEntry}>Add feature</button></div>
-    {entries.map((entry, index) => <article className={styles.modificationEntry} key={entry.id || `${kind.id}-${index}`}>
+    <div className={styles.modificationHeader}><div><h4>{kind.label}</h4><p>Add a feature for a selected {kind.optionLabel}. A feature can be assigned to more than one {kind.optionLabel} after it is created.</p></div><div className={styles.addFeatureControls}><select aria-label={`${kind.optionLabel} to add`} value={selectedTargetId} onChange={(event) => setSelectedTargetId(event.target.value)}><option value="">All {kind.optionPlural}</option>{options.map((option) => <option value={option.id} key={option.id}>{option.name || option.id}</option>)}</select><button type="button" className={styles.smallButton} onClick={addEntry}>Add {kind.optionLabel}</button></div></div>
+    {entriesWithIds.map((entry, index) => <article className={styles.modificationEntry} key={entry.id || `${kind.id}-${index}`}>
       <div className={styles.modificationEntryHeader}><strong>Feature {index + 1}</strong><button type="button" className={styles.removeButton} onClick={() => removeEntry(index)}>Remove</button></div>
       <div className={styles.modificationGrid}>
-        <label>Feature ID<input value={entry.id || ''} onChange={(event) => updateEntry(index, 'id', event.target.value)} /></label>
+        <div className={styles.autoId}><span>Automatic feature ID</span><code>{entry.id}</code></div>
         <label>Feature title<input value={entry.title || ''} onChange={(event) => updateEntry(index, 'title', event.target.value)} /></label>
         <label className={styles.full}>Player-facing guidance<textarea value={entry.description || ''} onChange={(event) => updateEntry(index, 'description', event.target.value)} /></label>
         <TargetPicker kind={kind} options={options} selected={entry.target_ids || []} onChange={(value) => updateEntry(index, 'target_ids', value)} />
-        <label className={styles.full}>GM-only note for this feature<textarea value={entry.gm_message || ''} onChange={(event) => updateEntry(index, 'gm_message', event.target.value)} /></label>
       </div>
     </article>)}
     {entries.length === 0 && <p className="muted">No {kind.optionLabel} features added.</p>}
@@ -163,7 +169,13 @@ function TargetPicker({ kind, options, selected, onChange }) {
   const updateText = (value) => onChange(value.split(',').map((item) => item.trim()).filter(Boolean));
   return <fieldset className={`${styles.targetPicker} ${styles.full}`}>
     <legend>Applies to {kind.optionPlural}</legend>
-    {options.length > 0 ? <div className={styles.targetOptions}>{options.map((option) => <label key={option.id}><input type="checkbox" checked={selected.includes(option.id)} onChange={(event) => onChange(event.target.checked ? [...selected, option.id] : selected.filter((id) => id !== option.id))} /><span>{option.name} <small>{option.id}</small></span></label>)}</div> : <input aria-label={`Target ${kind.optionLabel} IDs`} value={selected.join(', ')} onChange={(event) => updateText(event.target.value)} placeholder={`Enter ${kind.optionLabel} IDs, separated by commas`} />}
+    {options.length > 0 ? <>
+      <div className={styles.targetOptions}>{selected.length > 0 ? selected.map((targetId) => {
+        const option = options.find((item) => item.id === targetId);
+        return <span className={styles.targetTag} key={targetId}>{option?.name || targetId}<button type="button" className={styles.removeTarget} onClick={() => onChange(selected.filter((id) => id !== targetId))} aria-label={`Remove ${option?.name || targetId}`}>x</button></span>;
+      }) : <span className={styles.targetEmpty}>All {kind.optionPlural}</span>}</div>
+      <select aria-label={`Add ${kind.optionLabel} target`} value="" onChange={(event) => event.target.value && onChange([...selected, event.target.value])}><option value="">Add another {kind.optionLabel}</option>{options.filter((option) => !selected.includes(option.id)).map((option) => <option value={option.id} key={option.id}>{option.name || option.id}</option>)}</select>
+    </> : <input aria-label={`Target ${kind.optionLabel} IDs`} value={selected.join(', ')} onChange={(event) => updateText(event.target.value)} placeholder={`Enter ${kind.optionLabel} IDs, separated by commas`} />}
     <small>Leave empty to make this feature general.</small>
   </fieldset>;
 }

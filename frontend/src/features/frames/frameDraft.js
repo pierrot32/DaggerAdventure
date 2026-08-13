@@ -19,7 +19,16 @@ export const frameModificationKinds = [
   { id: 'classes', label: 'Class features', optionLabel: 'class', optionPlural: 'classes' },
 ];
 
-const emptyGmMessages = () => Object.fromEntries(Object.keys(frameSectionLabels).map((key) => [key, '']));
+const modificationMessageKeys = ['communities', 'ancestries', 'classes'];
+
+const emptyGmMessages = () => ({
+  ...Object.fromEntries(Object.keys(frameSectionLabels).map((key) => [key, ''])),
+  ...Object.fromEntries(modificationMessageKeys.map((key) => [key, ''])),
+});
+
+function slugify(value) {
+  return String(value || 'feature').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'feature';
+}
 
 export const emptyFrame = () => ({
   id: 'custom-frame',
@@ -52,6 +61,7 @@ export function lineList(value) {
 export function contentToDraft(content) {
   const defaults = emptyFrame();
   const sourceModifications = content?.modifications || {};
+  const sourceMessages = content?.gm_messages || {};
   return {
     ...defaults,
     ...content,
@@ -59,7 +69,11 @@ export function contentToDraft(content) {
       ...defaults.modifications,
       ...Object.fromEntries(frameModificationKinds.map(({ id }) => [id, normalizeFrameEntries(sourceModifications[id], id)])),
     },
-    gm_messages: { ...defaults.gm_messages, ...(content?.gm_messages || {}) },
+    gm_messages: {
+      ...defaults.gm_messages,
+      ...sourceMessages,
+      ...Object.fromEntries(modificationMessageKeys.map((key) => [key, sourceMessages[key] ?? sourceMessages.modifications ?? ''])),
+    },
   };
 }
 
@@ -69,29 +83,51 @@ export function entryListToText(entries = []) {
 
 function normalizeFrameEntries(entries, kind) {
   return (Array.isArray(entries) ? entries : []).map((entry, index) => {
+    const { gm_message: _legacyGmMessage, ...entryWithoutGmMessage } = entry;
     const legacyTargetKey = { communities: 'community_ids', ancestries: 'ancestry_ids', classes: 'class_ids' }[kind];
     const targetIds = Array.isArray(entry.target_ids)
       ? entry.target_ids
       : Array.isArray(entry[legacyTargetKey]) ? entry[legacyTargetKey] : [];
     return {
-      ...entry,
+      ...entryWithoutGmMessage,
       id: entry.id || `${kind}-feature-${index + 1}`,
       title: entry.title || '',
       description: entry.description || '',
       target_ids: targetIds,
-      gm_message: entry.gm_message || '',
     };
   });
 }
 
 export function newModificationEntry(kind, index = 1) {
   return {
-    id: `${kind}-feature-${index}`,
+    id: '',
     title: '',
     description: '',
     target_ids: [],
-    gm_message: '',
   };
+}
+
+export function autoFeatureIds(entries, kind, frameName, options = []) {
+  const usedIds = new Set();
+  const kindLabel = { communities: 'community', ancestries: 'ancestry', classes: 'class' }[kind] || kind;
+  return entries.map((entry, index) => {
+    const targetIds = Array.isArray(entry.target_ids) ? entry.target_ids : [];
+    const targetLabel = targetIds.length > 0
+      ? targetIds.map((targetId) => {
+        const target = options.find((option) => option.id === targetId);
+        return slugify(target?.name || targetId);
+      }).sort().join('-')
+      : `all-${kind}`;
+    const baseId = `${slugify(frameName)}-${kindLabel}-${targetLabel}`;
+    let id = baseId;
+    let suffix = 2;
+    while (usedIds.has(id)) {
+      id = `${baseId}-${suffix}`;
+      suffix += 1;
+    }
+    usedIds.add(id);
+    return { ...entry, id };
+  });
 }
 
 export function textToEntries(value, prefix) {
@@ -106,9 +142,18 @@ export function textToEntries(value, prefix) {
     }));
 }
 
-export function draftToContent(form) {
+export function draftToContent(form, optionLists = {}) {
   const defaults = emptyFrame();
   const id = form.id.trim() || form.name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'custom-frame';
+  const availableOptions = optionLists || {};
+  const modifications = Object.fromEntries(frameModificationKinds.map(({ id: kind }) => [
+    kind,
+    autoFeatureIds(normalizeFrameEntries(form.modifications?.[kind], kind), kind, form.name, availableOptions[kind] || []),
+  ]));
+  const gmMessages = { ...defaults.gm_messages, ...(form.gm_messages || {}) };
+  modificationMessageKeys.forEach((key) => {
+    if (form.gm_messages?.[key] === undefined) gmMessages[key] = form.gm_messages?.modifications || '';
+  });
   return {
     id,
     name: form.name.trim(),
@@ -119,8 +164,8 @@ export function draftToContent(form) {
     themes: commaList(form.themes),
     touchstones: commaList(form.touchstones),
     overview: form.overview.trim(),
-    modifications: Object.fromEntries(frameModificationKinds.map(({ id }) => [id, normalizeFrameEntries(form.modifications?.[id], id)])),
-    gm_messages: { ...defaults.gm_messages, ...(form.gm_messages || {}) },
+    modifications,
+    gm_messages: gmMessages,
     player_principles: textToEntries(form.player_principles, 'Player principle'),
     gm_principles: textToEntries(form.gm_principles, 'GM principle'),
     distinctions: textToEntries(form.distinctions, 'Distinction'),
