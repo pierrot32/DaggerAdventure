@@ -94,49 +94,41 @@ export function FramePreview({ content }) {
   return <article className={styles.preview}><div className={styles.previewTop}><div><p className="eyebrow">SELECTED FRAME</p><h3>{content.name}</h3></div><span>Complexity {content.complexity_rating}/5</span></div><p>{content.description}</p><p className={styles.pitch}>{content.pitch}</p><div className={styles.tags}>{(content.tone_and_feel || []).map((tone) => <span key={tone}>{tone}</span>)}</div></article>;
 }
 
-export function FrameDraftForm({ form, update, optionLists = {} }) {
+export function FrameDraftForm({ form, update, optionLists = {}, activeSection = '', metadataPersistent = false }) {
   const availableOptions = optionLists || {};
+  const showSection = (section) => !activeSection || activeSection === section;
   const updateGmMessage = (section, value) => update('gm_messages', { ...(form.gm_messages || {}), [section]: value });
   const updateModification = (kind, entries) => update('modifications', { ...(form.modifications || {}), [kind]: entries });
   return <div className={styles.draft}>
     <div className={styles.draftIntro}><p className="eyebrow">HAND-AUTHORED FRAME</p><h3>Give the campaign a playable spine</h3><p>Build character guidance as individual features. The GM can turn each section or feature on and off later.</p></div>
-    <div className={styles.frameGrid}>
+    {(!activeSection || showSection('details') || metadataPersistent) && <div className={styles.frameGrid}>
       <label>Name<input required value={form.name} onChange={(event) => update('name', event.target.value)} /></label>
       <label>Frame ID<input required pattern="[a-z0-9][a-z0-9-]*" value={form.id} onChange={(event) => update('id', event.target.value)} /></label>
       <label>Complexity<select value={form.complexity_rating} onChange={(event) => update('complexity_rating', event.target.value)}>{[1, 2, 3, 4, 5].map((value) => <option value={value} key={value}>{value} / 5</option>)}</select></label>
-      <TextField label="Description" value={form.description} update={update} field="description" />
-      <TextField label="Pitch" value={form.pitch} update={update} field="pitch" required />
-      <TextField className={styles.full} label="GM-only note for Pitch" value={form.gm_messages?.pitch} update={updateGmMessage} field="pitch" />
-      <TextField label="Overview" value={form.overview} update={update} field="overview" required />
-      <TextField className={styles.full} label="GM-only note for Overview" value={form.gm_messages?.overview} update={updateGmMessage} field="overview" />
-      <TextField label="Tone & feel" value={form.tone_and_feel} update={update} field="tone_and_feel" hint="Comma-separated" />
-      <TextField className={styles.full} label="GM-only note for Tone & feel" value={form.gm_messages?.tone_and_feel} update={updateGmMessage} field="tone_and_feel" />
-      <TextField label="Themes" value={form.themes} update={update} field="themes" hint="Comma-separated" />
-      <TextField className={styles.full} label="GM-only note for Themes" value={form.gm_messages?.themes} update={updateGmMessage} field="themes" />
-      <TextField label="Touchstones" value={form.touchstones} update={update} field="touchstones" hint="Comma-separated" />
-      <TextField className={styles.full} label="GM-only note for Touchstones" value={form.gm_messages?.touchstones} update={updateGmMessage} field="touchstones" />
-      <TextField label="The inciting incident" value={form.inciting_incident} update={update} field="inciting_incident" />
-      <TextField className={styles.full} label="GM-only note for The inciting incident" value={form.gm_messages?.inciting_incident} update={updateGmMessage} field="inciting_incident" />
-      <TextField label="Session-zero questions" value={form.session_zero_questions} update={update} field="session_zero_questions" hint="One question per line" />
-      <TextField className={styles.full} label="GM-only note for Session-zero questions" value={form.gm_messages?.session_zero_questions} update={updateGmMessage} field="session_zero_questions" />
-      <div className={styles.full}>
-        {frameModificationKinds.map((kind) => <ModificationList key={kind.id} kind={kind} frameName={form.name} entries={form.modifications?.[kind.id] || []} options={availableOptions[kind.id] || []} onChange={(entries) => updateModification(kind.id, entries)} />)}
-      </div>
-      {frameModificationKinds.map((kind) => <TextField key={kind.id} className={styles.full} label={`GM-only note for ${kind.label}`} value={form.gm_messages?.[kind.id]} update={updateGmMessage} field={kind.id} />)}
-      <TextField className={styles.full} label="Player principles" value={form.player_principles} update={update} field="player_principles" hint="Separate entries with a blank line" />
-      <TextField className={styles.full} label="GM-only note for Player principles" value={form.gm_messages?.player_principles} update={updateGmMessage} field="player_principles" />
-      <TextField className={styles.full} label="GM principles" value={form.gm_principles} update={update} field="gm_principles" hint="Separate entries with a blank line" />
-      <TextField className={styles.full} label="GM-only note for GM principles" value={form.gm_messages?.gm_principles} update={updateGmMessage} field="gm_principles" />
-      <TextField className={styles.full} label="Distinctions" value={form.distinctions} update={update} field="distinctions" hint="Separate entries with a blank line" />
-      <TextField className={styles.full} label="GM-only note for Distinctions" value={form.gm_messages?.distinctions} update={updateGmMessage} field="distinctions" />
-      <TextField className={styles.full} label="Campaign mechanics" value={form.campaign_mechanics} update={update} field="campaign_mechanics" hint="Separate entries with a blank line" />
-      <TextField className={styles.full} label="GM-only note for Campaign mechanics" value={form.gm_messages?.campaign_mechanics} update={updateGmMessage} field="campaign_mechanics" />
-    </div>
+      <TextField className={styles.full} label="Description" value={form.description} update={update} field="description" />
+    </div>}
+    {showSection('pitch') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Pitch" value={form.gm_messages?.pitch} update={updateGmMessage} field="pitch" />}><TextField label="Pitch" value={form.pitch} update={update} field="pitch" required /></SectionFields>}
+    {showSection('overview') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Overview" value={form.gm_messages?.overview} update={updateGmMessage} field="overview" />}><TextField label="Overview" value={form.overview} update={update} field="overview" required /></SectionFields>}
+    {showSection('inciting_incident') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for The inciting incident" value={form.gm_messages?.inciting_incident} update={updateGmMessage} field="inciting_incident" />}><TextField label="The inciting incident" value={form.inciting_incident} update={update} field="inciting_incident" /></SectionFields>}
+    {showSection('tone_and_feel') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Tone & feel" value={form.gm_messages?.tone_and_feel} update={updateGmMessage} field="tone_and_feel" />}><TextField label="Tone & feel" value={form.tone_and_feel} update={update} field="tone_and_feel" hint="Comma-separated" /></SectionFields>}
+    {showSection('themes') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Themes" value={form.gm_messages?.themes} update={updateGmMessage} field="themes" />}><TextField label="Themes" value={form.themes} update={update} field="themes" hint="Comma-separated" /></SectionFields>}
+    {showSection('touchstones') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Touchstones" value={form.gm_messages?.touchstones} update={updateGmMessage} field="touchstones" />}><TextField label="Touchstones" value={form.touchstones} update={update} field="touchstones" hint="Comma-separated" /></SectionFields>}
+    {showSection('session_zero_questions') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Session-zero questions" value={form.gm_messages?.session_zero_questions} update={updateGmMessage} field="session_zero_questions" />}><TextField label="Session-zero questions" value={form.session_zero_questions} update={update} field="session_zero_questions" hint="One question per line" /></SectionFields>}
+    {frameModificationKinds.map((kind) => showSection(kind.id) && <SectionFields key={kind.id} note={<TextField className={`${styles.full} ${styles.gmNote}`} label={`GM-only note for ${kind.label}`} value={form.gm_messages?.[kind.id]} update={updateGmMessage} field={kind.id} />}><ModificationList kind={kind} frameName={form.name} entries={form.modifications?.[kind.id] || []} options={availableOptions[kind.id] || []} onChange={(entries) => updateModification(kind.id, entries)} /></SectionFields>)}
+    {showSection('player_principles') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Player principles" value={form.gm_messages?.player_principles} update={updateGmMessage} field="player_principles" />}><TextField className={styles.full} label="Player principles" value={form.player_principles} update={update} field="player_principles" hint="Separate entries with a blank line" /></SectionFields>}
+    {showSection('gm_principles') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for GM principles" value={form.gm_messages?.gm_principles} update={updateGmMessage} field="gm_principles" />}><TextField className={styles.full} label="GM principles" value={form.gm_principles} update={update} field="gm_principles" hint="Separate entries with a blank line" /></SectionFields>}
+    {showSection('distinctions') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Distinctions" value={form.gm_messages?.distinctions} update={updateGmMessage} field="distinctions" />}><TextField className={styles.full} label="Distinctions" value={form.distinctions} update={update} field="distinctions" hint="Separate entries with a blank line" /></SectionFields>}
+    {showSection('campaign_mechanics') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Campaign mechanics" value={form.gm_messages?.campaign_mechanics} update={updateGmMessage} field="campaign_mechanics" />}><TextField className={styles.full} label="Campaign mechanics" value={form.campaign_mechanics} update={update} field="campaign_mechanics" hint="Separate entries with a blank line" /></SectionFields>}
   </div>;
 }
 
+function SectionFields({ note, children }) {
+  return <div className={styles.sectionFields}>{note}{children}</div>;
+}
+
 function TextField({ label, value, update, field, hint, required = false, className = '' }) {
-  return <label className={className}>{label}{hint && <small>{hint}</small>}<textarea required={required} value={value || ''} onChange={(event) => update(field, event.target.value)} /></label>;
+  const stripNewlines = () => update(field, (value || '').replace(/\n/g, ''));
+  return <label className={className}>{label}{hint && <small>{hint}</small>}<span className={styles.textareaControl}><textarea required={required} value={value || ''} onChange={(event) => update(field, event.target.value)} /><button type="button" className={styles.stripNewlines} onClick={stripNewlines} title="Remove all newline characters" aria-label={`Remove all newline characters from ${label}`}>Remove newlines</button></span></label>;
 }
 
 function ModificationList({ kind, frameName, entries, options, onChange }) {
@@ -157,7 +149,7 @@ function ModificationList({ kind, frameName, entries, options, onChange }) {
       <div className={styles.modificationGrid}>
         <div className={styles.autoId}><span>Automatic feature ID</span><code>{entry.id}</code></div>
         <label>Feature title<input value={entry.title || ''} onChange={(event) => updateEntry(index, 'title', event.target.value)} /></label>
-        <label className={styles.full}>Player-facing guidance<textarea value={entry.description || ''} onChange={(event) => updateEntry(index, 'description', event.target.value)} /></label>
+        <TextField className={styles.full} label="Player-facing guidance" value={entry.description} update={(field, value) => updateEntry(index, field, value)} field="description" />
         <TargetPicker kind={kind} options={options} selected={entry.target_ids || []} onChange={(value) => updateEntry(index, 'target_ids', value)} />
       </div>
     </article>)}

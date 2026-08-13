@@ -13,6 +13,16 @@ export const frameSectionLabels = {
   session_zero_questions: 'Session-zero questions',
 };
 
+export const frameEditorSections = [
+  { id: 'details', label: 'Frame details' },
+  ...Object.entries(frameSectionLabels)
+    .filter(([id]) => id !== 'modifications')
+    .map(([id, label]) => ({ id, label })),
+  { id: 'communities', label: 'Communities' },
+  { id: 'ancestries', label: 'Ancestries' },
+  { id: 'classes', label: 'Classes' },
+];
+
 export const frameModificationKinds = [
   { id: 'communities', label: 'Community features', optionLabel: 'community', optionPlural: 'communities' },
   { id: 'ancestries', label: 'Ancestry features', optionLabel: 'ancestry', optionPlural: 'ancestries' },
@@ -83,13 +93,12 @@ export function entryListToText(entries = []) {
 
 function normalizeFrameEntries(entries, kind) {
   return (Array.isArray(entries) ? entries : []).map((entry, index) => {
-    const { gm_message: _legacyGmMessage, ...entryWithoutGmMessage } = entry;
     const legacyTargetKey = { communities: 'community_ids', ancestries: 'ancestry_ids', classes: 'class_ids' }[kind];
     const targetIds = Array.isArray(entry.target_ids)
       ? entry.target_ids
       : Array.isArray(entry[legacyTargetKey]) ? entry[legacyTargetKey] : [];
     return {
-      ...entryWithoutGmMessage,
+      ...entry,
       id: entry.id || `${kind}-feature-${index + 1}`,
       title: entry.title || '',
       description: entry.description || '',
@@ -98,7 +107,7 @@ function normalizeFrameEntries(entries, kind) {
   });
 }
 
-export function newModificationEntry(kind, index = 1) {
+export function newModificationEntry(_kind, _index = 1) {
   return {
     id: '',
     title: '',
@@ -110,7 +119,7 @@ export function newModificationEntry(kind, index = 1) {
 export function autoFeatureIds(entries, kind, frameName, options = []) {
   const usedIds = new Set();
   const kindLabel = { communities: 'community', ancestries: 'ancestry', classes: 'class' }[kind] || kind;
-  return entries.map((entry, index) => {
+  return entries.map((entry, _index) => {
     const targetIds = Array.isArray(entry.target_ids) ? entry.target_ids : [];
     const targetLabel = targetIds.length > 0
       ? targetIds.map((targetId) => {
@@ -126,7 +135,11 @@ export function autoFeatureIds(entries, kind, frameName, options = []) {
       suffix += 1;
     }
     usedIds.add(id);
-    return { ...entry, id };
+    const targetOptions = targetIds.map((targetId) => options.find((option) => option.id === targetId));
+    const title = targetIds.length > 0 && targetOptions.every(Boolean)
+      ? targetOptions.map((option) => option.name || option.id).join(' / ')
+      : entry.title || `${kindLabel} feature`;
+    return { ...entry, id, title };
   });
 }
 

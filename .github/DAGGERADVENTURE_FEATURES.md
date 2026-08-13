@@ -101,12 +101,13 @@ Backend access checks use `require_at_least` and `require_ai_generation` in [`ba
 
 ### Campaign Frames
 
-- **Status:** Implemented; built-in/library and adventure attachment paths confirmed.
-- **Frontend:** [`frontend/src/features/frames/FrameLibraryPage.jsx`](../frontend/src/features/frames/FrameLibraryPage.jsx), [`frontend/src/features/frames/frameApi.js`](../frontend/src/features/frames/frameApi.js), [`frontend/src/features/frames/frameDraft.js`](../frontend/src/features/frames/frameDraft.js).
+- **Status:** Implemented; built-in/library, dedicated editor, and adventure attachment paths confirmed.
+- **Frontend:** [`frontend/src/features/frames/FrameLibraryPage.jsx`](../frontend/src/features/frames/FrameLibraryPage.jsx), [`frontend/src/features/frames/FrameEditorPage.jsx`](../frontend/src/features/frames/FrameEditorPage.jsx), [`frontend/src/features/frames/FrameEditorPage.module.css`](../frontend/src/features/frames/FrameEditorPage.module.css), [`frontend/src/features/frames/frameApi.js`](../frontend/src/features/frames/frameApi.js), [`frontend/src/features/frames/frameDraft.js`](../frontend/src/features/frames/frameDraft.js), [`frontend/src/routes/AppRoutes.jsx`](../frontend/src/routes/AppRoutes.jsx), [`frontend/src/features/adventures/CreateAdventurePage.jsx`](../frontend/src/features/adventures/CreateAdventurePage.jsx), [`frontend/src/features/adventures/CreateAdventurePage.module.css`](../frontend/src/features/adventures/CreateAdventurePage.module.css).
 - **Backend:** [`backend/src/routes/frames.rs`](../backend/src/routes/frames.rs), [`backend/src/repository/frame_repo.rs`](../backend/src/repository/frame_repo.rs), [`backend/src/models/frame.rs`](../backend/src/models/frame.rs).
 - **API:** `GET /api/frames/builtins`, `GET/POST /api/frames/library`, `PUT/DELETE /api/frames/library/:frame_id`, `GET/POST/PUT /api/adventures/:adventure_id/frame`, `GET /api/adventures/:adventure_id/character-context`.
-- **Behavior:** Adventure makers can manage reusable campaign frames, attach built-in or library frames to adventures, update frame content and selections, and expose filtered frame context to character generation.
-- **Invariants:** Preserve frame source type, source ID, content, and selections. Verify owner or adventure membership before mutation.
+- **Behavior:** Adventure makers can browse the library, open a frame from the list, create through `/frames/new`, and edit through `/frames/:frameId/edit`. The editor keeps the draft in memory while its left section selector changes the focused form section; frame details remain available while moving between sections. The shared draft form places a GM-only note alongside each frame section, allows notes to resize vertically, and provides a control to remove newline characters from text fields. Selected community, ancestry, and class targets derive feature titles from their content-book names (joined with ` / `); unselected or unresolved targets retain the entered title or a kind-specific fallback while IDs are regenerated from frame, kind, and target names.
+- **Invariants:** The editor continues to use the existing library CRUD client calls and payload shape. `GET/POST/PUT/DELETE /api/frames/library...` remains authenticated and requires `adventure_maker` access or higher; repository list, update, delete, and library-source lookup are owner-scoped by `owner_id`. Preserve frame source type, source ID, content, and selections. Adventure-frame mutations remain creator-owned, while attached-frame reads and filtered character context retain their existing membership/access rules.
+- **Validation:** `npm run lint`, `npm run build`, and `git diff --check` passed for the completed change. No browser runner or frontend unit-test runner was available or run.
 
 ### AI Generation and Character Portraits
 
@@ -158,6 +159,7 @@ The current schema is represented by these SQLx migration pairs. Any schema chan
 ## Known Validation Gaps
 
 - The frontend currently has no unit-test runner; `npm run lint` and `npm run build` are the documented automated checks.
+- The campaign-frame editor has no browser-level coverage; route navigation, in-memory section switching, target-title derivation, GM-note controls, and save/delete flows still need manual browser verification.
 - Backend integration tests require a PostgreSQL role that can create disposable databases and are run separately with `--ignored`.
 - Feature behavior should be verified against current handlers and repositories when the ledger says `Needs verification`; this baseline does not replace tests.
 - The route map is centralized in [`backend/src/routes/mod.rs`](../backend/src/routes/mod.rs) and [`frontend/src/routes/AppRoutes.jsx`](../frontend/src/routes/AppRoutes.jsx). A new feature is incomplete until both sides are intentionally wired or explicitly documented as backend-only/frontend-only.
@@ -165,3 +167,4 @@ The current schema is represented by these SQLx migration pairs. Any schema chan
 ## Ledger History
 
 - 2026-08-13: Initial code-confirmed inventory created from the route tree, frontend route tree, models, access helpers, migrations, README, and installation guide.
+- 2026-08-13: Reconciled Campaign Frames for the dedicated list-to-editor flow, focused in-memory section editing, target-derived feature titles, GM-note controls, and completed lint/build/diff validation; browser and unit coverage remain unavailable.

@@ -20,6 +20,7 @@ import CharacterDetailPage from '../features/characters/CharacterDetailPage';
 import CharacterProfilePage from '../features/characters/CharacterProfilePage';
 import DruidBeastFormsPage from '../features/characters/DruidBeastFormsPage';
 import FrameLibraryPage from '../features/frames/FrameLibraryPage';
+import FrameEditorPage from '../features/frames/FrameEditorPage';
 import BookImportPage from '../features/admin/BookImportPage';
 import BookContentEditorPage from '../features/admin/BookContentEditorPage';
 import BeastFeatureEditorPage from '../features/admin/BeastFeatureEditorPage';
@@ -74,6 +75,16 @@ export default function AppRoutes() {
       <Route path="/frames" element={(
         <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.ADVENTURE_MAKER]}>
           <AppLayout><FrameLibraryPage /></AppLayout>
+        </ProtectedRoute>
+      )} />
+      <Route path="/frames/new" element={(
+        <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.ADVENTURE_MAKER]}>
+          <AppLayout><FrameEditorPage mode="new" /></AppLayout>
+        </ProtectedRoute>
+      )} />
+      <Route path="/frames/:frameId/edit" element={(
+        <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.ADVENTURE_MAKER]}>
+          <AppLayout><FrameEditorPage /></AppLayout>
         </ProtectedRoute>
       )} />
       <Route path="/adventures/:adventureId" element={(
