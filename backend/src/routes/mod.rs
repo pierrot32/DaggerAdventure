@@ -19,7 +19,12 @@ use crate::state::AppState;
 pub fn router(state: AppState) -> Router {
     let protected = Router::new()
         .route("/api/hello", get(users::hello))
-        .route("/api/auth/me", get(users::me))
+        .route(
+            "/api/auth/me",
+            get(users::me)
+                .patch(users::update_me)
+                .delete(users::delete_me),
+        )
         .route(
             "/api/content/character-creation",
             get(content::get_character_creation_book),

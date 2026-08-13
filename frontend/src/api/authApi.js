@@ -10,3 +10,10 @@ export const register = ({ email, name, password }) =>
 export const logout = () => request('/api/auth/logout', { method: 'POST' });
 
 export const fetchMe = () => request('/api/auth/me');
+
+export const updateMe = (name) => request('/api/auth/me', {
+  method: 'PATCH',
+  body: JSON.stringify({ name }),
+});
+
+export const deleteMe = () => request('/api/auth/me', { method: 'DELETE' });

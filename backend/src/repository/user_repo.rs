@@ -51,6 +51,54 @@ pub async fn bootstrap_admin(pool: &PgPool, email: &str) -> Result<(), sqlx::Err
     Ok(())
 }
 
+pub async fn update_name(
+    pool: &PgPool,
+    user_id: Uuid,
+    name: &str,
+) -> Result<Option<User>, sqlx::Error> {
+    sqlx::query_as::<_, User>(
+        "UPDATE users SET name = $1
+         WHERE id = $2
+         RETURNING id, email, name, password_hash, access_level, ai_generation_enabled, created_at",
+    )
+    .bind(name)
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await
+}
+
+pub async fn delete_account(pool: &PgPool, user_id: Uuid) -> Result<bool, sqlx::Error> {
+    let mut transaction = pool.begin().await?;
+
+    sqlx::query(
+        "DELETE FROM access_level_audit_events
+         WHERE actor_id = $1 OR target_user_id = $1",
+    )
+    .bind(user_id)
+    .execute(&mut *transaction)
+    .await?;
+
+    sqlx::query("DELETE FROM adventure_invites WHERE inviter_id = $1")
+        .bind(user_id)
+        .execute(&mut *transaction)
+        .await?;
+
+    sqlx::query("DELETE FROM adventures WHERE creator_id = $1")
+        .bind(user_id)
+        .execute(&mut *transaction)
+        .await?;
+
+    let deleted = sqlx::query("DELETE FROM users WHERE id = $1")
+        .bind(user_id)
+        .execute(&mut *transaction)
+        .await?
+        .rows_affected()
+        > 0;
+
+    transaction.commit().await?;
+    Ok(deleted)
+}
+
 pub fn is_unique_violation(error: &sqlx::Error) -> bool {
     error
         .as_database_error()

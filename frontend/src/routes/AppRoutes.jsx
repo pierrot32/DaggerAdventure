@@ -23,6 +23,7 @@ import FrameLibraryPage from '../features/frames/FrameLibraryPage';
 import BookImportPage from '../features/admin/BookImportPage';
 import BookContentEditorPage from '../features/admin/BookContentEditorPage';
 import BeastFeatureEditorPage from '../features/admin/BeastFeatureEditorPage';
+import SettingsPage from '../features/account/SettingsPage';
 
 // Single source of truth for the route tree - add future Daggerheart feature
 // pages here, nested under AppLayout like DashboardPage
@@ -80,6 +81,9 @@ export default function AppRoutes() {
       )} />
       <Route path="/notifications" element={(
         <ProtectedRoute><AppLayout><NotificationsPage /></AppLayout></ProtectedRoute>
+      )} />
+      <Route path="/settings" element={(
+        <ProtectedRoute><AppLayout><SettingsPage /></AppLayout></ProtectedRoute>
       )} />
       <Route path="/characters" element={(
         <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.PLAYER_ONLY]}><AppLayout><CharactersPage /></AppLayout></ProtectedRoute>
