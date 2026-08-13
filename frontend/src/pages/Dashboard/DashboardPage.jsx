@@ -2,7 +2,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { ACCESS_LEVELS } from '../../utils/permissions';
 import styles from './DashboardPage.module.css';
 
-// Authed landing page - future Daggerheart features (characters, campaigns) mount here
+// Authed landing page - future features (characters, campaigns) mount here
 export default function DashboardPage() {
   const { user } = useAuth();
 

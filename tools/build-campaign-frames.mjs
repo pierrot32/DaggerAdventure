@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const root = path.resolve(new URL('..', import.meta.url).pathname);
-const bookPath = path.join(root, 'content', 'daggerheart-srd-9-09-25.json');
+const bookPath = path.join(root, 'content', 'srd-9-09-25.json');
 const sourceFiles = [
   ['beast-feast', 'BEAST FEAST', 'beast feast.txt', 3],
   ['five-banners-burning', 'FIVE BANNERS BURNING', 'five banner burning.txt', 4],

@@ -53,7 +53,7 @@ struct GeneratedImage {
 pub async fn generate(config: &Config, prompt: &str) -> Result<String, AppError> {
     generate_with_system_prompt(
         config,
-        "You are a concise, imaginative assistant for a Daggerheart character builder. Help create names, backstories, motives, relationships, and other character details. Follow the user's request and format the result clearly.",
+        "You are a concise, imaginative assistant for a character builder. Help create names, backstories, motives, relationships, and other character details. Follow the user's request and format the result clearly.",
         prompt,
     )
     .await

@@ -71,7 +71,7 @@ Backend access checks use `require_at_least` and `require_ai_generation` in [`ba
 - **Behavior:** Admins can list users, change access levels, grant or revoke non-admin AI generation access, and inspect access audit events. Account bootstrap can promote the configured `ADMIN_EMAIL` at startup.
 - **Invariants:** Do not rely on a frontend access check as authorization. Preserve the rank ordering and server-side admin checks.
 
-### Daggerheart Content and Book Management
+### Content and Book Management
 
 - **Status:** Implemented; API and admin UI paths confirmed. Content shape requires verification before schema changes.
 - **Frontend:** [`frontend/src/features/admin/BookImportPage.jsx`](../frontend/src/features/admin/BookImportPage.jsx), [`frontend/src/features/admin/BookContentEditorPage.jsx`](../frontend/src/features/admin/BookContentEditorPage.jsx), [`frontend/src/features/admin/BeastFeatureEditorPage.jsx`](../frontend/src/features/admin/BeastFeatureEditorPage.jsx), [`frontend/src/features/characters/CharacterBuilderPage.jsx`](../frontend/src/features/characters/CharacterBuilderPage.jsx).

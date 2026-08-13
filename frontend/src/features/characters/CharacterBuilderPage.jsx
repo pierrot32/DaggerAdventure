@@ -293,13 +293,13 @@ export default function CharacterBuilderPage() {
     }
   };
 
-  if (state.loading) return <p className="muted">Loading the Daggerheart character guide...</p>;
+  if (state.loading) return <p className="muted">Loading the character guide...</p>;
   if (!book) return <section className={styles.notice}><p className="eyebrow">CHARACTER GUIDE</p><h2>Import the SRD first</h2><p>{state.error}</p><p className="muted">An administrator must import the book JSON before players can create characters.</p></section>;
 
   return (
     <section className={styles.builder}>
       <header className={styles.header}>
-        <div><p className="eyebrow">DAGGERHEART · LEVEL 1</p><h2>Create your character</h2></div>
+        <div><p className="eyebrow">LEVEL 1</p><h2>Create your character</h2></div>
         <Link to="/characters" className={styles.back}>Back to vault</Link>
       </header>
       {adventureId && <FrameContextBanner frameState={frameState} />}

@@ -41,7 +41,7 @@ export default function BookImportPage() {
   return (
     <section className={styles.page}>
       <p className="eyebrow">CONTENT LIBRARY</p>
-      <h2>Upload or update a Daggerheart book</h2>
+      <h2>Upload or update a book</h2>
       <p className="muted">Drop a book JSON file here to add it to the library or update the existing book with the same ID.</p>
       <form onSubmit={submit} className={styles.form}>
         <label

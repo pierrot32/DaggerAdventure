@@ -1,4 +1,4 @@
-// Daggerheart derived statistics. Everything here is recomputed from the class,
+// Derived statistics. Everything here is recomputed from the class,
 // equipment and level so a sheet stays correct when gear or level changes; only
 // the mutable trackers (marked boxes, hope, gold) are persisted on the character.
 

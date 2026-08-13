@@ -19,7 +19,7 @@ pub async fn get_character_creation_book(
     content_repo::find_character_creation_book(&state.db)
         .await?
         .map(Json)
-        .ok_or_else(|| AppError::NotFound("No Daggerheart book has been imported yet".to_owned()))
+        .ok_or_else(|| AppError::NotFound("No book has been imported yet".to_owned()))
 }
 
 pub async fn import_book(

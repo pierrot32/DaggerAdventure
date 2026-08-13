@@ -14,7 +14,7 @@ export default function HomePage() {
       <p className="eyebrow">DAGGER ADVENTURE</p>
       <h1>Your story starts here.</h1>
       <p className={`muted ${styles.intro}`}>
-        A companion app for running and playing Daggerheart campaigns - characters,
+        A companion app for running and playing campaigns - characters,
         campaigns, and tools for your table, all in one private space.
       </p>
       <div className={styles.actions}>
