@@ -41,7 +41,7 @@ export default function FrameLibraryPage() {
 
   const save = async (event) => {
     event.preventDefault();
-    const content = draftToContent(form);
+    const content = draftToContent(form, book);
     const payload = {
       name: content.name,
       description: content.description,
@@ -93,7 +93,7 @@ export default function FrameLibraryPage() {
             <FrameDraftForm form={form} update={update} optionLists={book} />
             <div className={styles.actions}><Button type="submit" disabled={state.saving}>{state.saving ? 'Saving...' : selectedId ? 'Save changes' : 'Create frame'}</Button>{selectedId && <Button type="button" variant="text" onClick={remove} disabled={state.saving}>Delete frame</Button>}</div>
           </form>
-          <FramePreview content={draftToContent(form)} />
+            <FramePreview content={draftToContent(form, book)} />
         </div>
       </div>}
     </section>

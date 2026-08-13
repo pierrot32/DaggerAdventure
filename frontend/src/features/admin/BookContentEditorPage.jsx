@@ -567,7 +567,7 @@ export default function BookContentEditorPage() {
       }
     } else if (editorType === 'frames') {
       nextContent.frames = nextContent.frames.map((item) => item.id === frameOriginalId
-        ? { ...item, ...draftToContent(frameForm) }
+        ? { ...item, ...draftToContent(frameForm, content) }
         : item);
     }
     nextContent.character_creation = { ...(nextContent.character_creation || {}), connections_prompt: connections };

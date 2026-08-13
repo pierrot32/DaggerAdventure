@@ -129,6 +129,7 @@ export default function AdventureDetailPage() {
 
 const frameSectionKeys = ['pitch', 'tone_and_feel', 'themes', 'touchstones', 'overview', 'modifications', 'player_principles', 'gm_principles', 'distinctions', 'inciting_incident', 'campaign_mechanics', 'session_zero_questions'];
 const frameSectionLabels = { pitch: 'Pitch', tone_and_feel: 'Tone & feel', themes: 'Themes', touchstones: 'Touchstones', overview: 'Overview', modifications: 'Character guidance', player_principles: 'Player principles', gm_principles: 'GM principles', distinctions: 'Distinctions', inciting_incident: 'The inciting incident', campaign_mechanics: 'Campaign mechanics', session_zero_questions: 'Session-zero questions' };
+const modificationLabels = { communities: 'Communities', ancestries: 'Ancestries', classes: 'Classes' };
 
 function FrameViewer({ content, showGmNotes = false }) {
   return <div className={styles.frameViewer}>
@@ -137,7 +138,7 @@ function FrameViewer({ content, showGmNotes = false }) {
     {content.themes?.length > 0 && <TagBlock title="Themes" values={content.themes} gmMessage={content.gm_messages?.themes} showGmNotes={showGmNotes} />}
     {content.touchstones?.length > 0 && <TagBlock title="Touchstones" values={content.touchstones} gmMessage={content.gm_messages?.touchstones} showGmNotes={showGmNotes} />}
     {content.overview && <TextBlock title="Overview" text={content.overview} gmMessage={content.gm_messages?.overview} showGmNotes={showGmNotes} />}
-    {content.modifications && Object.entries(content.modifications).map(([kind, entries]) => <EntryBlock title={kind} entries={entries} gmMessage={content.gm_messages?.modifications} key={kind} showGmNotes={showGmNotes} />)}
+    {content.modifications && Object.entries(content.modifications).map(([kind, entries]) => <EntryBlock title={modificationLabels[kind] || kind} entries={entries} gmMessage={content.gm_messages?.[kind] || content.gm_messages?.modifications} key={kind} showGmNotes={showGmNotes} />)}
     {['player_principles', 'gm_principles', 'distinctions', 'campaign_mechanics'].map((key) => <EntryBlock title={key.replaceAll('_', ' ')} entries={content[key]} gmMessage={content.gm_messages?.[key]} key={key} showGmNotes={showGmNotes} />)}
     {content.inciting_incident && <TextBlock title="The inciting incident" text={content.inciting_incident} gmMessage={content.gm_messages?.inciting_incident} showGmNotes={showGmNotes} />}
     {content.session_zero_questions?.length > 0 && <div className={styles.textBlock}><h4>Session-zero questions</h4><ul className={styles.questions}>{content.session_zero_questions.map((question) => <li key={question}>{question}</li>)}</ul><GmNote message={content.gm_messages?.session_zero_questions} show={showGmNotes} /></div>}
@@ -150,7 +151,7 @@ function FrameManager({ frame, updateSelection, updateEntrySelection, onSave, on
 
 function TextBlock({ title, text, gmMessage, showGmNotes }) { return <div className={styles.textBlock}><h4>{title}</h4><p>{text}</p><GmNote message={gmMessage} show={showGmNotes} /></div>; }
 function TagBlock({ title, values, gmMessage, showGmNotes }) { return <div className={styles.textBlock}><h4>{title}</h4><div className={styles.tags}>{values.map((value) => <span key={value}>{value}</span>)}</div><GmNote message={gmMessage} show={showGmNotes} /></div>; }
-function EntryBlock({ title, entries = [], gmMessage, showGmNotes = false }) { return entries?.length > 0 ? <div className={styles.textBlock}><h4>{title}</h4>{entries.map((entry) => <article className={styles.entry} key={entry.id}><strong>{entry.title}</strong><p>{entry.description}</p>{entry.questions?.map((question) => <small key={question}>{question}</small>)}<GmNote message={entry.gm_message} show={showGmNotes} /></article>)}<GmNote message={gmMessage} show={showGmNotes} /></div> : null; }
+function EntryBlock({ title, entries = [], gmMessage, showGmNotes = false }) { return entries?.length > 0 ? <div className={styles.textBlock}><h4>{title}</h4>{entries.map((entry) => <article className={styles.entry} key={entry.id}><strong>{entry.title}</strong><p>{entry.description}</p>{entry.questions?.map((question) => <small key={question}>{question}</small>)}</article>)}<GmNote message={gmMessage} show={showGmNotes} /></div> : null; }
 function GmNote({ message, show }) { return show && message ? <aside className={styles.gmNote}><strong>GM-only note</strong><p>{message}</p></aside> : null; }
 
 function filterFrame(content, selections) {
