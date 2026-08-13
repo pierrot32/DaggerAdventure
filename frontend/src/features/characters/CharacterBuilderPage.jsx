@@ -162,7 +162,10 @@ function frameGuidance(frameContent, kind, option) {
 
 function frameGuidanceForOptions(frameContent, kind, options) {
   const seen = new Set();
-  return options.flatMap((option) => frameGuidance(frameContent, kind, option)).filter((entry) => {
+  const entries = options.length === 0
+    ? modificationEntries(frameContent, kind)
+    : options.flatMap((option) => frameGuidance(frameContent, kind, option));
+  return entries.filter((entry) => {
     const key = entry.id || `${entry.title}-${entry.description}`;
     if (seen.has(key)) return false;
     seen.add(key);
@@ -475,7 +478,7 @@ function Identity({ classes, ancestries, communities, frameContent, selectedClas
   const communityFeatures = selectedCommunity?.features || (selectedCommunity?.feature ? [selectedCommunity.feature] : []);
   const subclassFeatures = selectedSubclass ? ['foundation', 'specialization', 'mastery'].flatMap((tier) => (selectedSubclass[tier] || []).map((feature) => ({ ...feature, tier }))) : [];
   const classGuidance = frameGuidanceForOptions(frameContent, 'classes', [selectedClass].filter(Boolean));
-  const subclassGuidance = selectedClass && selectedSubclass ? classGuidance : [];
+  const subclassGuidance = selectedClass && selectedSubclass ? classGuidance : frameGuidanceForOptions(frameContent, 'classes', []);
   const ancestryGuidance = frameGuidanceForOptions(frameContent, 'ancestries', [selectedAncestry?.id === 'mixed-ancestry' ? selectedFirstAncestry : selectedAncestry, selectedAncestry?.id === 'mixed-ancestry' ? selectedSecondAncestry : null].filter(Boolean));
   const communityGuidance = frameGuidanceForOptions(frameContent, 'communities', [selectedCommunity].filter(Boolean));
   return <div className={styles.formGrid}>

@@ -21,6 +21,11 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/${APP_DOMAIN}/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
 
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1000;
+    gzip_types application/json application/javascript text/css text/plain;
+
     location / {
         proxy_pass http://k3s:30081;
         proxy_set_header Host $host;
