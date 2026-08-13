@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Button from '../../components/Button/Button';
 import { getCharacterCreationBook } from '../characters/characterApi';
@@ -17,32 +17,48 @@ export default function FrameEditorPage({ mode = 'edit' }) {
   const [form, setForm] = useState(emptyForm);
   const [book, setBook] = useState(null);
   const [activeSection, setActiveSection] = useState('details');
-  const [state, setState] = useState({ loading: true, saving: false, error: '', message: '' });
+  const [state, setState] = useState({ loading: true, saving: false, loadError: '', error: '', message: '' });
+  const formRevision = useRef(0);
+  const routeGeneration = useRef(0);
 
   useEffect(() => {
-    setState({ loading: true, saving: false, error: '', message: '' });
-    setActiveSection('details');
+    const requestGeneration = ++routeGeneration.current;
+    let currentRequest = true;
+    setState({ loading: true, saving: false, loadError: '', error: '', message: '' });
     Promise.all([
       isNew ? Promise.resolve([]) : listLibraryFrames(),
       getCharacterCreationBook().catch(() => ({ content: null })),
     ])
       .then(([frames, bookResponse]) => {
+        if (!currentRequest || routeGeneration.current !== requestGeneration) return;
         const frame = frames.find((item) => item.id === frameId);
         if (!isNew && !frame) {
-          setState({ loading: false, saving: false, error: 'That library frame could not be found.', message: '' });
+          setState({ loading: false, saving: false, loadError: 'That library frame could not be found.', error: '', message: '' });
           return;
         }
         setBook(bookResponse.content);
+        formRevision.current = 0;
         setForm(frame ? contentToForm(frame.content) : emptyForm());
-        setState({ loading: false, saving: false, error: '', message: '' });
+        setState({ loading: false, saving: false, loadError: '', error: '', message: '' });
       })
-      .catch((error) => setState({ loading: false, saving: false, error: error.message, message: '' }));
+      .catch((error) => {
+        if (currentRequest && routeGeneration.current === requestGeneration) setState({ loading: false, saving: false, loadError: error.message, error: '', message: '' });
+      });
+    return () => {
+      currentRequest = false;
+      if (routeGeneration.current === requestGeneration) routeGeneration.current += 1;
+    };
   }, [frameId, isNew]);
 
-  const update = (field, value) => setForm((current) => ({ ...current, [field]: value }));
+  const update = (field, value) => {
+    formRevision.current += 1;
+    setForm((current) => ({ ...current, [field]: value }));
+  };
 
   const save = async (event) => {
     event.preventDefault();
+    const saveGeneration = routeGeneration.current;
+    const saveRevision = formRevision.current;
     const content = draftToContent(form, book);
     const payload = {
       name: content.name,
@@ -55,11 +71,14 @@ export default function FrameEditorPage({ mode = 'edit' }) {
       const saved = isNew
         ? await createLibraryFrame(payload)
         : await updateLibraryFrame(frameId, payload);
-      setForm(contentToForm(saved.content));
-      setState({ loading: false, saving: false, error: '', message: 'Frame saved.' });
-      if (isNew) navigate(`/frames/${saved.id}/edit`, { replace: true });
+      if (routeGeneration.current !== saveGeneration) return;
+      const hasNewerEdits = formRevision.current !== saveRevision;
+      if (!hasNewerEdits) setForm(contentToForm(saved.content));
+      setState({ loading: false, saving: false, loadError: '', error: '', message: hasNewerEdits ? 'Frame snapshot saved. Newer edits remain unsaved.' : 'Frame saved.' });
+      if (isNew && !hasNewerEdits) navigate(`/frames/${saved.id}/edit`, { replace: true });
     } catch (error) {
-      setState((current) => ({ ...current, saving: false, error: error.message }));
+      if (routeGeneration.current !== saveGeneration) return;
+      setState((current) => ({ ...current, saving: false, error: error.message, message: '' }));
     }
   };
 
@@ -70,7 +89,7 @@ export default function FrameEditorPage({ mode = 'edit' }) {
       await deleteLibraryFrame(frameId);
       navigate('/frames');
     } catch (error) {
-      setState((current) => ({ ...current, saving: false, error: error.message }));
+      setState((current) => ({ ...current, saving: false, error: error.message, message: '' }));
     }
   };
 
@@ -80,12 +99,12 @@ export default function FrameEditorPage({ mode = 'edit' }) {
         <div><button type="button" className={styles.back} onClick={() => navigate('/frames')}>Back to frame library</button><p className="eyebrow">GM FRAME EDITOR</p><h2>{isNew ? 'New campaign frame' : form.name || 'Edit campaign frame'}</h2></div>
         <span className="muted">Changes stay in this form while you move between sections.</span>
       </div>
-      {state.error && <p className={styles.error} role="alert">{state.error}</p>}
+      {(state.loadError || state.error) && <p className={styles.error} role="alert">{state.loadError || state.error}</p>}
       {state.message && <p className={styles.message} role="status">{state.message}</p>}
-      {state.loading ? <p className="muted">Loading frame editor...</p> : state.error ? <Button type="button" variant="text" onClick={() => navigate('/frames')}>Return to library</Button> : <div className={styles.layout}>
+      {state.loading ? <p className="muted">Loading frame editor...</p> : state.loadError ? <Button type="button" variant="text" onClick={() => navigate('/frames')}>Return to library</Button> : <div className={styles.layout}>
         <aside className={styles.sidebar} aria-label="Frame sections">
           <p className={styles.sidebarTitle}>Edit section</p>
-          {frameEditorSections.map((section) => <button type="button" key={section.id} className={activeSection === section.id ? styles.active : ''} onClick={() => setActiveSection(section.id)} aria-current={activeSection === section.id ? 'page' : undefined}>{section.label}</button>)}
+          {frameEditorSections.map((section) => <button type="button" key={section.id} className={activeSection === section.id ? styles.active : ''} onClick={() => setActiveSection(section.id)} aria-current={activeSection === section.id ? 'step' : undefined}>{section.label}</button>)}
         </aside>
         <main className={styles.content}>
           <form className={`${styles.form} ${sharedStyles.form}`} onSubmit={save}>

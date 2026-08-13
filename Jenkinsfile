@@ -241,6 +241,7 @@ pipeline {
 
                             git fetch origin main production
                             git checkout -B "$promotion_branch" "$source_commit"
+                            git merge --no-edit "origin/$production_branch"
 
                             replace_image() {
                                 file="$1"

@@ -163,6 +163,30 @@ pub async fn attach(
     .map_err(AppError::from)
 }
 
+pub async fn attach_in_transaction(
+    connection: &mut sqlx::PgConnection,
+    adventure_id: Uuid,
+    source_type: &str,
+    source_id: Option<&str>,
+    content: &serde_json::Value,
+) -> Result<AdventureFrame, AppError> {
+    sqlx::query_as::<_, AdventureFrame>(
+        "INSERT INTO adventure_frames
+         (adventure_id, source_type, source_id, content, selections)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING adventure_id, source_type, source_id, content, selections,
+                   created_at, updated_at",
+    )
+    .bind(adventure_id)
+    .bind(source_type)
+    .bind(source_id)
+    .bind(content)
+    .bind(default_selections(content))
+    .fetch_one(connection)
+    .await
+    .map_err(AppError::from)
+}
+
 pub async fn find_for_user(
     pool: &PgPool,
     user: &User,

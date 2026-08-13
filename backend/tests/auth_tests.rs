@@ -287,6 +287,47 @@ async fn invitee_can_decline_and_only_gm_moves_the_fear_pool(pool: sqlx::PgPool)
     );
 }
 
+#[sqlx::test]
+#[ignore = "requires DATABASE_URL and disposable Postgres test databases"]
+async fn only_the_adventure_creator_can_delete_and_cascades_related_rows(pool: sqlx::PgPool) {
+    let maker =
+        register_with_level(&pool, "test-secret", "maker", AccessLevel::AdventureMaker).await;
+    let other = register_with_level(&pool, "test-secret", "other", AccessLevel::PlayerOnly).await;
+    let adventure = adventure_repo::create(&pool, maker.id, "Delete Test Table", None)
+        .await
+        .expect("adventure should be created");
+    adventure_repo::create_invite(&pool, &maker, adventure.id, &other.email)
+        .await
+        .expect("invite should be created");
+
+    assert!(
+        !adventure_repo::delete_adventure(&pool, &other, adventure.id)
+            .await
+            .expect("non-creator deletion should be checked")
+    );
+    assert!(
+        adventure_repo::delete_adventure(&pool, &maker, adventure.id)
+            .await
+            .expect("creator should delete the adventure")
+    );
+
+    let adventure_count =
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM adventures WHERE id = $1")
+            .bind(adventure.id)
+            .fetch_one(&pool)
+            .await
+            .expect("adventure count should be readable");
+    let invite_count = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM adventure_invites WHERE adventure_id = $1",
+    )
+    .bind(adventure.id)
+    .fetch_one(&pool)
+    .await
+    .expect("invite count should be readable");
+    assert_eq!(adventure_count, 0);
+    assert_eq!(invite_count, 0);
+}
+
 /// Registers a user and bumps them straight to `level` using a bootstrapped admin.
 async fn register_with_level(
     pool: &sqlx::PgPool,

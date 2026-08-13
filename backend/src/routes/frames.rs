@@ -103,9 +103,8 @@ pub async fn get_adventure_frame(
     let mut frame = frame_repo::find_for_user(&state.db, &user, adventure_id)
         .await?
         .ok_or_else(|| AppError::NotFound("No campaign frame is attached".to_owned()))?;
-    let is_gm = user.access_level == AccessLevel::Admin.as_str()
-        || adventure_repo::is_creator(&state.db, adventure_id, user.id).await?;
-    if !is_gm {
+    let is_creator = adventure_repo::is_creator(&state.db, adventure_id, user.id).await?;
+    if !can_view_unfiltered_content(is_creator) {
         frame.content = filter_content(&frame.content, &frame.selections);
     }
     Ok(Json(frame))
@@ -347,58 +346,87 @@ pub fn validate_frame_content(content: &Value) -> Result<(), AppError> {
 }
 
 fn validate_entries(value: &Value, field: &str) -> Result<(), AppError> {
-    let entries = value
-        .as_array()
-        .ok_or_else(|| AppError::Validation(format!("{field} must be an array")))?;
     let mut ids = std::collections::HashSet::new();
-    for entry in entries {
-        let object = entry
-            .as_object()
-            .ok_or_else(|| AppError::Validation(format!("Each {field} entry must be an object")))?;
-        for required in ["id", "title", "description"] {
-            if object
-                .get(required)
-                .and_then(Value::as_str)
-                .is_none_or(str::is_empty)
-            {
-                return Err(AppError::Validation(format!(
-                    "Each {field} entry needs a non-empty {required}"
-                )));
+    match value {
+        Value::Array(entries) => {
+            for entry in entries {
+                validate_entry(entry, field, None, &mut ids)?;
             }
         }
-        let id = object.get("id").and_then(Value::as_str).unwrap_or_default();
-        if !ids.insert(id.to_owned()) {
+        Value::Object(entries) => {
+            for (map_key, entry) in entries {
+                validate_entry(entry, field, Some(map_key), &mut ids)?;
+            }
+        }
+        _ => {
             return Err(AppError::Validation(format!(
-                "Duplicate id {id} in {field}"
+                "{field} must be an array or object map"
             )));
         }
-        if let Some(questions) = object.get("questions")
-            && (!questions.is_array()
-                || !questions
-                    .as_array()
-                    .is_some_and(|items| items.iter().all(Value::is_string)))
+    }
+    Ok(())
+}
+
+fn validate_entry(
+    entry: &Value,
+    field: &str,
+    map_key: Option<&str>,
+    ids: &mut std::collections::HashSet<String>,
+) -> Result<(), AppError> {
+    let object = entry
+        .as_object()
+        .ok_or_else(|| AppError::Validation(format!("Each {field} entry must be an object")))?;
+    for required in ["title", "description"] {
+        if object
+            .get(required)
+            .and_then(Value::as_str)
+            .is_none_or(str::is_empty)
         {
             return Err(AppError::Validation(format!(
-                "Questions in {field} must be an array of strings"
+                "Each {field} entry needs a non-empty {required}"
             )));
         }
-        if let Some(target_ids) = object.get("target_ids")
-            && (!target_ids.is_array()
-                || !target_ids
-                    .as_array()
-                    .is_some_and(|items| items.iter().all(Value::is_string)))
-        {
-            return Err(AppError::Validation(format!(
-                "Target IDs in {field} must be an array of strings"
-            )));
-        }
-        if let Some(gm_message) = object.get("gm_message")
-            && !gm_message.is_string()
-        {
-            return Err(AppError::Validation(format!(
-                "GM messages in {field} must be strings"
-            )));
-        }
+    }
+    let id = object
+        .get("id")
+        .map(|value| value.as_str().unwrap_or_default())
+        .unwrap_or_else(|| map_key.unwrap_or_default());
+    if id.is_empty() {
+        return Err(AppError::Validation(format!(
+            "Each {field} entry needs a non-empty id"
+        )));
+    }
+    if !ids.insert(id.to_owned()) {
+        return Err(AppError::Validation(format!(
+            "Duplicate id {id} in {field}"
+        )));
+    }
+    if let Some(questions) = object.get("questions")
+        && (!questions.is_array()
+            || !questions
+                .as_array()
+                .is_some_and(|items| items.iter().all(Value::is_string)))
+    {
+        return Err(AppError::Validation(format!(
+            "Questions in {field} must be an array of strings"
+        )));
+    }
+    if let Some(target_ids) = object.get("target_ids")
+        && (!target_ids.is_array()
+            || !target_ids
+                .as_array()
+                .is_some_and(|items| items.iter().all(Value::is_string)))
+    {
+        return Err(AppError::Validation(format!(
+            "Target IDs in {field} must be an array of strings"
+        )));
+    }
+    if let Some(gm_message) = object.get("gm_message")
+        && !gm_message.is_string()
+    {
+        return Err(AppError::Validation(format!(
+            "GM messages in {field} must be strings"
+        )));
     }
     Ok(())
 }
@@ -426,6 +454,10 @@ pub fn filter_content(content: &Value, selections: &Value) -> Value {
     let mut filtered = Value::Object(filtered);
     strip_gm_only(&mut filtered);
     filtered
+}
+
+fn can_view_unfiltered_content(is_creator: bool) -> bool {
+    is_creator
 }
 
 fn strip_gm_only(value: &mut Value) {
@@ -457,7 +489,22 @@ fn filter_modifications(value: &Value, selections: &Map<String, Value>) -> Value
             continue;
         };
         let Some(entries_array) = entries.as_array() else {
-            filtered.insert(kind.clone(), entries.clone());
+            let Some(entries_object) = entries.as_object() else {
+                filtered.insert(kind.clone(), entries.clone());
+                continue;
+            };
+            let mut filtered_entries = Map::new();
+            for (entry_key, entry) in entries_object {
+                let entry_id = entry.get("id").and_then(Value::as_str).unwrap_or(entry_key);
+                let map_key_disabled =
+                    selected.get(entry_key).and_then(Value::as_bool) == Some(false);
+                let entry_id_disabled =
+                    selected.get(entry_id).and_then(Value::as_bool) == Some(false);
+                if !map_key_disabled && !entry_id_disabled {
+                    filtered_entries.insert(entry_key.clone(), entry.clone());
+                }
+            }
+            filtered.insert(kind.clone(), Value::Object(filtered_entries));
             continue;
         };
         filtered.insert(
@@ -483,8 +530,65 @@ fn filter_modifications(value: &Value, selections: &Map<String, Value>) -> Value
 
 #[cfg(test)]
 mod tests {
-    use super::filter_content;
+    use super::{can_view_unfiltered_content, filter_content, validate_frame_content};
     use serde_json::json;
+
+    fn valid_frame_with_modifications(modifications: serde_json::Value) -> serde_json::Value {
+        json!({
+            "id": "test-frame",
+            "name": "Test frame",
+            "pitch": "A pitch",
+            "overview": "An overview",
+            "modifications": modifications
+        })
+    }
+
+    #[test]
+    fn validates_object_map_modifications_with_map_key_fallback_ids() {
+        let content = valid_frame_with_modifications(json!({
+            "communities": {
+                "community-a": {"title": "A", "description": "Guidance"},
+                "community-b": {"id": "community-b-id", "title": "B", "description": "Guidance"}
+            },
+            "ancestries": {},
+            "classes": {}
+        }));
+
+        validate_frame_content(&content).expect("object-map modifications should validate");
+    }
+
+    #[test]
+    fn rejects_invalid_object_map_modification_values() {
+        let content = valid_frame_with_modifications(json!({
+            "classes": {"class-a": "not an entry object"}
+        }));
+
+        let error = validate_frame_content(&content).expect_err("invalid map value should fail");
+        match error {
+            crate::error::AppError::Validation(message) => {
+                assert!(message.contains("Each modifications.classes entry must be an object"));
+            }
+            other => panic!("expected validation error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn rejects_duplicate_object_map_modification_ids() {
+        let content = valid_frame_with_modifications(json!({
+            "classes": {
+                "class-a": {"title": "A", "description": "Guidance"},
+                "class-b": {"id": "class-a", "title": "B", "description": "Guidance"}
+            }
+        }));
+
+        let error = validate_frame_content(&content).expect_err("duplicate IDs should fail");
+        match error {
+            crate::error::AppError::Validation(message) => {
+                assert!(message.contains("Duplicate id class-a in modifications.classes"));
+            }
+            other => panic!("expected validation error, got {other:?}"),
+        }
+    }
 
     #[test]
     fn filters_disabled_sections_and_individual_guidance_entries() {
@@ -534,6 +638,78 @@ mod tests {
     }
 
     #[test]
+    fn filters_individual_entries_in_object_map_guidance() {
+        let content = json!({
+            "modifications": {
+                "classes": {
+                    "class-a": {"title": "A", "description": "A guidance"},
+                    "class-b": {"id": "class-b", "title": "B", "description": "B guidance"}
+                }
+            }
+        });
+        let selections = json!({
+            "modifications": true,
+            "classes": {"class-a": false, "class-b": true}
+        });
+
+        let filtered = filter_content(&content, &selections);
+
+        assert_eq!(
+            filtered["modifications"]["classes"]
+                .as_object()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(
+            filtered["modifications"]["classes"]
+                .get("class-a")
+                .is_none()
+        );
+        assert_eq!(
+            filtered["modifications"]["classes"]["class-b"]["title"],
+            "B"
+        );
+    }
+
+    #[test]
+    fn filters_object_map_entries_by_map_key_or_entry_id() {
+        let content = json!({
+            "modifications": {
+                "classes": {
+                    "stable-class-key": {"id": "class-id", "title": "Class", "description": "Guidance"}
+                }
+            }
+        });
+
+        for selections in [
+            json!({"modifications": true, "classes": {"stable-class-key": false}}),
+            json!({"modifications": true, "classes": {"class-id": false}}),
+        ] {
+            let filtered = filter_content(&content, &selections);
+            assert!(
+                filtered["modifications"]["classes"]
+                    .as_object()
+                    .unwrap()
+                    .is_empty()
+            );
+        }
+
+        for selections in [
+            json!({"modifications": true, "classes": {"stable-class-key": true}}),
+            json!({"modifications": true, "classes": {"class-id": true}}),
+            json!({"modifications": true, "classes": {}}),
+        ] {
+            let filtered = filter_content(&content, &selections);
+            assert!(
+                filtered["modifications"]["classes"]
+                    .get("stable-class-key")
+                    .is_some()
+            );
+        }
+    }
+
+    #[test]
     fn strips_gm_only_messages_from_player_context() {
         let content = json!({
             "pitch": "A pitch",
@@ -557,5 +733,11 @@ mod tests {
                 .get("gm_message")
                 .is_none()
         );
+    }
+
+    #[test]
+    fn only_the_adventure_creator_can_view_unfiltered_content() {
+        assert!(can_view_unfiltered_content(true));
+        assert!(!can_view_unfiltered_content(false));
     }
 }

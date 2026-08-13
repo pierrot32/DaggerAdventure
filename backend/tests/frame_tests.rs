@@ -105,6 +105,34 @@ async fn library_frames_are_private_and_adventure_snapshots_are_isolated(pool: s
 
 #[sqlx::test]
 #[ignore = "requires DATABASE_URL and disposable Postgres test databases"]
+async fn adventure_creation_rolls_back_when_frame_attachment_fails(pool: sqlx::PgPool) {
+    let owner_result = admin_user(&pool, "test-secret").await;
+    let content = frame_content("Rollback pitch");
+    let invalid_source = ("invalid", Some("source"), &content);
+
+    let result = adventure_repo::create_with_frame(
+        &pool,
+        owner_result.user.id,
+        "Rollback Test Table",
+        None,
+        Some(&invalid_source),
+    )
+    .await;
+
+    assert!(result.is_err());
+    let adventure_count = sqlx::query_scalar::<_, i64>(
+        "SELECT count(*) FROM adventures WHERE creator_id = $1 AND name = $2",
+    )
+    .bind(owner_result.user.id)
+    .bind("Rollback Test Table")
+    .fetch_one(&pool)
+    .await
+    .expect("rollback query should succeed");
+    assert_eq!(adventure_count, 0);
+}
+
+#[sqlx::test]
+#[ignore = "requires DATABASE_URL and disposable Postgres test databases"]
 async fn pending_invitees_cannot_read_frames_until_accepting_membership(pool: sqlx::PgPool) {
     let owner_result = admin_user(&pool, "test-secret").await;
     let member_result = player_user(&pool, "test-secret").await;

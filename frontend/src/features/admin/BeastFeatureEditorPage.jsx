@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Button from '../../components/Button/Button';
 import { exportBooks, listBooks, updateBookContent } from './adminApi';
@@ -16,26 +16,34 @@ export default function BeastFeatureEditorPage() {
   const [featureOriginalId, setFeatureOriginalId] = useState('');
   const [featureForm, setFeatureForm] = useState(null);
   const [state, setState] = useState({ loading: true, saving: false, error: '', message: '' });
+  const bookRequestRef = useRef(0);
 
   const openBook = (book) => {
     if (!book) return;
+    bookRequestRef.current += 1;
     const nextContent = normalizeBookContent(book.content);
     const nextFeatures = sortedFeatures(nextContent[BEAST_FEATURES_KEY]);
     setBookId(book.id);
     setContent(nextContent);
     setFeatures(nextFeatures);
     setSelectedFeatureId(nextFeatures[0]?.id || '');
-    setState((current) => ({ ...current, error: '', message: '' }));
+    setState((current) => ({ ...current, saving: false, error: '', message: '' }));
+  };
+
+  const loadBooks = async () => {
+    setState((current) => ({ ...current, loading: true, error: '', message: '' }));
+    try {
+      const response = await listBooks();
+      setBooks(response);
+      if (response[0]) openBook(response[0]);
+      setState((current) => ({ ...current, loading: false, error: '' }));
+    } catch (error) {
+      setState((current) => ({ ...current, loading: false, error: error.message, message: '' }));
+    }
   };
 
   useEffect(() => {
-    listBooks()
-      .then((response) => {
-        setBooks(response);
-        if (response[0]) openBook(response[0]);
-        setState((current) => ({ ...current, loading: false }));
-      })
-      .catch((error) => setState({ loading: false, saving: false, error: error.message, message: '' }));
+    loadBooks();
   }, []);
 
   useEffect(() => {
@@ -69,9 +77,13 @@ export default function BeastFeatureEditorPage() {
     }
     const nextContent = clone(content);
     nextContent[BEAST_FEATURES_KEY] = features.map((item) => item.id === featureOriginalId ? featureForm : item);
+    const requestGeneration = bookRequestRef.current;
+    const requestBookId = bookId;
+    const isCurrentRequest = () => bookRequestRef.current === requestGeneration && bookId === requestBookId;
     setState({ loading: false, saving: true, error: '', message: '' });
     try {
       const saved = await updateBookContent(bookId, nextContent);
+      if (!isCurrentRequest()) return;
       const normalized = normalizeBookContent(saved.content);
       setBooks((current) => current.map((book) => book.id === saved.id ? saved : book));
       setContent(normalized);
@@ -79,7 +91,7 @@ export default function BeastFeatureEditorPage() {
       setSelectedFeatureId(featureForm.id);
       setState({ loading: false, saving: false, error: '', message: 'Beast feature saved.' });
     } catch (error) {
-      setState({ loading: false, saving: false, error: error.message, message: '' });
+      if (isCurrentRequest()) setState({ loading: false, saving: false, error: error.message, message: '' });
     }
   };
 
@@ -99,6 +111,7 @@ export default function BeastFeatureEditorPage() {
   };
 
   if (state.loading) return <p className="muted">Loading beast features...</p>;
+  if (state.error && (!selectedBook || !content)) return <section className={styles.notice}><p className="eyebrow">CONTENT LIBRARY</p><h2>Books could not be loaded</h2><p className={styles.error} role="alert">{state.error}</p><Button type="button" onClick={loadBooks}>Retry loading books</Button></section>;
   if (!selectedBook || !content) return <section className={styles.notice}><p className="eyebrow">CONTENT LIBRARY</p><h2>No books imported</h2><p className="muted">Import a book before editing beast features.</p></section>;
 
   return (

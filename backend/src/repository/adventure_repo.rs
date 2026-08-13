@@ -6,6 +6,8 @@ use crate::{
     models::{Adventure, AdventureInvite, PendingInviteView, User},
 };
 
+pub type ResolvedFrame<'a> = (&'a str, Option<&'a str>, &'a serde_json::Value);
+
 pub async fn create(
     pool: &PgPool,
     creator_id: Uuid,
@@ -33,6 +35,50 @@ pub async fn create(
     .bind(creator_id)
     .execute(&mut *transaction)
     .await?;
+
+    transaction.commit().await?;
+    Ok(adventure)
+}
+
+pub async fn create_with_frame(
+    pool: &PgPool,
+    creator_id: Uuid,
+    name: &str,
+    description: Option<&str>,
+    frame: Option<&ResolvedFrame<'_>>,
+) -> Result<Adventure, AppError> {
+    let mut transaction = pool.begin().await?;
+    let adventure = sqlx::query_as::<_, Adventure>(
+        "INSERT INTO adventures (id, creator_id, name, description)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, creator_id, name, description, fear, created_at, updated_at",
+    )
+    .bind(Uuid::new_v4())
+    .bind(creator_id)
+    .bind(name)
+    .bind(description)
+    .fetch_one(&mut *transaction)
+    .await?;
+
+    sqlx::query(
+        "INSERT INTO adventure_members (adventure_id, user_id, status)
+         VALUES ($1, $2, 'accepted')",
+    )
+    .bind(adventure.id)
+    .bind(creator_id)
+    .execute(&mut *transaction)
+    .await?;
+
+    if let Some((source_type, source_id, content)) = frame {
+        crate::repository::frame_repo::attach_in_transaction(
+            &mut *transaction,
+            adventure.id,
+            source_type,
+            *source_id,
+            content,
+        )
+        .await?;
+    }
 
     transaction.commit().await?;
     Ok(adventure)
@@ -78,6 +124,22 @@ pub async fn find_visible(
     .bind(user.id)
     .fetch_optional(pool)
     .await
+}
+
+pub async fn delete_adventure(
+    pool: &PgPool,
+    user: &User,
+    adventure_id: Uuid,
+) -> Result<bool, AppError> {
+    Ok(
+        sqlx::query("DELETE FROM adventures WHERE id = $1 AND creator_id = $2")
+            .bind(adventure_id)
+            .bind(user.id)
+            .execute(pool)
+            .await?
+            .rows_affected()
+            > 0,
+    )
 }
 
 pub async fn is_creator(

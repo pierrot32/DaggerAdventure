@@ -1,26 +1,36 @@
 export const frameSectionLabels = {
   pitch: 'Pitch',
+  tone_and_feel: 'TONE & FEEL',
+  themes: 'THEMES',
+  touchstones: 'TOUCHSTONES',
   overview: 'Overview',
-  inciting_incident: 'The inciting incident',
-  tone_and_feel: 'Tone & feel',
-  themes: 'Themes',
-  touchstones: 'Touchstones',
-  modifications: 'Character guidance',
-  player_principles: 'Player principles',
-  gm_principles: 'GM principles',
-  distinctions: 'Distinctions',
-  campaign_mechanics: 'Campaign mechanics',
-  session_zero_questions: 'Session-zero questions',
+  communities: 'COMMUNITIES',
+  ancestries: 'ANCESTRIES',
+  classes: 'CLASSES',
+  player_principles: 'PLAYER PRINCIPLES',
+  gm_principles: 'GM PRINCIPLES',
+  distinctions: 'DISTINCTIONS',
+  inciting_incident: 'THE INCITING INCIDENT',
+  campaign_mechanics: 'CAMPAIGN MECHANICS',
+  session_zero_questions: 'SESSION ZERO QUESTIONS',
 };
 
 export const frameEditorSections = [
   { id: 'details', label: 'Frame details' },
-  ...Object.entries(frameSectionLabels)
-    .filter(([id]) => id !== 'modifications')
-    .map(([id, label]) => ({ id, label })),
-  { id: 'communities', label: 'Communities' },
-  { id: 'ancestries', label: 'Ancestries' },
-  { id: 'classes', label: 'Classes' },
+  { id: 'pitch', label: 'Pitch' },
+  { id: 'tone_and_feel', label: 'TONE & FEEL' },
+  { id: 'themes', label: 'THEMES' },
+  { id: 'touchstones', label: 'TOUCHSTONES' },
+  { id: 'overview', label: 'Overview' },
+  { id: 'communities', label: 'COMMUNITIES' },
+  { id: 'ancestries', label: 'ANCESTRIES' },
+  { id: 'classes', label: 'CLASSES' },
+  { id: 'player_principles', label: 'PLAYER PRINCIPLES' },
+  { id: 'gm_principles', label: 'GM PRINCIPLES' },
+  { id: 'distinctions', label: 'DISTINCTIONS' },
+  { id: 'inciting_incident', label: 'THE INCITING INCIDENT' },
+  { id: 'campaign_mechanics', label: 'CAMPAIGN MECHANICS' },
+  { id: 'session_zero_questions', label: 'SESSION ZERO QUESTIONS' },
 ];
 
 export const frameModificationKinds = [
@@ -30,9 +40,13 @@ export const frameModificationKinds = [
 ];
 
 const modificationMessageKeys = ['communities', 'ancestries', 'classes'];
+const frameEntryMapKey = '__dagger_adventure_frame_map_key';
+const frameEntryMapShape = '__dagger_adventure_frame_map_shape';
+const frameModificationMapShapes = '__dagger_adventure_frame_map_shapes';
 
 const emptyGmMessages = () => ({
   ...Object.fromEntries(Object.keys(frameSectionLabels).map((key) => [key, ''])),
+  modifications: '',
   ...Object.fromEntries(modificationMessageKeys.map((key) => [key, ''])),
 });
 
@@ -81,6 +95,12 @@ function entryValue(entry) {
   return entry.description || entry.text || entry.value || entry.title || '';
 }
 
+function isObjectMapEntries(entries) {
+  return entries && typeof entries === 'object' && (!Array.isArray(entries)
+    || entries[frameEntryMapShape] === 'object'
+    || Object.keys(entries).some((key) => entries[key]?.[frameEntryMapKey] !== undefined));
+}
+
 function paragraphValues(value) {
   if (Array.isArray(value)) return value.map((item) => entryValue(item)).map((item) => item.trim()).filter(Boolean);
   return String(value || '').split(/\n\s*\n/).map((item) => item.trim()).filter(Boolean);
@@ -106,6 +126,7 @@ export function contentToDraft(content) {
   const source = content || {};
   const sourceModifications = content?.modifications || {};
   const sourceMessages = content?.gm_messages || {};
+  const modificationMapShapes = Object.fromEntries(frameModificationKinds.map(({ id }) => [id, isObjectMapEntries(sourceModifications[id])]));
   return {
     ...defaults,
     ...source,
@@ -120,6 +141,7 @@ export function contentToDraft(content) {
     modifications: {
       ...defaults.modifications,
       ...Object.fromEntries(frameModificationKinds.map(({ id }) => [id, normalizeFrameEntries(sourceModifications[id], id)])),
+      [frameModificationMapShapes]: modificationMapShapes,
     },
     gm_messages: {
       ...defaults.gm_messages,
@@ -134,19 +156,28 @@ export function entryListToText(entries = []) {
 }
 
 function normalizeFrameEntries(entries, kind) {
-  return (Array.isArray(entries) ? entries : []).map((entry, index) => {
+  const isObjectMap = isObjectMapEntries(entries);
+  const sourceEntries = Array.isArray(entries)
+    ? entries.map((entry) => ({ entry }))
+    : Object.entries(isObjectMap ? entries : {}).map(([mapKey, entry]) => ({ entry, mapKey }));
+  const normalized = sourceEntries.map(({ entry, mapKey }, index) => {
     const legacyTargetKey = { communities: 'community_ids', ancestries: 'ancestry_ids', classes: 'class_ids' }[kind];
-    const targetIds = Array.isArray(entry.target_ids)
-      ? entry.target_ids
-      : Array.isArray(entry[legacyTargetKey]) ? entry[legacyTargetKey] : [];
-    return {
-      ...entry,
-      id: entry.id || `${kind}-feature-${index + 1}`,
-      title: entry.title || '',
-      description: entry.description || '',
+    const sourceEntry = entry && typeof entry === 'object' && !Array.isArray(entry) ? entry : {};
+    const targetIds = Array.isArray(sourceEntry.target_ids)
+      ? sourceEntry.target_ids
+      : Array.isArray(sourceEntry[legacyTargetKey]) ? sourceEntry[legacyTargetKey] : [];
+    const normalizedEntry = {
+      ...sourceEntry,
+      id: sourceEntry.id || mapKey || `${kind}-feature-${index + 1}`,
+      title: sourceEntry.title || '',
+      description: sourceEntry.description || '',
       target_ids: targetIds,
     };
+    if (mapKey !== undefined) normalizedEntry[frameEntryMapKey] = mapKey;
+    return normalizedEntry;
   });
+  if (isObjectMap) normalized[frameEntryMapShape] = 'object';
+  return normalized;
 }
 
 export function newModificationEntry(_kind, _index = 1) {
@@ -161,7 +192,7 @@ export function newModificationEntry(_kind, _index = 1) {
 export function autoFeatureIds(entries, kind, frameName, options = []) {
   const usedIds = new Set();
   const kindLabel = { communities: 'community', ancestries: 'ancestry', classes: 'class' }[kind] || kind;
-  return entries.map((entry, _index) => {
+  const nextEntries = entries.map((entry, _index) => {
     const targetIds = Array.isArray(entry.target_ids) ? entry.target_ids : [];
     const targetLabel = targetIds.length > 0
       ? targetIds.map((targetId) => {
@@ -170,7 +201,7 @@ export function autoFeatureIds(entries, kind, frameName, options = []) {
       }).sort().join('-')
       : `all-${kind}`;
     const baseId = `${slugify(frameName)}-${kindLabel}-${targetLabel}`;
-    let id = baseId;
+    let id = entry.id || baseId;
     let suffix = 2;
     while (usedIds.has(id)) {
       id = `${baseId}-${suffix}`;
@@ -178,11 +209,32 @@ export function autoFeatureIds(entries, kind, frameName, options = []) {
     }
     usedIds.add(id);
     const targetOptions = targetIds.map((targetId) => options.find((option) => option.id === targetId));
-    const title = targetIds.length > 0 && targetOptions.every(Boolean)
+    const title = entry.title || (targetIds.length > 0 && targetOptions.every(Boolean)
       ? targetOptions.map((option) => option.name || option.id).join(' / ')
-      : entry.title || `${kindLabel} feature`;
+      : `${kindLabel} feature`);
     return { ...entry, id, title };
   });
+  if (entries[frameEntryMapShape] === 'object' || entries.some((entry) => entry?.[frameEntryMapKey] !== undefined)) nextEntries[frameEntryMapShape] = 'object';
+  return nextEntries;
+}
+
+export function preserveFrameEntryMapShape(entries, sourceEntries) {
+  if (sourceEntries?.[frameEntryMapShape] === 'object') entries[frameEntryMapShape] = 'object';
+  return entries;
+}
+
+function serializeFrameEntries(entries, kind, frameName, options, mapShapes = {}) {
+  const normalized = autoFeatureIds(normalizeFrameEntries(entries, kind), kind, frameName, options);
+  const stripMetadata = (entry) => {
+    const serialized = { ...entry };
+    delete serialized[frameEntryMapKey];
+    return serialized;
+  };
+  if (normalized[frameEntryMapShape] !== 'object' && mapShapes[kind] !== true) return normalized.map(stripMetadata);
+  return Object.fromEntries(normalized.map((entry, index) => [
+    entry[frameEntryMapKey] || entry.id || `${kind}-feature-${index + 1}`,
+    stripMetadata(entry),
+  ]));
 }
 
 export function textToEntries(value, prefix) {
@@ -208,7 +260,7 @@ export function draftToContent(form, optionLists = {}) {
   const availableOptions = optionLists || {};
   const modifications = Object.fromEntries(frameModificationKinds.map(({ id: kind }) => [
     kind,
-    autoFeatureIds(normalizeFrameEntries(form.modifications?.[kind], kind), kind, form.name, availableOptions[kind] || []),
+    serializeFrameEntries(form.modifications?.[kind], kind, form.name, availableOptions[kind] || [], form.modifications?.[frameModificationMapShapes]),
   ]));
   const gmMessages = { ...defaults.gm_messages, ...(form.gm_messages || {}) };
   modificationMessageKeys.forEach((key) => {

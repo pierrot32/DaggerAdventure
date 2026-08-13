@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Button from '../../components/Button/Button';
 import { exportBooks, listBooks, updateBookContent } from './adminApi';
@@ -224,11 +224,16 @@ export default function BookContentEditorPage() {
   const [frameOriginalId, setFrameOriginalId] = useState('');
   const [frameForm, setFrameForm] = useState(null);
   const [frameActiveSection, setFrameActiveSection] = useState('details');
+  const frameFormRevision = useRef(0);
+  const skipFrameRehydrate = useRef(null);
+  const frameDraftOverrides = useRef(new Map());
   const [connections, setConnections] = useState('');
   const [state, setState] = useState({ loading: true, saving: false, error: '', message: '' });
+  const [booksRequest, setBooksRequest] = useState(0);
 
   const openBook = (book) => {
     if (!book) return;
+    frameDraftOverrides.current.clear();
     const nextContent = normalizeBookContent(book.content);
     const nextClasses = nextContent.classes;
     setBookId(book.id);
@@ -256,14 +261,20 @@ export default function BookContentEditorPage() {
   };
 
   useEffect(() => {
+    let currentRequest = true;
+    setState((current) => ({ ...current, loading: true, error: '', message: '' }));
     listBooks()
       .then((response) => {
+        if (!currentRequest) return;
         setBooks(response);
         if (response[0]) openBook(response[0]);
         setState((current) => ({ ...current, loading: false }));
       })
-      .catch((error) => setState({ loading: false, saving: false, error: error.message, message: '' }));
-  }, []);
+      .catch((error) => {
+        if (currentRequest) setState({ loading: false, saving: false, error: error.message, message: '' });
+      });
+    return () => { currentRequest = false; };
+  }, [booksRequest]);
 
   useEffect(() => {
     const selected = classes.find((item) => item.id === selectedClassId);
@@ -303,8 +314,14 @@ export default function BookContentEditorPage() {
   useEffect(() => {
     const selected = (content?.frames || []).find((item) => item.id === selectedFrameId);
     setFrameOriginalId(selected?.id || '');
-    setFrameForm(selected ? contentToForm(selected) : null);
-    setFrameActiveSection('details');
+    if (skipFrameRehydrate.current?.content === content) {
+      const shouldPreserve = skipFrameRehydrate.current.preserve;
+      skipFrameRehydrate.current = null;
+      if (shouldPreserve) return;
+    }
+    frameFormRevision.current = 0;
+    const draftOverride = selected ? frameDraftOverrides.current.get(selected.id) : null;
+    setFrameForm(draftOverride ? clone(draftOverride) : selected ? contentToForm(selected) : null);
   }, [content, selectedFrameId]);
 
   useEffect(() => {
@@ -528,6 +545,8 @@ export default function BookContentEditorPage() {
       setState((current) => ({ ...current, error: 'A campaign frame needs an ID, name, pitch, and overview.', message: '' }));
       return;
     }
+    const frameSaveRevision = editorType === 'frames' ? frameFormRevision.current : null;
+    const frameSaveSelectedId = editorType === 'frames' ? frameOriginalId : null;
     const nextContent = clone(content);
     if (editorType === 'classes') {
       nextContent.classes = classes.map((item) => item.id === selectedClassId ? classForm : item);
@@ -575,12 +594,31 @@ export default function BookContentEditorPage() {
         ? { ...item, ...draftToContent(frameForm, content) }
         : item);
     }
+    nextContent.frames = (nextContent.frames || []).map((item) => {
+      const draftOverride = frameDraftOverrides.current.get(item.id);
+      return draftOverride ? { ...item, ...draftToContent(draftOverride, content) } : item;
+    });
     nextContent.character_creation = { ...(nextContent.character_creation || {}), connections_prompt: connections };
     setState({ loading: false, saving: true, error: '', message: '' });
     try {
       const saved = await updateBookContent(bookId, nextContent);
       setBooks((current) => current.map((book) => book.id === saved.id ? saved : book));
       const normalized = normalizeBookContent(saved.content);
+      const hasNewerFrameEdits = editorType === 'frames' && frameFormRevision.current !== frameSaveRevision;
+      if (editorType === 'frames') {
+        const latestFrameDraft = frameDraftOverrides.current.get(frameSaveSelectedId) || frameForm;
+        const savedFrame = normalized.frames.find((item) => item.id === frameForm.id)
+          || normalized.frames.find((item) => item.id === frameSaveSelectedId);
+        if (hasNewerFrameEdits) {
+          if (savedFrame) frameDraftOverrides.current.set(savedFrame.id, clone(latestFrameDraft));
+        } else {
+          frameDraftOverrides.current.delete(frameSaveSelectedId);
+          frameDraftOverrides.current.delete(frameForm.id);
+        }
+        skipFrameRehydrate.current = { content: normalized, preserve: hasNewerFrameEdits };
+      } else {
+        frameDraftOverrides.current.clear();
+      }
       setContent(normalized);
       setClasses(normalized.classes);
       if (editorType === 'classes') {
@@ -598,9 +636,9 @@ export default function BookContentEditorPage() {
         setSelectedDomainId(domainForm.id);
         setSelectedDomainCardKey(domainCardForm ? domainCardKey(domainForm.id, Number(domainCardForm.level) || domainCardOriginalLevel, domainCardForm.id) : '');
       } else if (editorType === 'frames') {
-        setSelectedFrameId(frameForm.id);
+        if (!hasNewerFrameEdits && selectedFrameId === frameSaveSelectedId) setSelectedFrameId(frameForm.id);
       }
-      setState({ loading: false, saving: false, error: '', message: 'Book content saved.' });
+      setState({ loading: false, saving: false, error: '', message: hasNewerFrameEdits ? 'Frame snapshot saved. Newer edits remain unsaved.' : 'Book content saved.' });
     } catch (error) {
       setState({ loading: false, saving: false, error: error.message, message: '' });
     }
@@ -622,7 +660,10 @@ export default function BookContentEditorPage() {
   };
 
   if (state.loading) return <p className="muted">Loading book content...</p>;
-  if (!selectedBook || !content) return <section className={styles.notice}><p className="eyebrow">CONTENT LIBRARY</p><h2>No books imported</h2><p className="muted">Import a book before editing its content.</p></section>;
+  if (!selectedBook || !content) {
+    if (state.error) return <section className={styles.notice}><p className="eyebrow">CONTENT LIBRARY</p><h2>Could not load books</h2><p className={styles.error} role="alert">{state.error}</p><Button type="button" onClick={() => setBooksRequest((current) => current + 1)}>Retry loading books</Button></section>;
+    return <section className={styles.notice}><p className="eyebrow">CONTENT LIBRARY</p><h2>No books imported</h2><p className="muted">Import a book before editing its content.</p></section>;
+  }
 
   return (
     <section className={styles.page}>
@@ -630,21 +671,22 @@ export default function BookContentEditorPage() {
         <div><p className="eyebrow">ADMINISTRATION / CONTENT</p><h2>Book content studio</h2><p className="muted">Edit stored classes, equipment, domains, frames, and cards, then save the complete book.</p></div>
         <Button type="button" variant="text" onClick={download}>Export all books</Button>
       </header>
-      <div className={styles.toolbar}>
-        <label>Book<select value={bookId} onChange={(event) => openBook(books.find((book) => book.id === event.target.value))}>{books.map((book) => <option value={book.id} key={book.id}>{book.title} - {book.version}</option>)}</select></label>
-        <span className={styles.meta}>{selectedBook.source_file}</span>
-      </div>
-      <div className={styles.entityTabs}>
-        <button type="button" className={editorType === 'classes' ? styles.activeTab : ''} onClick={() => setEditorType('classes')}>Classes</button>
-        <button type="button" className={editorType === 'beastforms' ? styles.activeTab : ''} onClick={() => setEditorType('beastforms')}>Beast forms</button>
-        <button type="button" className={editorType === 'ancestries' ? styles.activeTab : ''} onClick={() => setEditorType('ancestries')}>Ancestries</button>
-        <button type="button" className={editorType === 'communities' ? styles.activeTab : ''} onClick={() => setEditorType('communities')}>Communities</button>
-        <button type="button" className={editorType === 'domains' ? styles.activeTab : ''} onClick={() => setEditorType('domains')}>Domains</button>
-        <button type="button" className={editorType === 'frames' ? styles.activeTab : ''} onClick={() => setEditorType('frames')}>Frames</button>
-        {weaponGroups.map((group) => <button type="button" className={editorType === group.id ? styles.activeTab : ''} onClick={() => openWeaponGroup(group)} key={group.id}>{group.label}</button>)}
-        <Link to="/admin/content/books/beast-features" className={styles.featureLink}>Manage shared beast features</Link>
-      </div>
-      <div className={styles.layout}>
+      <fieldset className={styles.workspace} disabled={state.saving}>
+        <div className={styles.toolbar}>
+          <label>Book<select value={bookId} onChange={(event) => openBook(books.find((book) => book.id === event.target.value))}>{books.map((book) => <option value={book.id} key={book.id}>{book.title} - {book.version}</option>)}</select></label>
+          <span className={styles.meta}>{selectedBook.source_file}</span>
+        </div>
+        <div className={styles.entityTabs}>
+          <button type="button" className={editorType === 'classes' ? styles.activeTab : ''} onClick={() => setEditorType('classes')}>Classes</button>
+          <button type="button" className={editorType === 'beastforms' ? styles.activeTab : ''} onClick={() => setEditorType('beastforms')}>Beast forms</button>
+          <button type="button" className={editorType === 'ancestries' ? styles.activeTab : ''} onClick={() => setEditorType('ancestries')}>Ancestries</button>
+          <button type="button" className={editorType === 'communities' ? styles.activeTab : ''} onClick={() => setEditorType('communities')}>Communities</button>
+          <button type="button" className={editorType === 'domains' ? styles.activeTab : ''} onClick={() => setEditorType('domains')}>Domains</button>
+          <button type="button" className={editorType === 'frames' ? styles.activeTab : ''} onClick={() => setEditorType('frames')}>Frames</button>
+          {weaponGroups.map((group) => <button type="button" className={editorType === group.id ? styles.activeTab : ''} onClick={() => openWeaponGroup(group)} key={group.id}>{group.label}</button>)}
+          <Link to="/admin/content/books/beast-features" className={styles.featureLink}>Manage shared beast features</Link>
+        </div>
+        <div className={styles.layout}>
         {editorType === 'classes' && <aside className={styles.sidebar}>
           <div className={styles.sectionHeading}><h3>Classes</h3><button type="button" className={styles.smallButton} onClick={addClass}>Add class</button></div>
           {classes.map((item) => <button type="button" className={`${styles.classButton} ${item.id === selectedClassId ? styles.selected : ''}`} key={item.id} onClick={() => setSelectedClassId(item.id)}><strong>{item.name || 'Unnamed class'}</strong><span>{item.id}</span></button>)}
@@ -682,7 +724,7 @@ export default function BookContentEditorPage() {
           {frames.length === 0 && <p className="muted">No campaign frames added.</p>}
           {frameForm && <nav className={styles.frameSections} aria-label="Campaign frame sections">
             <h3>Frame sections</h3>
-            {frameEditorSections.map((section) => <button type="button" className={frameActiveSection === section.id ? styles.activeSection : ''} key={section.id} onClick={() => setFrameActiveSection(section.id)} aria-current={frameActiveSection === section.id ? 'page' : undefined}>{section.label}</button>)}
+            {frameEditorSections.map((section) => <button type="button" className={frameActiveSection === section.id ? styles.activeSection : ''} key={section.id} onClick={() => setFrameActiveSection(section.id)} aria-current={frameActiveSection === section.id ? 'step' : undefined}>{section.label}</button>)}
           </nav>}
         </aside>}
         {editorType === 'classes' && classForm && (
@@ -749,13 +791,21 @@ export default function BookContentEditorPage() {
           <div className={styles.editor}>
             <div className={styles.editorHeading}><div><p className="eyebrow">CAMPAIGN FRAME</p><h3>{frameForm.name || 'Unnamed frame'}</h3></div><button type="button" className={styles.removeButton} onClick={removeFrame}>Remove frame</button></div>
             <div className={styles.frameForm}>
-              <FrameDraftForm form={frameForm} update={(field, value) => setFrameForm((current) => ({ ...current, [field]: value }))} optionLists={content} activeSection={frameActiveSection} />
+              <FrameDraftForm form={frameForm} update={(field, value) => {
+                frameFormRevision.current += 1;
+                setFrameForm((current) => {
+                  const nextForm = { ...current, [field]: value };
+                  frameDraftOverrides.current.set(frameOriginalId, clone(nextForm));
+                  return nextForm;
+                });
+              }} optionLists={content} activeSection={frameActiveSection} />
             </div>
             {(state.error || state.message) && <p className={state.error ? styles.error : styles.message} role="status">{state.error || state.message}</p>}
             <Button type="button" disabled={state.saving} onClick={save}>{state.saving ? 'Saving book...' : 'Save frame'}</Button>
           </div>
         )}
-      </div>
+        </div>
+      </fieldset>
     </section>
   );
 }
