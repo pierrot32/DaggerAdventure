@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Button from '../../components/Button/Button';
 import { exportBooks, listBooks, updateBookContent } from './adminApi';
-import { FrameDraftForm } from '../adventures/CreateAdventurePage';
-import { contentToForm, draftToContent, emptyFrame } from '../frames/frameDraft';
+import { FrameDraftForm, TableEditor } from '../adventures/CreateAdventurePage';
+import { contentToForm, draftToContent, emptyFrame, frameEditorSections } from '../frames/frameDraft';
 import {
   BEAST_FEATURES_KEY, DOMAIN_LEVELS, WEAPON_GROUPS, beastForm, beastFormKey, clone, domainCard, domainCardKey,
   feature, flattenBeastForms, flattenDomainCards, flattenWeapons, newAncestry, newClass, newCommunity,
@@ -24,6 +24,7 @@ function FeatureList({ title, items, onChange, onAdd, onRemove }) {
           <input aria-label={`${title} feature name ${index + 1}`} value={item.name || ''} placeholder="Feature name" onChange={(event) => onChange(index, 'name', event.target.value)} />
           <textarea aria-label={`${title} feature text ${index + 1}`} value={item.text || ''} placeholder="Feature description" onChange={(event) => onChange(index, 'text', event.target.value)} />
           <button type="button" className={styles.removeButton} onClick={() => onRemove(index)}>Remove</button>
+          <TableEditor table={item.table} onChange={(table) => onChange(index, 'table', table)} label={`${title} feature ${index + 1} table`} />
         </div>
       ))}
       {items.length === 0 && <p className="muted">No features added.</p>}
@@ -222,6 +223,7 @@ export default function BookContentEditorPage() {
   const [selectedFrameId, setSelectedFrameId] = useState('');
   const [frameOriginalId, setFrameOriginalId] = useState('');
   const [frameForm, setFrameForm] = useState(null);
+  const [frameActiveSection, setFrameActiveSection] = useState('details');
   const [connections, setConnections] = useState('');
   const [state, setState] = useState({ loading: true, saving: false, error: '', message: '' });
 
@@ -247,6 +249,7 @@ export default function BookContentEditorPage() {
     setSelectedDomainId(nextDomain?.id || '');
     setSelectedDomainCardKey(nextDomainCard?.key || '');
     setSelectedFrameId(nextFrame?.id || '');
+    setFrameActiveSection('details');
     setEditorType('classes');
     setConnections(nextContent.character_creation?.connections_prompt || '');
     setState((current) => ({ ...current, error: '', message: '' }));
@@ -301,6 +304,7 @@ export default function BookContentEditorPage() {
     const selected = (content?.frames || []).find((item) => item.id === selectedFrameId);
     setFrameOriginalId(selected?.id || '');
     setFrameForm(selected ? contentToForm(selected) : null);
+    setFrameActiveSection('details');
   }, [content, selectedFrameId]);
 
   useEffect(() => {
@@ -479,6 +483,7 @@ export default function BookContentEditorPage() {
     const nextFrame = { ...emptyFrame(), id, name: 'New campaign frame' };
     setContent((current) => ({ ...current, frames: [...(current.frames || []), nextFrame] }));
     setSelectedFrameId(id);
+    setFrameActiveSection('details');
     setEditorType('frames');
   };
 
@@ -673,8 +678,12 @@ export default function BookContentEditorPage() {
         </aside>}
         {editorType === 'frames' && <aside className={styles.sidebar}>
           <div className={styles.sectionHeading}><h3>Campaign frames</h3><button type="button" className={styles.smallButton} onClick={addFrame}>Add frame</button></div>
-          {frames.map((item) => <button type="button" className={`${styles.classButton} ${item.id === selectedFrameId ? styles.selected : ''}`} key={item.id} onClick={() => setSelectedFrameId(item.id)}><strong>{item.name || 'Unnamed frame'}</strong><span>{item.id}</span></button>)}
+          {frames.map((item) => <button type="button" className={`${styles.classButton} ${item.id === selectedFrameId ? styles.selected : ''}`} key={item.id} onClick={() => { setSelectedFrameId(item.id); setFrameActiveSection('details'); }}><strong>{item.name || 'Unnamed frame'}</strong><span>{item.id}</span></button>)}
           {frames.length === 0 && <p className="muted">No campaign frames added.</p>}
+          {frameForm && <nav className={styles.frameSections} aria-label="Campaign frame sections">
+            <h3>Frame sections</h3>
+            {frameEditorSections.map((section) => <button type="button" className={frameActiveSection === section.id ? styles.activeSection : ''} key={section.id} onClick={() => setFrameActiveSection(section.id)} aria-current={frameActiveSection === section.id ? 'page' : undefined}>{section.label}</button>)}
+          </nav>}
         </aside>}
         {editorType === 'classes' && classForm && (
           <div className={styles.editor}>
@@ -740,7 +749,7 @@ export default function BookContentEditorPage() {
           <div className={styles.editor}>
             <div className={styles.editorHeading}><div><p className="eyebrow">CAMPAIGN FRAME</p><h3>{frameForm.name || 'Unnamed frame'}</h3></div><button type="button" className={styles.removeButton} onClick={removeFrame}>Remove frame</button></div>
             <div className={styles.frameForm}>
-              <FrameDraftForm form={frameForm} update={(field, value) => setFrameForm((current) => ({ ...current, [field]: value }))} optionLists={content} />
+              <FrameDraftForm form={frameForm} update={(field, value) => setFrameForm((current) => ({ ...current, [field]: value }))} optionLists={content} activeSection={frameActiveSection} />
             </div>
             {(state.error || state.message) && <p className={state.error ? styles.error : styles.message} role="status">{state.error || state.message}</p>}
             <Button type="button" disabled={state.saving} onClick={save}>{state.saving ? 'Saving book...' : 'Save frame'}</Button>

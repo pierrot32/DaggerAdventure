@@ -20,6 +20,10 @@
 .classButton { display: flex; flex-direction: column; width: 100%; margin-top: var(--space-2); padding: var(--space-3); border: 0; border-left: 2px solid transparent; background: transparent; color: var(--color-text-inverse); text-align: left; cursor: pointer; }
 .classButton:hover, .classButton.selected { border-left-color: var(--color-accent); background: rgba(201, 157, 99, .14); }
 .classButton span { margin-top: var(--space-1); color: var(--color-muted-inverse); font-size: 12px; }
+.frameSections { display: grid; gap: var(--space-1); margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid rgba(244, 238, 228, .14); }
+.frameSections h3 { margin-bottom: var(--space-2); }
+.frameSections button { padding: var(--space-2) var(--space-3); border: 0; border-left: 2px solid transparent; background: transparent; color: var(--color-muted-inverse); text-align: left; cursor: pointer; font: inherit; font-size: 12px; }
+.frameSections button:hover, .frameSections .activeSection { border-left-color: var(--color-accent); background: rgba(201, 157, 99, .14); color: var(--color-text-inverse); }
 .tierGroup { border-top: 1px solid rgba(244, 238, 228, .14); }
 .tierGroup summary { display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) 0; color: var(--color-text-inverse); cursor: pointer; font-size: 13px; font-weight: 700; list-style-position: inside; }
 .tierGroup summary span { color: var(--color-muted-inverse); font-size: 12px; font-weight: 400; }
@@ -43,6 +47,7 @@
 .panel { background: var(--color-surface-muted); }
 .featureRow { display: grid; grid-template-columns: minmax(120px, .35fr) minmax(0, 1fr) auto; gap: var(--space-3); align-items: start; }
 .featureRow textarea { min-height: 80px; resize: vertical; }
+.featureRow .tableEditor { grid-column: 1 / -1; }
 .smallButton, .removeButton, .subclassTabs button { padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: transparent; color: inherit; cursor: pointer; font: inherit; }
 .smallButton { color: var(--color-accent-strong-hover); font-size: 12px; font-weight: 700; }
 .removeButton { color: var(--color-danger); font-size: 12px; }

@@ -37,6 +37,20 @@
 .formGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-5); margin-top: var(--space-6); }
 .formGrid label, .textStep label, .traits label { display: flex; flex-direction: column; gap: var(--space-2); color: var(--color-muted); font-size: 12px; font-weight: 700; }
 .fieldHeading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.modificationInfo { position: relative; display: inline-block; margin-left: var(--space-2); vertical-align: middle; }
+.infoButton { display: inline-grid; place-items: center; width: 18px; height: 18px; padding: 0; border: 1px solid var(--color-accent-strong); border-radius: 50%; background: transparent; color: var(--color-accent-strong); cursor: pointer; font: inherit; font-size: 12px; font-weight: 700; line-height: 1; }
+.infoButton:hover, .infoButton:focus-visible { background: var(--color-accent-strong); color: var(--color-surface); }
+.modificationPopover { position: absolute; z-index: 5; top: calc(100% + var(--space-2)); left: 0; display: grid; gap: var(--space-3); width: min(360px, calc(100vw - 48px)); padding: var(--space-4); border: 1px solid var(--color-accent-strong); background: var(--color-surface); box-shadow: 0 12px 30px rgba(20, 18, 16, .22); color: var(--color-text); font-size: 13px; font-weight: 400; text-transform: none; }
+.modificationPopoverHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.modificationPopoverHeader strong { color: var(--color-text); }
+.popoverClose { padding: 4px 7px; border: 1px solid var(--color-border); background: transparent; color: var(--color-muted); cursor: pointer; font: inherit; font-size: 11px; }
+.modificationList { display: grid; gap: var(--space-2); max-height: 180px; overflow-y: auto; }
+.modificationList button { padding: var(--space-2); border: 1px solid var(--color-border); background: transparent; color: var(--color-text); text-align: left; cursor: pointer; font: inherit; }
+.modificationList button:hover, .modificationList .selectedModification { border-color: var(--color-accent-strong); background: rgba(180, 119, 63, .1); }
+.modificationDetail { padding-top: var(--space-3); border-top: 1px solid var(--color-border); }
+.modificationDetail p { margin: var(--space-2) 0 0; color: var(--color-muted); line-height: 1.5; }
+.modificationDetail small { display: block; margin-top: var(--space-2); color: var(--color-muted); line-height: 1.45; }
+.modificationEmpty { margin: 0; color: var(--color-muted); line-height: 1.5; }
 .fieldActions { display: inline-flex; align-items: center; gap: var(--space-2); font-size: 11px; font-weight: 400; }
 .lockButton, .generateButton, .expandButton { padding: 2px 5px; border: 1px solid var(--color-border); background: transparent; color: var(--color-muted); font: inherit; cursor: pointer; }
 .lockButton:hover, .generateButton:hover:not(:disabled), .expandButton:hover:not(:disabled) { border-color: var(--color-accent-strong); color: var(--color-accent-strong); }

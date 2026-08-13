@@ -89,18 +89,22 @@ export default function CharacterDetailPage({ mode = 'sheet' }) {
   const [editForm, setEditForm] = useState(null);
   const [portraitLoading, setPortraitLoading] = useState(false);
   const [advancementOpen, setAdvancementOpen] = useState(false);
+  const [adventureState, setAdventureState] = useState({ loading: true, error: '' });
   const [state, setState] = useState({ loading: true, saving: false, error: '' });
 
   useEffect(() => {
     Promise.all([
       getCharacter(characterId),
-      listAdventures().catch(() => []),
+      listAdventures()
+        .then((items) => ({ items, error: '' }))
+        .catch((error) => ({ items: [], error: error.message })),
       getCharacterCreationBook().then((response) => response.content).catch(() => null),
     ])
-      .then(([nextCharacter, nextAdventures, nextBook]) => {
+      .then(([nextCharacter, adventureResult, nextBook]) => {
         setCharacter(nextCharacter);
         setEditForm(editableCharacter(nextCharacter));
-        setAdventures(nextAdventures);
+        setAdventures(adventureResult.items);
+        setAdventureState({ loading: false, error: adventureResult.error });
         setBook(nextBook);
         setSelectedAdventure(nextCharacter.adventure_id || '');
         setStats(normalizeStats(nextCharacter.stats, deriveSheet(nextCharacter, nextBook)));
@@ -215,8 +219,18 @@ export default function CharacterDetailPage({ mode = 'sheet' }) {
         </div>
         <header className={styles.pageHeading}>
           <div><p className="eyebrow">CHARACTER EDITOR</p><h2>Edit {character.name}</h2><p className="muted">Update your character details, story, equipment, and portrait.</p></div>
-          <button type="button" className={styles.editButton} disabled={portraitLoading} onClick={generatePortrait}>{portraitLoading ? 'Generating image...' : 'Generate character image'}</button>
+          <div className={styles.pageHeadingActions}>
+            <label className={styles.adventure}>Adventure
+              <select value={selectedAdventure} onChange={updateAdventure} disabled={state.saving || adventureState.loading}>
+                <option value="">Not linked</option>
+                {selectedAdventure && !adventures.some((adventure) => adventure.id === selectedAdventure) && <option value={selectedAdventure}>Current linked adventure</option>}
+                {adventures.map((adventure) => <option value={adventure.id} key={adventure.id}>{adventure.name}</option>)}
+              </select>
+            </label>
+            <button type="button" className={styles.editButton} disabled={portraitLoading} onClick={generatePortrait}>{portraitLoading ? 'Generating image...' : 'Generate character image'}</button>
+          </div>
         </header>
+        {adventureState.error && <p className={styles.error} role="status">Available adventures could not be loaded. The current link is preserved.</p>}
         {state.error && <p className={styles.error}>{state.error}</p>}
         <CharacterEditor form={editForm} updateField={updateEditField} updateEquipmentField={updateEquipmentField} updateExperience={updateExperience} addExperience={addExperience} removeExperience={removeExperience} updateInventoryItem={updateInventoryItem} addInventoryItem={addInventoryItem} removeInventoryItem={removeInventoryItem} updateFamilyMember={updateFamilyMember} addFamilyMember={addFamilyMember} removeFamilyMember={removeFamilyMember} />
         <div className={styles.editActions}>
