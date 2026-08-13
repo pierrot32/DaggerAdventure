@@ -37,7 +37,7 @@ export default function CharactersPage() {
         <div>
           <p className="eyebrow">CHARACTER VAULT</p>
           <h2>Your characters</h2>
-          <p className="muted">Build a Daggerheart hero from the imported SRD options.</p>
+          <p className="muted">Build a hero from the imported options.</p>
         </div>
         <Link to="/characters/create"><Button>Create character</Button></Link>
       </div>

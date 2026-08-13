@@ -6,6 +6,9 @@
 .frameBanner { display: grid; grid-template-columns: minmax(170px, .55fr) minmax(0, 1.45fr); gap: var(--space-5); margin-bottom: var(--space-6); padding: var(--space-4) var(--space-5); border-left: 3px solid var(--color-accent); background: rgba(244, 238, 228, .08); }
 .frameBanner strong { display: block; color: var(--color-text-inverse); }
 .frameBanner p:last-child { margin: 0; color: var(--color-muted-inverse); line-height: 1.55; }
+.frameCopy { display: grid; gap: var(--space-3); }
+.frameCopy p { margin: 0; color: var(--color-muted-inverse); line-height: 1.55; }
+.frameCopy b { display: block; margin-bottom: var(--space-1); color: var(--color-text-inverse); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
 .frameError { border-left-color: var(--color-danger); }
 .frameError span { display: block; margin-top: var(--space-2); color: var(--color-danger); font-size: 13px; }
 .layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: var(--space-7); }
@@ -20,6 +23,13 @@
 .stepTitle span { color: var(--color-accent-strong); font-size: 11px; font-weight: 700; letter-spacing: 2px; }
 .stepTitle h3 { margin-top: var(--space-2); font-size: 28px; }
 .stepTitle p { max-width: 720px; margin-top: var(--space-2); color: var(--color-muted); }
+.adventureStep { display: grid; gap: var(--space-5); max-width: 720px; margin-top: var(--space-6); }
+.adventureStep > p { color: var(--color-muted); line-height: 1.6; }
+.adventureStep label { display: flex; flex-direction: column; gap: var(--space-2); color: var(--color-muted); font-size: 12px; font-weight: 700; }
+.adventureStep select { width: 100%; padding: 12px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: #fffaf1; color: var(--color-text); }
+.adventureSelection { display: grid; gap: var(--space-2); padding: var(--space-4); border-left: 3px solid var(--color-accent); background: var(--color-surface-muted); }
+.adventureSelection strong { color: var(--color-text); }
+.adventureSelection span { color: var(--color-muted); font-size: 13px; line-height: 1.5; }
 .aiToolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); margin-top: var(--space-5); padding: var(--space-3) var(--space-4); background: var(--color-surface-muted); }
 .aiToolbar strong, .aiToolbar span { display: block; }
 .aiToolbar span { margin-top: var(--space-1); color: var(--color-muted); font-size: 12px; font-weight: 400; }

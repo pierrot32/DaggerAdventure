@@ -26,7 +26,7 @@ import BookContentEditorPage from '../features/admin/BookContentEditorPage';
 import BeastFeatureEditorPage from '../features/admin/BeastFeatureEditorPage';
 import SettingsPage from '../features/account/SettingsPage';
 
-// Single source of truth for the route tree - add future Daggerheart feature
+// Single source of truth for the route tree - add future feature
 // pages here, nested under AppLayout like DashboardPage
 export default function AppRoutes() {
   return (

@@ -61,20 +61,62 @@ export const emptyFrame = () => ({
 });
 
 export function commaList(value) {
-  return value.split(',').map((item) => item.trim()).filter(Boolean);
+  return listValues(value, ',');
 }
 
 export function lineList(value) {
-  return value.split('\n').map((item) => item.trim()).filter(Boolean);
+  return listValues(value, '\n');
+}
+
+function listValues(value, separator) {
+  const values = Array.isArray(value)
+    ? value.map((item) => entryValue(item))
+    : String(value || '').split(separator);
+  return values.map((item) => item.trim()).filter(Boolean);
+}
+
+function entryValue(entry) {
+  if (typeof entry === 'string') return entry;
+  if (!entry || typeof entry !== 'object') return String(entry || '');
+  return entry.description || entry.text || entry.value || entry.title || '';
+}
+
+function paragraphValues(value) {
+  if (Array.isArray(value)) return value.map((item) => entryValue(item)).map((item) => item.trim()).filter(Boolean);
+  return String(value || '').split(/\n\s*\n/).map((item) => item.trim()).filter(Boolean);
+}
+
+function normalizeEntries(value, prefix) {
+  const entries = Array.isArray(value) ? value : paragraphValues(value);
+  return entries.map((entry, index) => {
+    if (typeof entry === 'object' && entry !== null && !Array.isArray(entry)) {
+      return {
+        ...entry,
+        id: entry.id || `${prefix}-${index + 1}`,
+        title: entry.title || `${prefix} ${index + 1}`,
+        description: entryValue(entry),
+      };
+    }
+    return { id: `${prefix}-${index + 1}`, title: `${prefix} ${index + 1}`, description: entryValue(entry) };
+  });
 }
 
 export function contentToDraft(content) {
   const defaults = emptyFrame();
+  const source = content || {};
   const sourceModifications = content?.modifications || {};
   const sourceMessages = content?.gm_messages || {};
   return {
     ...defaults,
-    ...content,
+    ...source,
+    tone_and_feel: commaList(source.tone_and_feel),
+    themes: commaList(source.themes),
+    touchstones: commaList(source.touchstones),
+    player_principles: normalizeEntries(source.player_principles, 'Player principle'),
+    gm_principles: normalizeEntries(source.gm_principles, 'GM principle'),
+    distinctions: normalizeEntries(source.distinctions, 'Distinction'),
+    campaign_mechanics: normalizeEntries(source.campaign_mechanics, 'Campaign mechanic'),
+    session_zero_questions: lineList(source.session_zero_questions),
     modifications: {
       ...defaults.modifications,
       ...Object.fromEntries(frameModificationKinds.map(({ id }) => [id, normalizeFrameEntries(sourceModifications[id], id)])),
@@ -144,15 +186,20 @@ export function autoFeatureIds(entries, kind, frameName, options = []) {
 }
 
 export function textToEntries(value, prefix) {
-  return value
-    .split(/\n\s*\n/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .map((description, index) => ({
-      id: `${prefix}-${index + 1}`,
-      title: `${prefix} ${index + 1}`,
-      description,
-    }));
+  const entries = Array.isArray(value) ? value : paragraphValues(value);
+  return entries.map((entry, index) => {
+    if (typeof entry === 'object' && entry !== null && !Array.isArray(entry)) {
+      const description = entryValue(entry).trim();
+      return description ? {
+        ...entry,
+        id: entry.id || `${prefix}-${index + 1}`,
+        title: entry.title || `${prefix} ${index + 1}`,
+        description,
+      } : null;
+    }
+    const description = entryValue(entry).trim();
+    return description ? { id: `${prefix}-${index + 1}`, title: `${prefix} ${index + 1}`, description } : null;
+  }).filter(Boolean);
 }
 
 export function draftToContent(form, optionLists = {}) {
@@ -196,17 +243,17 @@ export function contentToForm(content) {
     description: frame.description || '',
     complexity_rating: frame.complexity_rating || 3,
     pitch: frame.pitch || '',
-    tone_and_feel: (frame.tone_and_feel || []).join(', '),
-    themes: (frame.themes || []).join(', '),
-    touchstones: (frame.touchstones || []).join(', '),
+    tone_and_feel: frame.tone_and_feel || [],
+    themes: frame.themes || [],
+    touchstones: frame.touchstones || [],
     overview: frame.overview || '',
     modifications: frame.modifications,
     gm_messages: frame.gm_messages,
-    player_principles: entryListToText(frame.player_principles),
-    gm_principles: entryListToText(frame.gm_principles),
-    distinctions: entryListToText(frame.distinctions),
+    player_principles: frame.player_principles || [],
+    gm_principles: frame.gm_principles || [],
+    distinctions: frame.distinctions || [],
     inciting_incident: frame.inciting_incident || '',
     campaign_mechanics: entryListToText(frame.campaign_mechanics),
-    session_zero_questions: (frame.session_zero_questions || []).join('\n'),
+    session_zero_questions: frame.session_zero_questions || [],
   };
 }

@@ -1,12 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Button from '../../components/Button/Button';
+import { listAdventures } from '../adventures/adventureApi';
 import { getAdventureCharacterContext } from '../frames/frameApi';
 import { createCharacter, generateCharacter, getCharacterCreationBook } from './characterApi';
 import styles from './CharacterBuilderPage.module.css';
 
-const stepIds = ['identity', 'appearance', 'traits', 'equipment', 'background', 'experiences', 'domain_cards', 'connections'];
+const stepIds = ['adventure', 'identity', 'appearance', 'traits', 'equipment', 'background', 'experiences', 'domain_cards', 'connections'];
 const stepDetails = [
+  { id: 'adventure', title: 'Campaign context', description: 'Choose an adventure to shape this character, or continue with a standalone character.' },
   { id: 'identity', title: 'Identity & heritage', description: 'Name your character and choose the class, subclass, ancestry, and community that shape them.' },
   { id: 'appearance', title: 'Character description', description: 'Give the table a clear sense of your character, from physical details to clothing and memorable features.' },
   { id: 'traits', title: 'Traits', description: 'Assign your starting modifiers.' },
@@ -101,14 +103,18 @@ function frameGuidance(frameContent, kind, option) {
 export default function CharacterBuilderPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const adventureId = searchParams.get('adventure') || '';
+  const queryAdventureId = searchParams.get('adventure') || '';
+  const [selectedAdventureId, setSelectedAdventureId] = useState(queryAdventureId);
+  const [adventures, setAdventures] = useState([]);
+  const [adventureState, setAdventureState] = useState({ loading: true, error: '' });
   const [book, setBook] = useState(null);
   const [step, setStep] = useState(0);
   const [form, setForm] = useState(emptyForm);
   const [locks, setLocks] = useState(emptyLocks);
   const [state, setState] = useState({ loading: true, saving: false, error: '', success: '' });
   const [aiState, setAiState] = useState({ loading: false, error: '' });
-  const [frameState, setFrameState] = useState({ loading: Boolean(adventureId), error: '', content: null });
+  const [frameState, setFrameState] = useState({ loading: Boolean(queryAdventureId), error: '', content: null });
+  const frameRequestRef = useRef(0);
 
   useEffect(() => {
     getCharacterCreationBook()
@@ -120,15 +126,34 @@ export default function CharacterBuilderPage() {
   }, []);
 
   useEffect(() => {
-    if (!adventureId) {
+    setSelectedAdventureId(queryAdventureId);
+  }, [queryAdventureId]);
+
+  useEffect(() => {
+    listAdventures()
+      .then((nextAdventures) => {
+        setAdventures(nextAdventures);
+        setAdventureState({ loading: false, error: '' });
+      })
+      .catch((error) => setAdventureState({ loading: false, error: error.message }));
+  }, []);
+
+  useEffect(() => {
+    const requestId = frameRequestRef.current + 1;
+    frameRequestRef.current = requestId;
+    if (!selectedAdventureId) {
       setFrameState({ loading: false, error: '', content: null });
       return;
     }
     setFrameState({ loading: true, error: '', content: null });
-    getAdventureCharacterContext(adventureId)
-      .then((response) => setFrameState({ loading: false, error: '', content: response.content }))
-      .catch((error) => setFrameState({ loading: false, error: error.message, content: null }));
-  }, [adventureId]);
+    getAdventureCharacterContext(selectedAdventureId)
+      .then((response) => {
+        if (frameRequestRef.current === requestId) setFrameState({ loading: false, error: '', content: response.content });
+      })
+      .catch((error) => {
+        if (frameRequestRef.current === requestId) setFrameState({ loading: false, error: error.message, content: null });
+      });
+  }, [selectedAdventureId]);
 
   const classes = book?.classes || [];
   const ancestries = book?.ancestries || [];
@@ -139,6 +164,7 @@ export default function CharacterBuilderPage() {
   const selectedFirstAncestry = ancestries.find((item) => item.id === form.firstAncestryId);
   const selectedSecondAncestry = ancestries.find((item) => item.id === form.secondaryAncestryId);
   const selectedCommunity = communities.find((item) => item.id === form.communityId);
+  const selectedAdventure = adventures.find((item) => item.id === selectedAdventureId);
   const subclasses = selectedClass?.subclasses || [];
   const selectedSubclass = subclasses.find((item) => item.id === form.subclassId);
   const availableCards = useMemo(() => (book?.domains || [])
@@ -229,7 +255,7 @@ export default function CharacterBuilderPage() {
     if (requestedFields.length === 0) return;
     setAiState({ loading: true, error: '' });
     try {
-      const response = await generateCharacter({ adventure_id: adventureId || undefined, values: generationValues, locked_fields: generationFields.filter((field) => locks[field]), fields: requestedFields, options: generationOptions, expand_current: expandCurrent });
+      const response = await generateCharacter({ adventure_id: selectedAdventureId || undefined, values: generationValues, locked_fields: generationFields.filter((field) => locks[field]), fields: requestedFields, options: generationOptions, expand_current: expandCurrent });
       applyGeneratedValues(response.values);
       setAiState({ loading: false, error: '' });
     } catch (error) {
@@ -250,6 +276,7 @@ export default function CharacterBuilderPage() {
 
   const selectedCards = availableCards.filter((card) => form.domainCards.includes(card.id));
   const canContinue = () => {
+    if (stepIds[step] === 'adventure') return true;
     if (stepIds[step] === 'identity') return form.name.trim() && form.pronouns.trim() && form.classId && form.subclassId && form.ancestryId && form.communityId && (form.ancestryId !== 'mixed-ancestry' || (form.firstAncestryId && form.secondaryAncestryId));
     if (stepIds[step] === 'appearance') return [form.description, form.size, form.height, form.weight, form.eyeColor, form.hairColor, form.skinColor, form.lookDescription].every((value) => value.trim());
     if (stepIds[step] === 'traits') return traitIds.every((trait) => form.traits[trait] !== '') && Object.values(form.traits).sort().join(',') === '-1,0,0,1,1,2';
@@ -263,7 +290,7 @@ export default function CharacterBuilderPage() {
     setState({ loading: false, saving: true, error: '', success: '' });
     try {
       const createdCharacter = await createCharacter({
-        adventure_id: adventureId || undefined,
+        adventure_id: selectedAdventureId || undefined,
         // Trackers count marked boxes, so a new character starts unmarked with 2 Hope.
         stats: {
           hit_points: { current: selectedClass?.hit_points || 0, max: selectedClass?.hit_points || 0 },
@@ -293,16 +320,16 @@ export default function CharacterBuilderPage() {
     }
   };
 
-  if (state.loading) return <p className="muted">Loading the Daggerheart character guide...</p>;
+  if (state.loading) return <p className="muted">Loading the character guide...</p>;
   if (!book) return <section className={styles.notice}><p className="eyebrow">CHARACTER GUIDE</p><h2>Import the SRD first</h2><p>{state.error}</p><p className="muted">An administrator must import the book JSON before players can create characters.</p></section>;
 
   return (
     <section className={styles.builder}>
       <header className={styles.header}>
-        <div><p className="eyebrow">DAGGERHEART · LEVEL 1</p><h2>Create your character</h2></div>
+        <div><p className="eyebrow">LEVEL 1</p><h2>Create your character</h2></div>
         <Link to="/characters" className={styles.back}>Back to vault</Link>
       </header>
-      {adventureId && <FrameContextBanner frameState={frameState} />}
+      {selectedAdventureId && <FrameContextBanner frameState={frameState} />}
       <div className={styles.layout}>
         <aside className={styles.sidebar}>
           {stepDetails.map((item, index) => (
@@ -314,6 +341,7 @@ export default function CharacterBuilderPage() {
         <div className={styles.content}>
           <div className={styles.stepTitle}><span>STEP {step + 1} OF {stepIds.length}</span><h3>{stepDetails[step].title}</h3><p>{stepDetails[step].description}</p></div>
           {['identity', 'appearance', 'background', 'experiences'].includes(stepIds[step]) && <GenerationToolbar loading={aiState.loading} locks={locks} fields={activeGenerationFields} onGenerate={() => generateFields(activeGenerationFields)} onToggleAll={() => toggleAllLocks(activeGenerationFields)} />}
+          {stepIds[step] === 'adventure' && <AdventureStep adventures={adventures} selectedAdventure={selectedAdventure} selectedId={selectedAdventureId} onSelect={setSelectedAdventureId} state={adventureState} />}
           {stepIds[step] === 'identity' && <Identity classes={classes} ancestries={ancestries} communities={communities} frameContent={frameState.content} selectedClass={selectedClass} selectedAncestry={selectedAncestry} selectedFirstAncestry={selectedFirstAncestry} selectedSecondAncestry={selectedSecondAncestry} selectedCommunity={selectedCommunity} subclasses={subclasses} form={form} setField={setField} setClass={setClass} setAncestry={setAncestry} setFirstAncestry={setFirstAncestry} setSubclass={setSubclass} locks={locks} toggleLock={toggleLock} generate={generateFields} />}
           {stepIds[step] === 'appearance' && <Appearance form={form} setField={setField} locks={locks} toggleLock={toggleLock} generate={generateFields} expand={expandField} />}
           {stepIds[step] === 'traits' && <TraitsStep form={form} updateTrait={updateTrait} selectedClass={selectedClass} selectedSubclass={selectedSubclass} traitProposals={traitProposals} />}
@@ -325,7 +353,7 @@ export default function CharacterBuilderPage() {
           {(state.error || aiState.error) && <p className={styles.error}>{state.error || aiState.error}</p>}
           <div className={styles.actions}>
             <Button type="button" variant="text" disabled={step === 0} onClick={() => setStep((current) => current - 1)}>Previous</Button>
-            {step < stepIds.length - 1 ? <Button type="button" disabled={!canContinue()} onClick={() => setStep((current) => current + 1)}>Continue</Button> : <Button type="button" disabled={!canContinue() || state.saving} onClick={submit}>{state.saving ? 'Saving...' : 'Save character'}</Button>}
+            {step < stepIds.length - 1 ? <Button type="button" disabled={!canContinue()} onClick={() => setStep((current) => current + 1)}>{stepIds[step] === 'adventure' && !selectedAdventureId ? 'Continue without an adventure' : 'Continue'}</Button> : <Button type="button" disabled={!canContinue() || state.saving} onClick={submit}>{state.saving ? 'Saving...' : 'Save character'}</Button>}
           </div>
         </div>
       </div>
@@ -337,7 +365,22 @@ function FrameContextBanner({ frameState }) {
   if (frameState.loading) return <div className={styles.frameBanner}><strong>Loading campaign frame...</strong></div>;
   if (frameState.error) return <div className={`${styles.frameBanner} ${styles.frameError}`}><strong>Campaign frame unavailable</strong><span>{frameState.error}</span></div>;
   if (!frameState.content) return null;
-  return <div className={styles.frameBanner}><div><p className="eyebrow">CAMPAIGN FRAME</p><strong>{frameState.content.name}</strong></div><p>{frameState.content.pitch}</p></div>;
+  return <div className={styles.frameBanner}><div><p className="eyebrow">CAMPAIGN FRAME</p><strong>{frameState.content.name}</strong></div><div className={styles.frameCopy}><p><b>Pitch</b>{frameState.content.pitch}</p><p><b>Overview</b>{frameState.content.overview}</p></div></div>;
+}
+
+function AdventureStep({ adventures, selectedAdventure, selectedId, onSelect, state }) {
+  const selectedIsListed = adventures.some((adventure) => adventure.id === selectedId);
+  return <div className={styles.adventureStep}>
+    <p>Characters made for an adventure can use its attached frame as guidance for AI generation and character choices. You can also keep this character independent.</p>
+    <label>Character source<select value={selectedId} onChange={(event) => onSelect(event.target.value)}>
+      <option value="">Standalone character</option>
+      {selectedId && !selectedIsListed && <option value={selectedId}>Selected adventure</option>}
+      {adventures.map((adventure) => <option value={adventure.id} key={adventure.id}>{adventure.name}</option>)}
+    </select></label>
+    {state.loading && <p className="muted">Loading available adventures...</p>}
+    {state.error && <p className={styles.error} role="alert">Could not load the adventure list. You can continue without an adventure.</p>}
+    {selectedId && <div className={styles.adventureSelection}><strong>{selectedAdventure?.name || 'Selected adventure'}</strong><span>{selectedAdventure?.description || 'The attached frame will be used as character context.'}</span></div>}
+  </div>;
 }
 
 function GenerationToolbar({ loading, locks, fields, onGenerate, onToggleAll }) {

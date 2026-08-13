@@ -25,7 +25,11 @@
 .textareaControl { display: grid; gap: var(--space-2); }
 .stripNewlines { justify-self: start; padding: 3px 7px; border: 1px solid var(--color-border); background: transparent; color: var(--color-muted-inverse); cursor: pointer; font: inherit; font-size: 11px; }
 .stripNewlines:hover { border-color: var(--color-accent); color: var(--color-accent); }
-.gmNote textarea { min-height: 3.5em; }
+.form .gmNote textarea { min-height: 2.5em; }
+.repeatableList { display: grid; gap: var(--space-3); min-width: 0; margin: 0; padding: 0; border: 0; }
+.repeatableList legend { padding: 0; color: var(--color-muted-inverse); font-size: 14px; }
+.repeatableItem { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2); align-items: center; }
+.repeatableItem input { min-width: 0; }
 .modificationSection { display: grid; gap: var(--space-3); margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid rgba(244, 238, 228, .14); }
 .modificationHeader { display: flex; align-items: end; justify-content: space-between; gap: var(--space-4); }
 .modificationHeader h4 { margin: 0; color: var(--color-text-inverse); font-size: 18px; }

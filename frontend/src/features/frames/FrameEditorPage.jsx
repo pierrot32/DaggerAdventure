@@ -89,7 +89,7 @@ export default function FrameEditorPage({ mode = 'edit' }) {
         </aside>
         <main className={styles.content}>
           <form className={`${styles.form} ${sharedStyles.form}`} onSubmit={save}>
-            <FrameDraftForm form={form} update={update} optionLists={book} activeSection={activeSection} metadataPersistent />
+            <FrameDraftForm form={form} update={update} optionLists={book} activeSection={activeSection} />
             <div className={styles.actions}>
               <Button type="submit" disabled={state.saving}>{state.saving ? 'Saving...' : isNew ? 'Create frame' : 'Save changes'}</Button>
               {!isNew && <Button type="button" variant="text" onClick={remove} disabled={state.saving}>Delete frame</Button>}
