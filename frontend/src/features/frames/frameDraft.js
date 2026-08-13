@@ -253,7 +253,7 @@ export function contentToForm(content) {
     gm_principles: frame.gm_principles || [],
     distinctions: frame.distinctions || [],
     inciting_incident: frame.inciting_incident || '',
-    campaign_mechanics: entryListToText(frame.campaign_mechanics),
+    campaign_mechanics: frame.campaign_mechanics || [],
     session_zero_questions: frame.session_zero_questions || [],
   };
 }

@@ -2,6 +2,7 @@
 .topBar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
 .pageHeading { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-5); }
 .pageHeading h2 { margin-top: var(--space-2); }
+.pageHeadingActions { display: flex; align-items: flex-end; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-3); }
 .back { color: var(--color-muted-inverse); }
 .topRight { display: flex; align-items: center; gap: var(--space-4); }
 .saving { color: var(--color-accent); font-size: 13px; }

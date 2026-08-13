@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Button from '../../components/Button/Button';
 import { listAdventures } from '../adventures/adventureApi';
@@ -98,6 +98,25 @@ function frameGuidance(frameContent, kind, option) {
   if (matching.length > 0) return matching;
   const broad = general.filter((entry) => /\ball\b|\bavailable\b|\bwithin\b/.test(normalizedText(entry.title)));
   return broad.length > 0 ? broad : general;
+}
+
+function frameGuidanceForOptions(frameContent, kind, options) {
+  const seen = new Set();
+  const entriesForOption = (option) => {
+    const optionName = normalizedText(option.name);
+    const generalEntries = (frameContent?.modifications?.[kind] || []).filter((entry) => !Array.isArray(entry.target_ids) || entry.target_ids.length === 0);
+    const matchingGeneral = generalEntries.filter((entry) => {
+      const title = normalizedText(entry.title);
+      return title.includes(optionName) || optionName.split(' ').some((word) => word.length > 3 && title.includes(word)) || /\ball\b|\bavailable\b|\bwithin\b/.test(title);
+    });
+    return [...frameGuidance(frameContent, kind, option), ...matchingGeneral];
+  };
+  return options.flatMap(entriesForOption).filter((entry) => {
+    const key = entry.id || `${entry.title}-${entry.description}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export default function CharacterBuilderPage() {
@@ -365,7 +384,7 @@ function FrameContextBanner({ frameState }) {
   if (frameState.loading) return <div className={styles.frameBanner}><strong>Loading campaign frame...</strong></div>;
   if (frameState.error) return <div className={`${styles.frameBanner} ${styles.frameError}`}><strong>Campaign frame unavailable</strong><span>{frameState.error}</span></div>;
   if (!frameState.content) return null;
-  return <div className={styles.frameBanner}><div><p className="eyebrow">CAMPAIGN FRAME</p><strong>{frameState.content.name}</strong></div><div className={styles.frameCopy}><p><b>Pitch</b>{frameState.content.pitch}</p><p><b>Overview</b>{frameState.content.overview}</p></div></div>;
+  return <div className={styles.frameBanner}><div><p className="eyebrow">CAMPAIGN FRAME</p><strong>{frameState.content.name}</strong></div><div className={styles.frameCopy}><p><b>Pitch</b>{frameState.content.pitch}</p></div></div>;
 }
 
 function AdventureStep({ adventures, selectedAdventure, selectedId, onSelect, state }) {
@@ -397,24 +416,28 @@ function FieldActions({ field, locked, toggleLock, generate, expand, expandDisab
   </span>;
 }
 
-function FieldLabel({ field, label, locked, toggleLock, generate, expand, expandDisabled, children, className = '' }) {
-  return <label className={className}><span className={styles.fieldHeading}>{label}<FieldActions field={field} locked={locked} toggleLock={toggleLock} generate={generate} expand={expand} expandDisabled={expandDisabled} /></span>{children}</label>;
+function FieldLabel({ field, label, info, locked, toggleLock, generate, expand, expandDisabled, children, className = '' }) {
+  return <label className={className}><span className={styles.fieldHeading}><span>{label}{info}</span><FieldActions field={field} locked={locked} toggleLock={toggleLock} generate={generate} expand={expand} expandDisabled={expandDisabled} /></span>{children}</label>;
 }
 
 function Identity({ classes, ancestries, communities, frameContent, selectedClass, selectedSubclass, selectedAncestry, selectedFirstAncestry, selectedSecondAncestry, selectedCommunity, subclasses, form, setField, setClass, setAncestry, setFirstAncestry, setSubclass, locks, toggleLock, generate }) {
   const communityFeatures = selectedCommunity?.features || (selectedCommunity?.feature ? [selectedCommunity.feature] : []);
   const subclassFeatures = selectedSubclass ? ['foundation', 'specialization', 'mastery'].flatMap((tier) => (selectedSubclass[tier] || []).map((feature) => ({ ...feature, tier }))) : [];
+  const classGuidance = frameGuidanceForOptions(frameContent, 'classes', [selectedClass].filter(Boolean));
+  const subclassGuidance = selectedClass && selectedSubclass ? classGuidance : [];
+  const ancestryGuidance = frameGuidanceForOptions(frameContent, 'ancestries', [selectedAncestry?.id === 'mixed-ancestry' ? selectedFirstAncestry : selectedAncestry, selectedAncestry?.id === 'mixed-ancestry' ? selectedSecondAncestry : null].filter(Boolean));
+  const communityGuidance = frameGuidanceForOptions(frameContent, 'communities', [selectedCommunity].filter(Boolean));
   return <div className={styles.formGrid}>
     <FieldLabel field="name" label="Character name" locked={locks.name} toggleLock={toggleLock} generate={generate}><input autoFocus value={form.name} onChange={(event) => setField('name', event.target.value)} /></FieldLabel>
     <FieldLabel field="pronouns" label="Pronouns" locked={locks.pronouns} toggleLock={toggleLock} generate={generate}><input value={form.pronouns} onChange={(event) => setField('pronouns', event.target.value)} placeholder="she / her" /></FieldLabel>
-    <FieldLabel field="class_id" label="Class" locked={locks.class_id} toggleLock={toggleLock} generate={generate}><select value={form.classId} onChange={(event) => setClass(event.target.value)}><option value="">Choose a class</option>{classes.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></FieldLabel>
-    <FieldLabel field="subclass_id" label="Subclass" locked={locks.subclass_id} toggleLock={toggleLock} generate={generate}><select value={form.subclassId} onChange={(event) => setSubclass(event.target.value)} disabled={!selectedClass}><option value="">Choose a subclass</option>{subclasses.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></FieldLabel>
-    <FieldLabel field="ancestry_id" label="Ancestry" locked={locks.ancestry_id} toggleLock={toggleLock} generate={generate}><select value={form.ancestryId} onChange={(event) => setAncestry(event.target.value)}><option value="">Choose an ancestry</option>{ancestries.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></FieldLabel>
+    <FieldLabel field="class_id" label="Class" info={<ModificationInfo label="Class modifications" entries={classGuidance} />} locked={locks.class_id} toggleLock={toggleLock} generate={generate}><select value={form.classId} onChange={(event) => setClass(event.target.value)}><option value="">Choose a class</option>{classes.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></FieldLabel>
+    <FieldLabel field="subclass_id" label="Subclass" info={<ModificationInfo label="Class guidance relevant to this subclass" entries={subclassGuidance} emptyMessage={selectedClass && selectedSubclass ? `No class guidance matches ${selectedClass.name}.` : 'Choose a class and subclass to view relevant class guidance.'} />} locked={locks.subclass_id} toggleLock={toggleLock} generate={generate}><select value={form.subclassId} onChange={(event) => setSubclass(event.target.value)} disabled={!selectedClass}><option value="">Choose a subclass</option>{subclasses.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></FieldLabel>
+    <FieldLabel field="ancestry_id" label="Ancestry" info={<ModificationInfo label="Ancestry modifications" entries={ancestryGuidance} />} locked={locks.ancestry_id} toggleLock={toggleLock} generate={generate}><select value={form.ancestryId} onChange={(event) => setAncestry(event.target.value)}><option value="">Choose an ancestry</option>{ancestries.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></FieldLabel>
     {form.ancestryId === 'mixed-ancestry' && <>
-      <label>First ancestry<select value={form.firstAncestryId} onChange={(event) => setFirstAncestry(event.target.value)}><option value="">Choose a lineage</option>{ancestries.filter((item) => item.id !== 'mixed-ancestry').map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label>
-      <FieldLabel field="secondary_ancestry_id" label="Second ancestry" locked={locks.secondary_ancestry_id} toggleLock={toggleLock} generate={generate}><select value={form.secondaryAncestryId} onChange={(event) => setField('secondaryAncestryId', event.target.value)}><option value="">Choose a lineage</option>{ancestries.filter((item) => item.id !== 'mixed-ancestry' && item.id !== form.firstAncestryId).map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></FieldLabel>
+      <FieldLabel label="First ancestry" info={<ModificationInfo label="First ancestry modifications" entries={frameGuidanceForOptions(frameContent, 'ancestries', [selectedFirstAncestry].filter(Boolean))} />}><select value={form.firstAncestryId} onChange={(event) => setFirstAncestry(event.target.value)}><option value="">Choose a lineage</option>{ancestries.filter((item) => item.id !== 'mixed-ancestry').map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></FieldLabel>
+      <FieldLabel field="secondary_ancestry_id" label="Second ancestry" info={<ModificationInfo label="Second ancestry modifications" entries={frameGuidanceForOptions(frameContent, 'ancestries', [selectedSecondAncestry].filter(Boolean))} />} locked={locks.secondary_ancestry_id} toggleLock={toggleLock} generate={generate}><select value={form.secondaryAncestryId} onChange={(event) => setField('secondaryAncestryId', event.target.value)}><option value="">Choose a lineage</option>{ancestries.filter((item) => item.id !== 'mixed-ancestry' && item.id !== form.firstAncestryId).map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></FieldLabel>
     </>}
-    <FieldLabel field="community_id" label="Community" locked={locks.community_id} toggleLock={toggleLock} generate={generate}><select value={form.communityId} onChange={(event) => setField('communityId', event.target.value)}><option value="">Choose a community</option>{communities.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></FieldLabel>
+    <FieldLabel field="community_id" label="Community" info={<ModificationInfo label="Community modifications" entries={communityGuidance} />} locked={locks.community_id} toggleLock={toggleLock} generate={generate}><select value={form.communityId} onChange={(event) => setField('communityId', event.target.value)}><option value="">Choose a community</option>{communities.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></FieldLabel>
     {selectedClass && <div className={styles.detailPanel}><div><strong>{selectedClass.name}</strong><span>{selectedClass.domains.map((domain) => domain.toUpperCase()).join(' · ')}</span></div><div className={styles.statRow}><span>Evasion <b>{selectedClass.evasion}</b></span><span>Hit Points <b>{selectedClass.hit_points}</b></span><span>Spellcast <b>{subclasses.find((item) => item.id === form.subclassId)?.spellcast_trait || '—'}</b></span></div></div>}
     {selectedClass && <FeaturePanel title={`${selectedClass.name} features`} features={[...(selectedClass.class_features || []), selectedClass.hope_feature ? { ...selectedClass.hope_feature, name: `Hope · ${selectedClass.hope_feature.name}` } : null].filter(Boolean)} />}
     {selectedSubclass && <FeaturePanel title={`${selectedSubclass.name} features`} features={subclassFeatures} />}
@@ -423,9 +446,6 @@ function Identity({ classes, ancestries, communities, frameContent, selectedClas
     {selectedAncestry?.id === 'mixed-ancestry' && selectedFirstAncestry && <FeaturePanel title={`${selectedFirstAncestry.name} lineage features`} features={selectedFirstAncestry.features} />}
     {selectedAncestry?.id === 'mixed-ancestry' && selectedSecondAncestry && <FeaturePanel title={`${selectedSecondAncestry.name} lineage features`} features={selectedSecondAncestry.features} />}
     {selectedCommunity && <div className={styles.detailPanel}><strong>{selectedCommunity.name} features</strong>{communityFeatures.map((feature, index) => <p key={feature.id || `${feature.name}-${index}`}><b>{feature.name}.</b> {feature.text}</p>)}<p className={styles.adjectives}>{selectedCommunity.adjectives.join(' · ')}</p></div>}
-    <FrameHint kind="classes" option={selectedClass} frameContent={frameContent} />
-    {selectedAncestry?.id === 'mixed-ancestry' ? <><FrameHint kind="ancestries" option={selectedFirstAncestry} frameContent={frameContent} /><FrameHint kind="ancestries" option={selectedSecondAncestry} frameContent={frameContent} /></> : <FrameHint kind="ancestries" option={selectedAncestry} frameContent={frameContent} />}
-    <FrameHint kind="communities" option={selectedCommunity} frameContent={frameContent} />
   </div>;
 }
 
@@ -434,10 +454,29 @@ function FeaturePanel({ title, features = [] }) {
   return <div className={styles.detailPanel}><strong>{title}</strong>{features.map((feature, index) => <p key={feature.id || `${feature.name}-${index}`}><b>{feature.name}.</b> {feature.text}</p>)}</div>;
 }
 
-function FrameHint({ kind, option, frameContent }) {
-  const entries = frameGuidance(frameContent, kind, option);
-  if (entries.length === 0) return null;
-  return <div className={styles.frameHint}><strong>Frame guidance for {option.name}</strong>{entries.map((entry) => <div key={entry.id}><b>{entry.title}</b><p>{entry.description}</p>{entry.questions?.map((question) => <small key={question}>{question}</small>)}</div>)}</div>;
+function ModificationInfo({ label, entries, emptyMessage = 'No matching campaign-frame modifications are defined.' }) {
+  const [open, setOpen] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState(null);
+  const dialogId = `modification-info-${useId().replace(/:/g, '')}`;
+  const containerRef = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const closeOnEscape = (event) => { if (event.key === 'Escape') setOpen(false); };
+    const closeOnOutsideClick = (event) => { if (!containerRef.current?.contains(event.target)) setOpen(false); };
+    document.addEventListener('keydown', closeOnEscape);
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    return () => { document.removeEventListener('keydown', closeOnEscape); document.removeEventListener('mousedown', closeOnOutsideClick); };
+  }, [open]);
+  return <span className={styles.modificationInfo} ref={containerRef}>
+    <button type="button" className={styles.infoButton} aria-label={`Show ${label}`} title={`Show ${label}`} aria-expanded={open} aria-controls={dialogId} onClick={() => { setOpen((current) => !current); setSelectedEntry(null); }}>i</button>
+    {open && <div id={dialogId} className={styles.modificationPopover} role="dialog" aria-label={label}>
+      <div className={styles.modificationPopoverHeader}><strong>{label}</strong><button type="button" className={styles.popoverClose} onClick={() => setOpen(false)} aria-label={`Close ${label}`}>Close</button></div>
+      {entries.length > 0 ? <>
+        <div className={styles.modificationList}>{entries.map((entry, index) => <button type="button" key={entry.id || `${entry.title}-${index}`} className={selectedEntry === entry ? styles.selectedModification : ''} onClick={() => setSelectedEntry(entry)}>{entry.title || `Modification ${index + 1}`}</button>)}</div>
+        {selectedEntry && <div className={styles.modificationDetail}><strong>{selectedEntry.title || 'Campaign modification'}</strong><p>{selectedEntry.description || 'No description provided.'}</p>{selectedEntry.questions?.map((question) => <small key={question}>{question}</small>)}</div>}
+      </> : <p className={styles.modificationEmpty}>{emptyMessage}</p>}
+    </div>}
+  </span>;
 }
 
 function Appearance({ form, setField, locks, toggleLock, generate, expand }) {

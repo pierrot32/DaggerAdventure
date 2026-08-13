@@ -118,7 +118,7 @@ export function FrameDraftForm({ form, update, optionLists = {}, activeSection =
     {showSection('player_principles') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Player principles" value={form.gm_messages?.player_principles} update={updateGmMessage} field="player_principles" />}><RepeatableTextList label="Player principles" values={form.player_principles} onChange={(value) => update('player_principles', value)} addLabel="principle" placeholder="A principle for players" /></SectionFields>}
     {showSection('gm_principles') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for GM principles" value={form.gm_messages?.gm_principles} update={updateGmMessage} field="gm_principles" />}><RepeatableTextList label="GM principles" values={form.gm_principles} onChange={(value) => update('gm_principles', value)} addLabel="principle" placeholder="A principle for the GM" /></SectionFields>}
     {showSection('distinctions') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Distinctions" value={form.gm_messages?.distinctions} update={updateGmMessage} field="distinctions" />}><RepeatableTextList label="Distinctions" values={form.distinctions} onChange={(value) => update('distinctions', value)} addLabel="distinction" placeholder="A distinction" /></SectionFields>}
-    {showSection('campaign_mechanics') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Campaign mechanics" value={form.gm_messages?.campaign_mechanics} update={updateGmMessage} field="campaign_mechanics" />}><TextField className={styles.full} label="Campaign mechanics" value={form.campaign_mechanics} update={update} field="campaign_mechanics" hint="Separate entries with a blank line" /></SectionFields>}
+    {showSection('campaign_mechanics') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Campaign mechanics" value={form.gm_messages?.campaign_mechanics} update={updateGmMessage} field="campaign_mechanics" />}><RepeatableTextList label="Campaign mechanics" values={form.campaign_mechanics} onChange={(value) => update('campaign_mechanics', value)} addLabel="mechanic" placeholder="A campaign rule or procedure" tableEditor /></SectionFields>}
   </div>;
 }
 
@@ -131,7 +131,7 @@ function TextField({ label, value, update, field, hint, required = false, classN
   return <label className={className}>{label}{hint && <small>{hint}</small>}<span className={styles.textareaControl}><textarea required={required} value={value || ''} onChange={(event) => update(field, event.target.value)} /><button type="button" className={styles.stripNewlines} onClick={stripNewlines} title="Remove all newline characters" aria-label={`Remove all newline characters from ${label}`}>Remove newlines</button></span></label>;
 }
 
-export function RepeatableTextList({ label, values, onChange, addLabel = 'item', placeholder }) {
+export function RepeatableTextList({ label, values, onChange, addLabel = 'item', placeholder, tableEditor = false }) {
   const items = Array.isArray(values) ? values : [];
   const itemValue = (item) => typeof item === 'object' && item !== null ? item.description || item.text || item.value || item.title || '' : item;
   const updateItem = (index, value) => onChange(items.map((item, itemIndex) => {
@@ -139,14 +139,45 @@ export function RepeatableTextList({ label, values, onChange, addLabel = 'item',
     return typeof item === 'object' && item !== null ? { ...item, description: value } : value;
   }));
   const removeItem = (index) => onChange(items.filter((_, itemIndex) => itemIndex !== index));
+  const updateItemTable = (index, table) => onChange(items.map((item, itemIndex) => {
+    if (itemIndex !== index) return item;
+    return typeof item === 'object' && item !== null ? { ...item, table } : { description: item, table };
+  }));
   return <fieldset className={styles.repeatableList}>
     <legend>{label}</legend>
     {items.map((item, index) => <div className={styles.repeatableItem} key={`${label}-${index}`}>
       <input value={itemValue(item)} onChange={(event) => updateItem(index, event.target.value)} placeholder={placeholder} aria-label={`${label} ${index + 1}`} />
       <button type="button" className={styles.removeButton} onClick={() => removeItem(index)} aria-label={`Remove ${label} ${index + 1}`}>Remove</button>
+      {tableEditor && <TableEditor table={item?.table} onChange={(table) => updateItemTable(index, table)} label={`${label} ${index + 1} table`} />}
     </div>)}
     <button type="button" className={styles.smallButton} onClick={() => onChange([...items, ''])}>Add {addLabel}</button>
   </fieldset>;
+}
+
+function normalizeTable(table) {
+  if (!table) return null;
+  const headers = Array.isArray(table.headers) ? table.headers.map((header) => String(header ?? '')) : [];
+  const rows = Array.isArray(table.rows) ? table.rows.map((row) => headers.map((_, index) => String(row?.[index] ?? ''))) : [];
+  return { ...table, headers, rows };
+}
+
+export function TableEditor({ table, onChange, label = 'Table' }) {
+  const normalized = normalizeTable(table);
+  const [initialRows, setInitialRows] = useState(2);
+  const [initialColumns, setInitialColumns] = useState(2);
+  const createTable = () => onChange({
+    headers: Array.from({ length: initialColumns }, (_, index) => `Column ${index + 1}`),
+    rows: Array.from({ length: initialRows }, () => Array.from({ length: initialColumns }, () => '')),
+  });
+  const updateTable = (nextTable) => onChange(normalizeTable(nextTable));
+  const updateHeader = (index, value) => updateTable({ ...normalized, headers: normalized.headers.map((header, headerIndex) => headerIndex === index ? value : header) });
+  const updateCell = (rowIndex, columnIndex, value) => updateTable({ ...normalized, rows: normalized.rows.map((row, currentRow) => currentRow === rowIndex ? row.map((cell, currentColumn) => currentColumn === columnIndex ? value : cell) : row) });
+  const addRow = () => updateTable({ ...normalized, rows: [...normalized.rows, normalized.headers.map(() => '')] });
+  const removeRow = (index) => updateTable({ ...normalized, rows: normalized.rows.filter((_, rowIndex) => rowIndex !== index) });
+  const addColumn = () => updateTable({ headers: [...normalized.headers, `Column ${normalized.headers.length + 1}`], rows: normalized.rows.map((row) => [...row, '']) });
+  const removeColumn = (index) => updateTable({ headers: normalized.headers.filter((_, columnIndex) => columnIndex !== index), rows: normalized.rows.map((row) => row.filter((_, columnIndex) => columnIndex !== index)) });
+  if (!normalized) return <fieldset className={styles.tableEditor}><legend>{label}</legend><div className={styles.tableSetup}><label>Initial rows<input type="number" min="1" max="50" value={initialRows} onChange={(event) => setInitialRows(Math.max(1, Number(event.target.value) || 1))} /></label><label>Initial columns<input type="number" min="1" max="20" value={initialColumns} onChange={(event) => setInitialColumns(Math.max(1, Number(event.target.value) || 1))} /></label><button type="button" className={styles.smallButton} onClick={createTable}>Add table</button></div></fieldset>;
+  return <fieldset className={styles.tableEditor}><legend>{label}</legend><div className={styles.tableActions}><button type="button" className={styles.smallButton} onClick={addRow}>Add row</button><button type="button" className={styles.smallButton} onClick={addColumn}>Add column</button><button type="button" className={styles.removeButton} onClick={() => onChange(undefined)}>Remove table</button></div><div className={styles.tableScroll}><table><thead><tr>{normalized.headers.map((header, index) => <th key={`header-${index}`}><input aria-label={`${label} column ${index + 1}`} value={header} onChange={(event) => updateHeader(index, event.target.value)} /><button type="button" className={styles.removeButton} onClick={() => removeColumn(index)} aria-label={`Remove ${label} column ${index + 1}`}>Remove</button></th>)}</tr></thead><tbody>{normalized.rows.map((row, rowIndex) => <tr key={`row-${rowIndex}`}>{row.map((cell, columnIndex) => <td key={`cell-${rowIndex}-${columnIndex}`}><input aria-label={`${label} row ${rowIndex + 1} column ${columnIndex + 1}`} value={cell} onChange={(event) => updateCell(rowIndex, columnIndex, event.target.value)} /></td>)}<td><button type="button" className={styles.removeButton} onClick={() => removeRow(rowIndex)} aria-label={`Remove ${label} row ${rowIndex + 1}`}>Remove row</button></td></tr>)}</tbody></table></div></fieldset>;
 }
 
 function ModificationList({ kind, frameName, entries, options, onChange }) {
