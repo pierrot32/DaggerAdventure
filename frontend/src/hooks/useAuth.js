@@ -7,5 +7,7 @@ export function useAuth() {
   const login = useAuthStore((state) => state.login);
   const register = useAuthStore((state) => state.register);
   const logout = useAuthStore((state) => state.logout);
-  return { user, status, isAuthenticated: Boolean(user), login, register, logout };
+  const updateProfile = useAuthStore((state) => state.updateProfile);
+  const deleteAccount = useAuthStore((state) => state.deleteAccount);
+  return { user, status, isAuthenticated: Boolean(user), login, register, logout, updateProfile, deleteAccount };
 }

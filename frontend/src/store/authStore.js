@@ -35,4 +35,16 @@ export const useAuthStore = create((set) => ({
     await authApi.logout();
     set({ user: null });
   },
+
+  updateProfile: async (name) => {
+    const user = await authApi.updateMe(name);
+    set({ user });
+    return user;
+  },
+
+  deleteAccount: async () => {
+    await authApi.deleteMe();
+    try { await authApi.logout(); } catch {}
+    set({ user: null, status: 'ready' });
+  },
 }));

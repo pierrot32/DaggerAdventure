@@ -29,4 +29,7 @@ pub use frame::{
     UpdateAdventureFrameRequest, UpdateCampaignFrameRequest,
 };
 pub use notification::Notification;
-pub use user::{AccessLevel, LoginRequest, MessageResponse, RegisterRequest, User, UserResponse};
+pub use user::{
+    AccessLevel, LoginRequest, MessageResponse, RegisterRequest, UpdateUserRequest, User,
+    UserResponse,
+};
