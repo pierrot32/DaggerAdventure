@@ -1,13 +1,14 @@
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::models::{Character, CreateCharacterRequest};
+use crate::models::{Character, CharacterSummary, CreateCharacterRequest};
 
 const CHARACTER_FIELDS: &str = "id, user_id, adventure_id, name, pronouns, description, size,
     height, weight, eye_color, hair_color, skin_color, look_description, portrait_url, level,
     advancements, class_id, subclass_id, ancestry_id, secondary_ancestry_id, community_id, traits,
     experiences, background_answers, background_story, background_notes, family_members,
     connections, equipment, domain_cards, stats, created_at, updated_at";
+const CHARACTER_SUMMARY_FIELDS: &str = "id, name, level, class_id, ancestry_id, community_id";
 
 pub async fn create(
     pool: &PgPool,
@@ -226,12 +227,15 @@ pub async fn update_portrait(
         .await
 }
 
-pub async fn list_for_user(pool: &PgPool, user_id: Uuid) -> Result<Vec<Character>, sqlx::Error> {
+pub async fn list_for_user(
+    pool: &PgPool,
+    user_id: Uuid,
+) -> Result<Vec<CharacterSummary>, sqlx::Error> {
     let query = format!(
-        "SELECT {CHARACTER_FIELDS} FROM characters
+        "SELECT {CHARACTER_SUMMARY_FIELDS} FROM characters
          WHERE user_id = $1 ORDER BY updated_at DESC, id"
     );
-    sqlx::query_as::<_, Character>(&query)
+    sqlx::query_as::<_, CharacterSummary>(&query)
         .bind(user_id)
         .fetch_all(pool)
         .await

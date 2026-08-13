@@ -10,8 +10,8 @@ use crate::{
     error::AppError,
     middleware::{access_guard::require_at_least, auth_guard::AuthUser},
     models::{
-        AccessLevel, Character, CreateCharacterRequest, UpdateCharacterAdvancementRequest,
-        UpdateCharacterRequest, UpdateCharacterStatsRequest,
+        AccessLevel, Character, CharacterSummary, CreateCharacterRequest,
+        UpdateCharacterAdvancementRequest, UpdateCharacterRequest, UpdateCharacterStatsRequest,
     },
     repository::{character_repo, content_repo},
     state::AppState,
@@ -21,7 +21,7 @@ use crate::{
 pub async fn list(
     State(state): State<AppState>,
     AuthUser(user): AuthUser,
-) -> Result<Json<Vec<Character>>, AppError> {
+) -> Result<Json<Vec<CharacterSummary>>, AppError> {
     require_at_least(&user, AccessLevel::PlayerOnly)?;
     Ok(Json(
         character_repo::list_for_user(&state.db, user.id).await?,

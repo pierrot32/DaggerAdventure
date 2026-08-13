@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useNotificationStore } from '../features/notifications/notificationStore';
-import { canCreateAdventure, canManageUsers } from '../utils/permissions';
+import { canCreateAdventure, canManageUsers, canPlay } from '../utils/permissions';
 import styles from './AppLayout.module.css';
 
 export default function AppLayout({ children }) {
@@ -46,6 +46,7 @@ export default function AppLayout({ children }) {
             </div>}
           </div>
           <Link className={styles.navLink} to="/characters">Characters</Link>
+          {canPlay(user) && <Link className={styles.navLink} to="/equipment">Equipment</Link>}
           {canManageUsers(user) && <div className={styles.menu}>
             <button className={styles.menuTrigger} type="button" aria-expanded={openMenu === 'admin'} onClick={() => toggleMenu('admin')}>Admin</button>
             {openMenu === 'admin' && <div className={styles.menuPanel}>

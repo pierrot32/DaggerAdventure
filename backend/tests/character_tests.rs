@@ -36,6 +36,59 @@ fn create_character_request(adventure_id: Option<uuid::Uuid>) -> CreateCharacter
     }
 }
 
+#[sqlx::test]
+#[ignore = "requires DATABASE_URL and disposable Postgres test databases"]
+async fn character_list_returns_only_owner_scoped_summary_fields(pool: sqlx::PgPool) {
+    let jwt_secret = "test-secret";
+    let owner = auth_service::register(
+        &pool,
+        jwt_secret,
+        RegisterRequest {
+            email: format!("owner-{}@example.com", uuid::Uuid::new_v4()),
+            name: "Owner".to_owned(),
+            password: "correct-horse".to_owned(),
+        },
+    )
+    .await
+    .expect("owner registration should succeed");
+    let outsider = auth_service::register(
+        &pool,
+        jwt_secret,
+        RegisterRequest {
+            email: format!("outsider-{}@example.com", uuid::Uuid::new_v4()),
+            name: "Outsider".to_owned(),
+            password: "correct-horse".to_owned(),
+        },
+    )
+    .await
+    .expect("outsider registration should succeed");
+
+    let character = character_repo::create(&pool, owner.user.id, &create_character_request(None))
+        .await
+        .expect("character creation should succeed");
+
+    let summaries = character_repo::list_for_user(&pool, owner.user.id)
+        .await
+        .expect("character list should succeed");
+    assert_eq!(summaries.len(), 1);
+    assert_eq!(
+        serde_json::to_value(&summaries[0]).expect("summary should serialize"),
+        json!({
+            "id": character.id,
+            "name": "Test Hero",
+            "level": 1,
+            "class_id": "warrior",
+            "ancestry_id": "human",
+            "community_id": "wanderborne"
+        })
+    );
+
+    let outsider_summaries = character_repo::list_for_user(&pool, outsider.user.id)
+        .await
+        .expect("outsider list should succeed");
+    assert!(outsider_summaries.is_empty());
+}
+
 /// The sheet trackers (HP, stress, hope, armor, gold) round-trip through `stats`,
 /// and only the character's owner may write them.
 #[sqlx::test]

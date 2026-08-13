@@ -44,6 +44,16 @@ pub struct CreateCharacterRequest {
     pub domain_cards: Value,
 }
 
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct CharacterSummary {
+    pub id: Uuid,
+    pub name: String,
+    pub level: i32,
+    pub class_id: String,
+    pub ancestry_id: String,
+    pub community_id: String,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct UpdateCharacterRequest {
     pub name: String,
@@ -123,4 +133,35 @@ pub struct Character {
     pub domain_cards: Value,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::CharacterSummary;
+    use serde_json::json;
+    use uuid::Uuid;
+
+    #[test]
+    fn character_summary_serializes_only_vault_fields() {
+        let summary = CharacterSummary {
+            id: Uuid::nil(),
+            name: "Test Hero".to_owned(),
+            level: 1,
+            class_id: "warrior".to_owned(),
+            ancestry_id: "human".to_owned(),
+            community_id: "wanderborne".to_owned(),
+        };
+
+        assert_eq!(
+            serde_json::to_value(summary).expect("summary should serialize"),
+            json!({
+                "id": Uuid::nil(),
+                "name": "Test Hero",
+                "level": 1,
+                "class_id": "warrior",
+                "ancestry_id": "human",
+                "community_id": "wanderborne"
+            })
+        );
+    }
 }

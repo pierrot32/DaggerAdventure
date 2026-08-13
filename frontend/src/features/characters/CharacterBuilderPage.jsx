@@ -184,6 +184,7 @@ export default function CharacterBuilderPage() {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState(emptyForm);
   const [locks, setLocks] = useState(emptyLocks);
+  const [sectionPrompts, setSectionPrompts] = useState({ identity: '', appearance: '', background: '', experiences: '' });
   const [state, setState] = useState({ loading: true, saving: false, error: '', success: '' });
   const [aiState, setAiState] = useState({ loading: false, error: '' });
   const [frameState, setFrameState] = useState({ loading: Boolean(queryAdventureId), error: '', content: null });
@@ -326,9 +327,10 @@ export default function CharacterBuilderPage() {
   const generateFields = async (fields, expandCurrent = false) => {
     const requestedFields = fields.filter((field) => !locks[field]);
     if (requestedFields.length === 0) return;
+    const activeSectionPrompt = sectionPrompts[stepIds[step]] || '';
     setAiState({ loading: true, error: '' });
     try {
-      const response = await generateCharacter({ adventure_id: selectedAdventureId || undefined, values: generationValues, locked_fields: generationFields.filter((field) => locks[field]), fields: requestedFields, options: generationOptions, expand_current: expandCurrent });
+      const response = await generateCharacter({ adventure_id: selectedAdventureId || undefined, values: generationValues, locked_fields: generationFields.filter((field) => locks[field]), fields: requestedFields, options: generationOptions, expand_current: expandCurrent, prompt: activeSectionPrompt });
       applyGeneratedValues(response.values);
       setAiState({ loading: false, error: '' });
     } catch (error) {
@@ -342,6 +344,8 @@ export default function CharacterBuilderPage() {
     : stepIds[step] === 'appearance' ? appearanceGenerationFields
       : stepIds[step] === 'experiences' ? experienceGenerationFields : backgroundGenerationFields;
   const activeGenerationFields = pageGenerationFields.filter((field) => field !== 'secondary_ancestry_id' || form.ancestryId === 'mixed-ancestry');
+  const activeGenerationSection = stepIds[step];
+  const updateSectionPrompt = (value) => setSectionPrompts((current) => ({ ...current, [activeGenerationSection]: value }));
   const toggleAllLocks = (fields) => setLocks((current) => {
     const shouldLock = fields.some((field) => !current[field]);
     return { ...current, ...Object.fromEntries(fields.map((field) => [field, shouldLock])) };
@@ -413,7 +417,7 @@ export default function CharacterBuilderPage() {
         </aside>
         <div className={styles.content}>
           <div className={styles.stepTitle}><span>STEP {step + 1} OF {stepIds.length}</span><h3>{stepDetails[step].title}</h3><p>{stepDetails[step].description}</p></div>
-          {['identity', 'appearance', 'background', 'experiences'].includes(stepIds[step]) && <GenerationToolbar loading={aiState.loading} locks={locks} fields={activeGenerationFields} onGenerate={() => generateFields(activeGenerationFields)} onToggleAll={() => toggleAllLocks(activeGenerationFields)} />}
+          {['identity', 'appearance', 'background', 'experiences'].includes(stepIds[step]) && <GenerationToolbar loading={aiState.loading} locks={locks} fields={activeGenerationFields} prompt={sectionPrompts[activeGenerationSection]} onPromptChange={updateSectionPrompt} onGenerate={() => generateFields(activeGenerationFields)} onToggleAll={() => toggleAllLocks(activeGenerationFields)} />}
           {stepIds[step] === 'adventure' && <AdventureStep adventures={adventures} selectedAdventure={selectedAdventure} selectedId={selectedAdventureId} onSelect={setSelectedAdventureId} state={adventureState} />}
           {stepIds[step] === 'identity' && <Identity classes={classes} ancestries={ancestries} communities={communities} frameContent={frameState.content} selectedClass={selectedClass} selectedAncestry={selectedAncestry} selectedFirstAncestry={selectedFirstAncestry} selectedSecondAncestry={selectedSecondAncestry} selectedCommunity={selectedCommunity} subclasses={subclasses} form={form} setField={setField} setClass={setClass} setAncestry={setAncestry} setFirstAncestry={setFirstAncestry} setSubclass={setSubclass} locks={locks} toggleLock={toggleLock} generate={generateFields} />}
           {stepIds[step] === 'appearance' && <Appearance form={form} setField={setField} locks={locks} toggleLock={toggleLock} generate={generateFields} expand={expandField} />}
@@ -456,10 +460,10 @@ function AdventureStep({ adventures, selectedAdventure, selectedId, onSelect, st
   </div>;
 }
 
-function GenerationToolbar({ loading, locks, fields, onGenerate, onToggleAll }) {
+function GenerationToolbar({ loading, locks, fields, prompt, onPromptChange, onGenerate, onToggleAll }) {
   const unlockedCount = fields.filter((field) => !locks[field]).length;
   const allLocked = fields.length > 0 && unlockedCount === 0;
-  return <div className={styles.aiToolbar}><div><strong>AI assist</strong><span>{unlockedCount} unlocked field{unlockedCount === 1 ? '' : 's'} will be requested.</span></div><div className={styles.aiActions}><Button type="button" variant="text" onClick={onToggleAll}>{allLocked ? 'Unlock all fields' : 'Lock all fields'}</Button><Button type="button" variant="text" disabled={loading || unlockedCount === 0} onClick={onGenerate}>{loading ? 'Generating...' : 'Generate all unlocked'}</Button></div></div>;
+  return <div className={styles.aiToolbar}><div><strong>AI assist</strong><span>{unlockedCount} unlocked field{unlockedCount === 1 ? '' : 's'} will be requested.</span></div><label className={styles.aiPrompt}><span>What do you want for this section?</span><textarea value={prompt} onChange={(event) => onPromptChange(event.target.value)} maxLength={2000} placeholder="Describe the character direction you want the AI to follow." /></label><div className={styles.aiActions}><Button type="button" variant="text" onClick={onToggleAll}>{allLocked ? 'Unlock all fields' : 'Lock all fields'}</Button><Button type="button" variant="text" disabled={loading || unlockedCount === 0} onClick={onGenerate}>{loading ? 'Generating...' : 'Generate all unlocked'}</Button></div></div>;
 }
 
 function FieldActions({ field, locked, toggleLock, generate, expand, expandDisabled }) {
@@ -470,8 +474,8 @@ function FieldActions({ field, locked, toggleLock, generate, expand, expandDisab
   </span>;
 }
 
-function FieldLabel({ field, label, info, locked, toggleLock, generate, expand, expandDisabled, children, className = '' }) {
-  return <label className={className}><span className={styles.fieldHeading}><span>{label}{info}</span><FieldActions field={field} locked={locked} toggleLock={toggleLock} generate={generate} expand={expand} expandDisabled={expandDisabled} /></span>{children}</label>;
+function FieldLabel({ field, label, info, locked, toggleLock, generate, expand, expandDisabled, showActions = true, children, className = '' }) {
+  return <label className={className}><span className={styles.fieldHeading}><span>{label}{info}</span>{showActions && <FieldActions field={field} locked={locked} toggleLock={toggleLock} generate={generate} expand={expand} expandDisabled={expandDisabled} />}</span>{children}</label>;
 }
 
 function Identity({ classes, ancestries, communities, frameContent, selectedClass, selectedSubclass, selectedAncestry, selectedFirstAncestry, selectedSecondAncestry, selectedCommunity, subclasses, form, setField, setClass, setAncestry, setFirstAncestry, setSubclass, locks, toggleLock, generate }) {
@@ -488,7 +492,7 @@ function Identity({ classes, ancestries, communities, frameContent, selectedClas
     <FieldLabel field="subclass_id" label="Subclass" info={<ModificationInfo label="Class campaign-frame guidance for this subclass" entries={subclassGuidance} emptyMessage={selectedClass && selectedSubclass ? `No class guidance matches ${selectedClass.name}.` : 'Choose a class and subclass to view relevant class guidance.'} />} locked={locks.subclass_id} toggleLock={toggleLock} generate={generate}><select value={form.subclassId} onChange={(event) => setSubclass(event.target.value)} disabled={!selectedClass}><option value="">Choose a subclass</option>{subclasses.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></FieldLabel>
     <FieldLabel field="ancestry_id" label="Ancestry" info={<ModificationInfo label="Ancestry campaign-frame guidance" entries={ancestryGuidance} />} locked={locks.ancestry_id} toggleLock={toggleLock} generate={generate}><select value={form.ancestryId} onChange={(event) => setAncestry(event.target.value)}><option value="">Choose an ancestry</option>{ancestries.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></FieldLabel>
     {form.ancestryId === 'mixed-ancestry' && <>
-      <FieldLabel label="First ancestry" info={<ModificationInfo label="First ancestry campaign-frame guidance" entries={frameGuidanceForOptions(frameContent, 'ancestries', [selectedFirstAncestry].filter(Boolean))} />}><select value={form.firstAncestryId} onChange={(event) => setFirstAncestry(event.target.value)}><option value="">Choose a lineage</option>{ancestries.filter((item) => item.id !== 'mixed-ancestry').map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></FieldLabel>
+      <FieldLabel label="First ancestry" info={<ModificationInfo label="First ancestry campaign-frame guidance" entries={frameGuidanceForOptions(frameContent, 'ancestries', [selectedFirstAncestry].filter(Boolean))} />} showActions={false}><select value={form.firstAncestryId} onChange={(event) => setFirstAncestry(event.target.value)}><option value="">Choose a lineage</option>{ancestries.filter((item) => item.id !== 'mixed-ancestry').map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></FieldLabel>
       <FieldLabel field="secondary_ancestry_id" label="Second ancestry" info={<ModificationInfo label="Second ancestry campaign-frame guidance" entries={frameGuidanceForOptions(frameContent, 'ancestries', [selectedSecondAncestry].filter(Boolean))} />} locked={locks.secondary_ancestry_id} toggleLock={toggleLock} generate={generate}><select value={form.secondaryAncestryId} onChange={(event) => setField('secondaryAncestryId', event.target.value)}><option value="">Choose a lineage</option>{ancestries.filter((item) => item.id !== 'mixed-ancestry' && item.id !== form.firstAncestryId).map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></FieldLabel>
     </>}
     <FieldLabel field="community_id" label="Community" info={<ModificationInfo label="Community campaign-frame guidance" entries={communityGuidance} />} locked={locks.community_id} toggleLock={toggleLock} generate={generate}><select value={form.communityId} onChange={(event) => setField('communityId', event.target.value)}><option value="">Choose a community</option>{communities.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></FieldLabel>

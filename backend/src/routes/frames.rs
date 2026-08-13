@@ -171,9 +171,9 @@ pub async fn character_context(
     let frame = frame_repo::find_for_user(&state.db, &user, adventure_id)
         .await?
         .ok_or_else(|| AppError::NotFound("No campaign frame is attached".to_owned()))?;
+    let filtered_content = filter_content(&frame.content, &frame.selections);
     Ok(Json(json!({
-        "content": filter_content(&frame.content, &frame.selections),
-        "selections": frame.selections,
+        "content": player_character_context(&filtered_content),
     })))
 }
 
@@ -456,6 +456,21 @@ pub fn filter_content(content: &Value, selections: &Value) -> Value {
     filtered
 }
 
+pub fn player_character_context(content: &Value) -> Value {
+    let Some(content_object) = content.as_object() else {
+        return Value::Object(Map::new());
+    };
+    ["name", "pitch", "modifications"]
+        .into_iter()
+        .filter_map(|key| {
+            content_object
+                .get(key)
+                .map(|value| (key.to_owned(), value.clone()))
+        })
+        .collect::<Map<_, _>>()
+        .into()
+}
+
 fn can_view_unfiltered_content(is_creator: bool) -> bool {
     is_creator
 }
@@ -530,7 +545,10 @@ fn filter_modifications(value: &Value, selections: &Map<String, Value>) -> Value
 
 #[cfg(test)]
 mod tests {
-    use super::{can_view_unfiltered_content, filter_content, validate_frame_content};
+    use super::{
+        can_view_unfiltered_content, filter_content, player_character_context,
+        validate_frame_content,
+    };
     use serde_json::json;
 
     fn valid_frame_with_modifications(modifications: serde_json::Value) -> serde_json::Value {
@@ -732,6 +750,27 @@ mod tests {
             filtered["modifications"]["classes"][0]
                 .get("gm_message")
                 .is_none()
+        );
+    }
+
+    #[test]
+    fn player_character_context_only_keeps_player_contract_sections() {
+        let content = json!({
+            "name": "The Ash Coast",
+            "pitch": "A dangerous frontier",
+            "modifications": {"classes": [{"title": "Player guidance"}]},
+            "overview": "Player overview",
+            "gm_principles": ["GM-only principle"],
+            "campaign_mechanics": ["GM-only mechanics"]
+        });
+
+        assert_eq!(
+            player_character_context(&content),
+            json!({
+                "name": "The Ash Coast",
+                "pitch": "A dangerous frontier",
+                "modifications": {"classes": [{"title": "Player guidance"}]}
+            })
         );
     }
 
