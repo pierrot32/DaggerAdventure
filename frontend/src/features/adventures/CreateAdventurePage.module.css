@@ -21,6 +21,11 @@
 .tags span { padding: 4px 8px; border: 1px solid rgba(201, 157, 99, 0.45); color: var(--color-accent); font-size: 12px; }
 .draftIntro p:last-child { max-width: 700px; margin-bottom: 0; color: var(--color-muted-inverse); }
 .frameGrid small { color: var(--color-muted-inverse); font-size: 12px; }
+.sectionFields { display: grid; gap: var(--space-4); }
+.textareaControl { display: grid; gap: var(--space-2); }
+.stripNewlines { justify-self: start; padding: 3px 7px; border: 1px solid var(--color-border); background: transparent; color: var(--color-muted-inverse); cursor: pointer; font: inherit; font-size: 11px; }
+.stripNewlines:hover { border-color: var(--color-accent); color: var(--color-accent); }
+.gmNote textarea { min-height: 3.5em; }
 .modificationSection { display: grid; gap: var(--space-3); margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid rgba(244, 238, 228, .14); }
 .modificationHeader { display: flex; align-items: end; justify-content: space-between; gap: var(--space-4); }
 .modificationHeader h4 { margin: 0; color: var(--color-text-inverse); font-size: 18px; }

@@ -2,12 +2,12 @@
 .heading { display: flex; align-items: end; justify-content: space-between; gap: var(--space-5); }
 .heading h2 { margin-top: var(--space-2); }
 .heading p:last-child { margin-top: var(--space-2); }
-.layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: var(--space-6); margin-top: var(--space-6); }
-.list { display: grid; align-content: start; gap: var(--space-2); }
+.layout { margin-top: var(--space-6); }
+.list { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); align-content: start; gap: var(--space-3); }
 .card { display: grid; gap: var(--space-2); padding: var(--space-4); border: 1px solid rgba(244, 238, 228, .16); background: rgba(244, 238, 228, .05); color: var(--color-text-inverse); text-align: left; cursor: pointer; }
 .card:hover, .selected { border-color: var(--color-accent); background: rgba(201, 157, 99, .14); }
 .card span, .card small { color: var(--color-muted-inverse); line-height: 1.45; }
 .editor { display: grid; gap: var(--space-6); min-width: 0; }
 .actions { display: flex; flex-wrap: wrap; gap: var(--space-3); justify-content: flex-end; margin-top: var(--space-5); }
 .error { color: #ffb4ac; }
-@media (max-width: 760px) { .heading { align-items: start; flex-direction: column; } .layout { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .heading { align-items: start; flex-direction: column; } .list { grid-template-columns: 1fr; } }
