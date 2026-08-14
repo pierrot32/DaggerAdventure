@@ -1,0 +1,2 @@
+ALTER TABLE characters
+ADD COLUMN birth_city TEXT NOT NULL DEFAULT '';

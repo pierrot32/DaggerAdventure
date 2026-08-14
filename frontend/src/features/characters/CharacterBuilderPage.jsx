@@ -48,7 +48,7 @@ const emptyForm = {
   classId: '', subclassId: '', ancestryId: '', firstAncestryId: '', secondaryAncestryId: '', communityId: '',
   traits: Object.fromEntries(traitIds.map((trait) => [trait, ''])),
   primaryWeapon: '', secondaryWeapon: '', armor: '', potion: 'minor-health-potion',
-  experiences: ['', ''], backgroundStory: '', backgroundNotes: '', familyMembers: [], background: '', connections: '', domainCards: [],
+  experiences: ['', ''], backgroundStory: '', backgroundNotes: '', birthCity: '', familyMembers: [], background: '', connections: '', domainCards: [],
 };
 const emptyLocks = Object.fromEntries(generationFields.map((field) => [field, false]));
 
@@ -294,6 +294,7 @@ export default function CharacterBuilderPage() {
     class_id: form.classId, subclass_id: form.subclassId, ancestry_id: form.ancestryId,
     secondary_ancestry_id: form.secondaryAncestryId, community_id: form.communityId,
     background_story: form.backgroundStory,
+    birth_city: form.birthCity,
     family_members: form.familyMembers.map(({ relation, name, details }) => ({ relation, name, details })),
     background_notes: form.backgroundNotes,
     experience_1: form.experiences[0],
@@ -352,18 +353,25 @@ export default function CharacterBuilderPage() {
   });
 
   const selectedCards = availableCards.filter((card) => form.domainCards.includes(card.id));
-  const canContinue = () => {
-    if (stepIds[step] === 'adventure') return true;
-    if (stepIds[step] === 'identity') return form.name.trim() && form.pronouns.trim() && form.classId && form.subclassId && form.ancestryId && form.communityId && (form.ancestryId !== 'mixed-ancestry' || (form.firstAncestryId && form.secondaryAncestryId));
-    if (stepIds[step] === 'appearance') return [form.description, form.size, form.height, form.weight, form.eyeColor, form.hairColor, form.skinColor, form.lookDescription].every((value) => value.trim());
-    if (stepIds[step] === 'traits') return traitIds.every((trait) => form.traits[trait] !== '') && Object.values(form.traits).sort().join(',') === '-1,0,0,1,1,2';
-    if (stepIds[step] === 'equipment') return form.primaryWeapon && form.secondaryWeapon && form.armor;
-    if (stepIds[step] === 'experiences') return form.experiences.every((experience) => experience.trim());
-    if (stepIds[step] === 'domain_cards') return form.domainCards.length === 2;
+  const isStepComplete = (stepId) => {
+    if (stepId === 'adventure' || stepId === 'background' || stepId === 'connections') return true;
+    if (stepId === 'identity') return form.name.trim() && form.pronouns.trim() && form.classId && form.subclassId && form.ancestryId && form.communityId && (form.ancestryId !== 'mixed-ancestry' || (form.firstAncestryId && form.secondaryAncestryId));
+    if (stepId === 'appearance') return [form.description, form.size, form.height, form.weight, form.eyeColor, form.hairColor, form.skinColor, form.lookDescription].every((value) => value.trim());
+    if (stepId === 'traits') return traitIds.every((trait) => form.traits[trait] !== '') && Object.values(form.traits).sort().join(',') === '-1,0,0,1,1,2';
+    if (stepId === 'equipment') return form.primaryWeapon && form.secondaryWeapon && form.armor;
+    if (stepId === 'experiences') return form.experiences.every((experience) => experience.trim());
+    if (stepId === 'domain_cards') return form.domainCards.length === 2;
     return true;
   };
+  const canContinue = () => isStepComplete(stepIds[step]);
 
   const submit = async () => {
+    const incompleteStep = stepIds.findIndex((stepId) => !isStepComplete(stepId));
+    if (incompleteStep !== -1) {
+      setStep(incompleteStep);
+      setState((current) => ({ ...current, error: `Complete the required fields in ${stepDetails[incompleteStep].title} before saving.`, success: '' }));
+      return;
+    }
     setState({ loading: false, saving: true, error: '', success: '' });
     try {
       const createdCharacter = await createCharacter({
@@ -386,6 +394,7 @@ export default function CharacterBuilderPage() {
         background_answers: form.backgroundNotes.split('\n').filter(Boolean),
         background_story: form.backgroundStory.trim(),
         background_notes: form.backgroundNotes.trim(),
+        birth_city: form.birthCity.trim(),
         family_members: form.familyMembers.map(({ relation, name, details }) => ({ relation, name, details })),
         connections: form.connections.split('\n').filter(Boolean),
         equipment: { primary: form.primaryWeapon, secondary: form.secondaryWeapon, armor: form.armor, potion: form.potion, inventory: book.equipment.starting_inventory.filter((item) => !/gold/i.test(item)) },
@@ -410,7 +419,7 @@ export default function CharacterBuilderPage() {
       <div className={styles.layout}>
         <aside className={styles.sidebar}>
           {stepDetails.map((item, index) => (
-            <button type="button" className={index === step ? styles.activeStep : ''} onClick={() => index <= step && setStep(index)} key={item.id}>
+            <button type="button" className={index === step ? styles.activeStep : ''} onClick={() => setStep(index)} key={item.id}>
               <span>{String(index + 1).padStart(2, '0')}</span>{item.title}
             </button>
           ))}
@@ -567,8 +576,9 @@ function EquipmentStep({ equipment, form, setField }) {
 
 function BackgroundStep({ form, setField, locks, toggleLock, generate, expand, updateFamilyMember, addFamilyMember, removeFamilyMember, questions }) {
   return <div className={styles.formGrid}>
+    <label><span className={styles.fieldHeading}><span>Birth city</span></span><input maxLength="160" value={form.birthCity} onChange={(event) => setField('birthCity', event.target.value)} placeholder="Where was your character born or raised?" /></label>
     <FieldLabel field="background_story" label="Background story" className={styles.full} locked={locks.background_story} toggleLock={toggleLock} generate={generate} expand={() => expand('background_story')} expandDisabled={!form.backgroundStory.trim()}>
-      <textarea value={form.backgroundStory} onChange={(event) => setField('backgroundStory', event.target.value)} placeholder="The story your character carries into the adventure." />
+      <textarea value={form.backgroundStory} onChange={(event) => setField('backgroundStory', event.target.value)} placeholder="Connect your character's birth city to the story they carry into the adventure." />
     </FieldLabel>
     <FieldLabel field="background_notes" label="Background notes" className={styles.full} locked={locks.background_notes} toggleLock={toggleLock} generate={generate} expand={() => expand('background_notes')} expandDisabled={!form.backgroundNotes.trim()}>
       <textarea value={form.backgroundNotes} onChange={(event) => setField('backgroundNotes', event.target.value)} placeholder="Answers, rumors, places, obligations, and other loose threads." />
