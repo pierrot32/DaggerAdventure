@@ -18,6 +18,11 @@ pub struct UpdateAccessLevelRequest {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct UpdateApprovalRequest {
+    pub approved: bool,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct UpdateAiGenerationRequest {
     pub enabled: bool,
 }

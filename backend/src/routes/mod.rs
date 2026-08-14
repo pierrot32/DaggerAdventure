@@ -67,6 +67,10 @@ pub fn router(state: AppState) -> Router {
             "/api/admin/users/:target_id/access-level",
             axum::routing::patch(admin::update_access_level),
         )
+        .route(
+            "/api/admin/users/:target_id/approval",
+            axum::routing::patch(admin::update_approval),
+        )
         .route("/api/admin/access-audit", get(admin::list_audit_events))
         .route("/api/admin/ai-logs", get(admin::list_ai_logs))
         .route(

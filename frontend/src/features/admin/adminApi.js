@@ -13,6 +13,12 @@ export const updateAccessLevel = (userId, access_level) =>
     body: JSON.stringify({ access_level }),
   });
 
+export const updateApproval = (userId, approved) =>
+  request(`/api/admin/users/${userId}/approval`, {
+    method: 'PATCH',
+    body: JSON.stringify({ approved }),
+  });
+
 export const updateAiGenerationAccess = (userId, enabled) =>
   request(`/api/admin/users/${userId}/ai-generation`, {
     method: 'PATCH',
