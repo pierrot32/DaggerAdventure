@@ -6,6 +6,11 @@ import styles from './EquipmentPage.module.css';
 
 const armorGroup = 'armor';
 
+function isMagicItem(item) {
+  return item?.is_magic === true
+    || (typeof item?.is_magic === 'string' && item.is_magic.toLowerCase() === 'true');
+}
+
 function loadEquipment(book) {
   const equipment = book?.equipment;
   if (!equipment || typeof equipment !== 'object') return [];
@@ -23,6 +28,7 @@ export default function EquipmentPage() {
   const [requestId, setRequestId] = useState(0);
   const [selectedTier, setSelectedTier] = useState('all');
   const [selectedGroup, setSelectedGroup] = useState('all');
+  const [selectedMagic, setSelectedMagic] = useState('all');
 
   useEffect(() => {
     let active = true;
@@ -46,7 +52,8 @@ export default function EquipmentPage() {
   const filteredEquipment = useMemo(() => equipment.filter((item) => (
     (selectedTier === 'all' || Number(item.tier) === Number(selectedTier))
     && (selectedGroup === 'all' || item.group === selectedGroup)
-  )), [equipment, selectedGroup, selectedTier]);
+    && (selectedMagic === 'all' || isMagicItem(item) === (selectedMagic === 'magic'))
+  )), [equipment, selectedGroup, selectedMagic, selectedTier]);
   const hasEquipmentCatalog = Boolean(book?.equipment && typeof book.equipment === 'object');
 
   if (state.loading) return <p className="muted">Loading equipment...</p>;
@@ -98,13 +105,19 @@ export default function EquipmentPage() {
             {WEAPON_GROUPS.map(({ id, label }) => <button type="button" className={selectedGroup === id ? styles.selected : ''} aria-pressed={selectedGroup === id} onClick={() => setSelectedGroup(id)} key={id}>{label}</button>)}
           </div>
         </div>
+        <div className={styles.groupFilter} aria-label="Magic status">
+          <span>Magic status</span>
+          <div className={styles.groupButtons}>
+            {[['all', 'All'], ['magic', 'Magic'], ['non-magic', 'Non-magic']].map(([value, label]) => <button type="button" className={selectedMagic === value ? styles.selected : ''} aria-pressed={selectedMagic === value} onClick={() => setSelectedMagic(value)} key={value}>{label}</button>)}
+          </div>
+        </div>
       </div>
 
       {filteredEquipment.length === 0 ? (
         <div className={styles.empty}>
           <h3>No matching equipment</h3>
-          <p className="muted">Try another tier or equipment type.</p>
-          <Button type="button" variant="text" onClick={() => { setSelectedTier('all'); setSelectedGroup('all'); }}>Clear filters</Button>
+          <p className="muted">Try another tier, equipment type, or magic status.</p>
+          <Button type="button" variant="text" onClick={() => { setSelectedTier('all'); setSelectedGroup('all'); setSelectedMagic('all'); }}>Clear filters</Button>
         </div>
       ) : (
         <div className={styles.tableWrap}>
@@ -122,12 +135,13 @@ export default function EquipmentPage() {
             <tbody>
               {filteredEquipment.map((item) => {
                 const isArmor = item.group === armorGroup;
+                const isMagic = isMagicItem(item);
                 return (
                   <tr key={`${item.group}-${item.id || item.name}`}>
                     <th scope="row" data-label="Name">
                       <strong>{item.name || 'Unnamed equipment'}</strong>
                       <span className={styles.itemMeta}>{item.groupLabel} - Tier {item.tier}</span>
-                      {item.is_magic && <span className={styles.magic}>Magic</span>}
+                      {isMagic && <span className={styles.magic}>Magic</span>}
                     </th>
                     <td data-label="Trait">{isArmor ? '-' : displayValue(item.trait)}</td>
                     <td data-label="Range">{isArmor ? '-' : displayValue(item.range)}</td>

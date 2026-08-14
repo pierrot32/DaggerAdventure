@@ -525,7 +525,7 @@ function AdvancementPanel({ character, book, onClose, onAdvanced }) {
   const renderOption = (option, sourceTier = tier) => {
     const choice = selected(option.id);
     return <div className={`${styles.advancementOption} ${choice ? styles.selectedAdvancement : ''}`} key={`${sourceTier}-${option.id}`}>
-      <label><input type="checkbox" checked={Boolean(choice)} onChange={() => toggleOption(option.id, sourceTier)} /><span><strong>{option.title}</strong><small>{option.detail}</small></span></label>
+      <label><input type="checkbox" checked={Boolean(choice)} disabled={option.id === 'domain_card' && availableCards.length === 0} onChange={() => toggleOption(option.id, sourceTier)} /><span><strong>{option.title}</strong><small>{option.detail}</small></span></label>
       {choice?.id === 'traits' && <div className={styles.choiceDetails}><span>Available traits</span>{availableTraits.map((trait) => <label key={trait}><input type="checkbox" checked={choice.values.includes(trait)} onChange={() => toggleValue('traits', trait)} />{titleize(trait)}</label>)}</div>}
       {choice?.id === 'experiences' && <div className={styles.choiceDetails}><span>Experiences to improve</span>{(character.experiences || []).map((item, index) => <label key={index}><input type="checkbox" checked={choice.values.includes(index)} onChange={() => toggleValue('experiences', index)} />{item.name || item}</label>)}</div>}
       {choice?.id === 'domain_card' && <div className={styles.choiceDetails}><span>Domain card (current level or lower)</span><select value={choice.value ? `${choice.domain_id}:${choice.value}` : ''} onChange={(event) => {
@@ -545,7 +545,8 @@ function AdvancementPanel({ character, book, onClose, onAdvanced }) {
       </div>
     </div>
     {nextLevel <= 10 ? <>
-      <p className={styles.hint}>Tier {tier} lets you choose from this tier and every option from earlier tiers. Your choices are saved to this character.</p>
+      <p className={styles.hint}>Tier {tier} lets you choose from this tier and every option from earlier tiers. One of your two choices must be an unowned domain card from your class.</p>
+      {availableCards.length === 0 && <p className={styles.error}>No valid unowned domain card is available for this level. Add an eligible card to the content book before advancing.</p>}
       {milestoneLevels.has(nextLevel) && <label className={styles.milestone}><span>Additional Experience at +2</span><input value={experience} onChange={(event) => setExperience(event.target.value)} placeholder="Name the new Experience" /></label>}
       <div className={styles.advancementOptions}>
         {options.map((option) => renderOption(option))}

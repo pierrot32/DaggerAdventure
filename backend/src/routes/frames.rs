@@ -334,9 +334,19 @@ pub fn validate_frame_content(content: &Value) -> Result<(), AppError> {
     }
     if let Some(questions) = object.get("session_zero_questions")
         && (!questions.is_array()
-            || !questions
-                .as_array()
-                .is_some_and(|items| items.iter().all(Value::is_string)))
+            || !questions.as_array().is_some_and(|items| {
+                items.iter().all(|item| {
+                    item.is_string()
+                        || (item
+                            .get("id")
+                            .and_then(Value::as_str)
+                            .is_some_and(|id| !id.is_empty())
+                            && item
+                                .get("description")
+                                .and_then(Value::as_str)
+                                .is_some_and(|description| !description.is_empty()))
+                })
+            }))
     {
         return Err(AppError::Validation(
             "Session-zero questions must be an array of strings".to_owned(),
@@ -442,11 +452,22 @@ pub fn filter_content(content: &Value, selections: &Value) -> Value {
     };
     let mut filtered = Map::new();
     for (key, value) in content_object {
+        let entry_section_key = format!("{key}_section");
+        if selection_object
+            .get(&entry_section_key)
+            .and_then(Value::as_bool)
+            == Some(false)
+        {
+            continue;
+        }
         if key == "modifications" {
             if selection_object.get(key).and_then(Value::as_bool) == Some(false) {
                 continue;
             }
             filtered.insert(key.clone(), filter_modifications(value, selection_object));
+        } else if let Some(entry_selections) = selection_object.get(key).and_then(Value::as_object)
+        {
+            filtered.insert(key.clone(), filter_entries(value, entry_selections, key));
         } else if selection_object.get(key).and_then(Value::as_bool) != Some(false) {
             filtered.insert(key.clone(), value.clone());
         }
@@ -454,6 +475,61 @@ pub fn filter_content(content: &Value, selections: &Value) -> Value {
     let mut filtered = Value::Object(filtered);
     strip_gm_only(&mut filtered);
     filtered
+}
+
+fn filter_entries(value: &Value, selections: &Map<String, Value>, field: &str) -> Value {
+    if let Some(entries) = value.as_array() {
+        return Value::Array(
+            entries
+                .iter()
+                .enumerate()
+                .filter(|(index, entry)| {
+                    let explicit_id = entry.get("id").and_then(Value::as_str);
+                    let generated_id = generated_entry_id(field, *index);
+                    !entry_is_disabled(selections, explicit_id, generated_id.as_deref(), *index)
+                })
+                .map(|(_, entry)| entry.clone())
+                .collect(),
+        );
+    }
+    if let Some(entries) = value.as_object() {
+        return Value::Object(
+            entries
+                .iter()
+                .filter(|(map_key, entry)| {
+                    let entry_id = entry.get("id").and_then(Value::as_str).unwrap_or(map_key);
+                    selections.get(*map_key).and_then(Value::as_bool) != Some(false)
+                        && selections.get(entry_id).and_then(Value::as_bool) != Some(false)
+                })
+                .map(|(key, entry)| (key.clone(), entry.clone()))
+                .collect(),
+        );
+    }
+    value.clone()
+}
+
+fn generated_entry_id(field: &str, index: usize) -> Option<String> {
+    let prefix = match field {
+        "tone_and_feel" => "tone",
+        "themes" => "theme",
+        "touchstones" => "touchstone",
+        "session_zero_questions" => "session-question",
+        _ => return None,
+    };
+    Some(format!("{prefix}-{}", index + 1))
+}
+
+fn entry_is_disabled(
+    selections: &Map<String, Value>,
+    explicit_id: Option<&str>,
+    generated_id: Option<&str>,
+    index: usize,
+) -> bool {
+    let numeric_id = index.to_string();
+    [explicit_id, generated_id, Some(numeric_id.as_str())]
+        .into_iter()
+        .flatten()
+        .any(|entry_id| selections.get(entry_id).and_then(Value::as_bool) == Some(false))
 }
 
 pub fn player_character_context(content: &Value) -> Value {
@@ -688,6 +764,29 @@ mod tests {
             filtered["modifications"]["classes"]["class-b"]["title"],
             "B"
         );
+    }
+
+    #[test]
+    fn filters_primitive_entries_by_generated_field_ids_and_indexes() {
+        let content = json!({
+            "tone_and_feel": ["Storm", "Quiet"],
+            "themes": ["Duty", "Freedom"],
+            "touchstones": ["Myth", "History"],
+            "session_zero_questions": ["Question one", "Question two"]
+        });
+        let selections = json!({
+            "tone_and_feel": {"tone-1": false},
+            "themes": {"1": false},
+            "touchstones": {"touchstone-1": false},
+            "session_zero_questions": {"session-question-2": false}
+        });
+
+        let filtered = filter_content(&content, &selections);
+
+        assert_eq!(filtered["tone_and_feel"], json!(["Quiet"]));
+        assert_eq!(filtered["themes"], json!(["Duty"]));
+        assert_eq!(filtered["touchstones"], json!(["History"]));
+        assert_eq!(filtered["session_zero_questions"], json!(["Question one"]));
     }
 
     #[test]

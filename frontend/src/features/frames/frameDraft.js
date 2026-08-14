@@ -54,6 +54,13 @@ function slugify(value) {
   return String(value || 'feature').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'feature';
 }
 
+function stableDraftId(prefix) {
+  const randomPart = typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `${slugify(prefix)}-custom-${randomPart}`;
+}
+
 export const emptyFrame = () => ({
   id: 'custom-frame',
   name: 'Untitled campaign frame',
@@ -106,19 +113,80 @@ function paragraphValues(value) {
   return String(value || '').split(/\n\s*\n/).map((item) => item.trim()).filter(Boolean);
 }
 
+function simpleList(value, separator, prefix) {
+  const isObjectMap = isObjectMapEntries(value);
+  const sourceEntries = Array.isArray(value)
+    ? value.map((entry) => ({ entry }))
+    : isObjectMap
+      ? Object.entries(value)
+        .filter(([mapKey]) => mapKey !== frameEntryMapShape)
+        .map(([mapKey, entry]) => ({ entry, mapKey }))
+      : listValues(value, separator).map((entry) => ({ entry }));
+  const normalized = sourceEntries.map(({ entry, mapKey }, index) => {
+    const isObject = entry && typeof entry === 'object' && !Array.isArray(entry);
+    const normalizedEntry = {
+      ...(isObject ? entry : {}),
+      id: isObject && entry.id ? entry.id : `${slugify(prefix)}-${index + 1}`,
+      description: entryValue(entry),
+      origin: isObject && entry.origin ? entry.origin : 'source',
+    };
+    if (mapKey !== undefined) normalizedEntry[frameEntryMapKey] = mapKey;
+    return normalizedEntry;
+  });
+  if (isObjectMap) normalized[frameEntryMapShape] = 'object';
+  return normalized;
+}
+
+function serializeSimpleList(entries, prefix) {
+  const values = Array.isArray(entries) ? entries : [];
+  const normalized = values.map((item, index) => {
+    const isObject = item && typeof item === 'object' && !Array.isArray(item);
+    return {
+      ...(isObject ? item : {}),
+      id: isObject && item.id ? item.id : `${slugify(prefix)}-${index + 1}`,
+      description: entryValue(item),
+      origin: isObject && item.origin ? item.origin : 'source',
+    };
+  });
+  const stripMetadata = (entry) => {
+    const serialized = { ...entry };
+    delete serialized[frameEntryMapKey];
+    return serialized;
+  };
+  if (values[frameEntryMapShape] !== 'object') return normalized.map(stripMetadata);
+  return Object.fromEntries(normalized.map((entry, index) => [
+    entry[frameEntryMapKey] ?? entry.id ?? `${slugify(prefix)}-${index + 1}`,
+    stripMetadata(entry),
+  ]));
+}
+
 function normalizeEntries(value, prefix) {
-  const entries = Array.isArray(value) ? value : paragraphValues(value);
-  return entries.map((entry, index) => {
+  const isObjectMap = isObjectMapEntries(value);
+  const sourceEntries = Array.isArray(value)
+    ? value.map((entry) => ({ entry }))
+    : isObjectMap
+      ? Object.entries(value)
+        .filter(([mapKey]) => mapKey !== frameEntryMapShape)
+        .map(([mapKey, entry]) => ({ entry, mapKey }))
+      : paragraphValues(value).map((entry) => ({ entry }));
+  const normalized = sourceEntries.map(({ entry, mapKey }, index) => {
     if (typeof entry === 'object' && entry !== null && !Array.isArray(entry)) {
-      return {
+      const normalizedEntry = {
         ...entry,
         id: entry.id || `${prefix}-${index + 1}`,
         title: entry.title || `${prefix} ${index + 1}`,
         description: entryValue(entry),
+        origin: entry.origin || 'source',
       };
+      if (mapKey !== undefined) normalizedEntry[frameEntryMapKey] = mapKey;
+      return normalizedEntry;
     }
-    return { id: `${prefix}-${index + 1}`, title: `${prefix} ${index + 1}`, description: entryValue(entry) };
+    const normalizedEntry = { id: `${prefix}-${index + 1}`, title: `${prefix} ${index + 1}`, description: entryValue(entry), origin: 'source' };
+    if (mapKey !== undefined) normalizedEntry[frameEntryMapKey] = mapKey;
+    return normalizedEntry;
   });
+  if (isObjectMap) normalized[frameEntryMapShape] = 'object';
+  return normalized;
 }
 
 export function contentToDraft(content) {
@@ -130,14 +198,14 @@ export function contentToDraft(content) {
   return {
     ...defaults,
     ...source,
-    tone_and_feel: commaList(source.tone_and_feel),
-    themes: commaList(source.themes),
-    touchstones: commaList(source.touchstones),
+    tone_and_feel: simpleList(source.tone_and_feel, ',', 'tone'),
+    themes: simpleList(source.themes, ',', 'theme'),
+    touchstones: simpleList(source.touchstones, ',', 'touchstone'),
     player_principles: normalizeEntries(source.player_principles, 'Player principle'),
     gm_principles: normalizeEntries(source.gm_principles, 'GM principle'),
     distinctions: normalizeEntries(source.distinctions, 'Distinction'),
     campaign_mechanics: normalizeEntries(source.campaign_mechanics, 'Campaign mechanic'),
-    session_zero_questions: lineList(source.session_zero_questions),
+    session_zero_questions: simpleList(source.session_zero_questions, '\n', 'session-question'),
     modifications: {
       ...defaults.modifications,
       ...Object.fromEntries(frameModificationKinds.map(({ id }) => [id, normalizeFrameEntries(sourceModifications[id], id)])),
@@ -172,6 +240,7 @@ function normalizeFrameEntries(entries, kind) {
       title: sourceEntry.title || '',
       description: sourceEntry.description || '',
       target_ids: targetIds,
+      origin: sourceEntry.origin || 'source',
     };
     if (mapKey !== undefined) normalizedEntry[frameEntryMapKey] = mapKey;
     return normalizedEntry;
@@ -182,10 +251,20 @@ function normalizeFrameEntries(entries, kind) {
 
 export function newModificationEntry(_kind, _index = 1) {
   return {
-    id: '',
+    id: stableDraftId(_kind),
     title: '',
     description: '',
     target_ids: [],
+    origin: 'custom',
+  };
+}
+
+export function newRepeatableEntry(prefix, index, titled = true) {
+  return {
+    id: stableDraftId(`${prefix}-${index}`),
+    title: titled ? `${prefix} ${index}` : '',
+    description: '',
+    origin: 'custom',
   };
 }
 
@@ -238,8 +317,15 @@ function serializeFrameEntries(entries, kind, frameName, options, mapShapes = {}
 }
 
 export function textToEntries(value, prefix) {
-  const entries = Array.isArray(value) ? value : paragraphValues(value);
-  return entries.map((entry, index) => {
+  const isObjectMap = isObjectMapEntries(value);
+  const sourceEntries = Array.isArray(value)
+    ? value.map((entry) => ({ entry }))
+    : isObjectMap
+      ? Object.entries(value)
+        .filter(([mapKey]) => mapKey !== frameEntryMapShape)
+        .map(([mapKey, entry]) => ({ entry, mapKey }))
+      : paragraphValues(value).map((entry) => ({ entry }));
+  const normalized = sourceEntries.map(({ entry, mapKey }, index) => {
     if (typeof entry === 'object' && entry !== null && !Array.isArray(entry)) {
       const description = entryValue(entry).trim();
       return description ? {
@@ -247,11 +333,33 @@ export function textToEntries(value, prefix) {
         id: entry.id || `${prefix}-${index + 1}`,
         title: entry.title || `${prefix} ${index + 1}`,
         description,
+        ...(mapKey !== undefined ? { [frameEntryMapKey]: mapKey } : {}),
       } : null;
     }
     const description = entryValue(entry).trim();
-    return description ? { id: `${prefix}-${index + 1}`, title: `${prefix} ${index + 1}`, description } : null;
+    return description ? {
+      id: `${prefix}-${index + 1}`,
+      title: `${prefix} ${index + 1}`,
+      description,
+      ...(mapKey !== undefined ? { [frameEntryMapKey]: mapKey } : {}),
+    } : null;
   }).filter(Boolean);
+  if (isObjectMap) normalized[frameEntryMapShape] = 'object';
+  return normalized;
+}
+
+function serializeTextEntries(entries, prefix) {
+  const normalized = textToEntries(entries, prefix);
+  const stripMetadata = (entry) => {
+    const serialized = { ...entry };
+    delete serialized[frameEntryMapKey];
+    return serialized;
+  };
+  if (normalized[frameEntryMapShape] !== 'object') return normalized.map(stripMetadata);
+  return Object.fromEntries(normalized.map((entry, index) => [
+    entry[frameEntryMapKey] ?? entry.id ?? `${prefix}-${index + 1}`,
+    stripMetadata(entry),
+  ]));
 }
 
 export function draftToContent(form, optionLists = {}) {
@@ -272,18 +380,18 @@ export function draftToContent(form, optionLists = {}) {
     description: form.description.trim(),
     complexity_rating: Number(form.complexity_rating),
     pitch: form.pitch.trim(),
-    tone_and_feel: commaList(form.tone_and_feel),
-    themes: commaList(form.themes),
-    touchstones: commaList(form.touchstones),
+    tone_and_feel: serializeSimpleList(form.tone_and_feel, 'tone'),
+    themes: serializeSimpleList(form.themes, 'theme'),
+    touchstones: serializeSimpleList(form.touchstones, 'touchstone'),
     overview: form.overview.trim(),
     modifications,
     gm_messages: gmMessages,
-    player_principles: textToEntries(form.player_principles, 'Player principle'),
-    gm_principles: textToEntries(form.gm_principles, 'GM principle'),
-    distinctions: textToEntries(form.distinctions, 'Distinction'),
+    player_principles: serializeTextEntries(form.player_principles, 'Player principle'),
+    gm_principles: serializeTextEntries(form.gm_principles, 'GM principle'),
+    distinctions: serializeTextEntries(form.distinctions, 'Distinction'),
     inciting_incident: form.inciting_incident.trim(),
-    campaign_mechanics: textToEntries(form.campaign_mechanics, 'Campaign mechanic'),
-    session_zero_questions: lineList(form.session_zero_questions),
+    campaign_mechanics: serializeTextEntries(form.campaign_mechanics, 'Campaign mechanic'),
+    session_zero_questions: serializeSimpleList(form.session_zero_questions, 'session-question'),
   };
 }
 

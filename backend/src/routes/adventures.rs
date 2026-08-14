@@ -35,6 +35,17 @@ pub async fn characters(
     ))
 }
 
+pub async fn players(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+    Path(adventure_id): Path<Uuid>,
+) -> Result<Json<Vec<crate::models::AdventurePlayer>>, AppError> {
+    require_at_least(&user, AccessLevel::PlayerOnly)?;
+    Ok(Json(
+        adventure_repo::list_players(&state.db, &user, adventure_id).await?,
+    ))
+}
+
 pub async fn create(
     State(state): State<AppState>,
     AuthUser(user): AuthUser,

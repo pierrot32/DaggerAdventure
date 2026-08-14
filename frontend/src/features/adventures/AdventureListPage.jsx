@@ -9,7 +9,7 @@ import styles from './AdventureListPage.module.css';
 export default function AdventureListPage() {
   const {
     adventures, pendingInvites, loading, error,
-    fetchAdventures, fetchPendingInvites, respondToInvite, deleteAdventure,
+    fetchAdventures, fetchPendingInvites, respondToInvite,
   } = useAdventureStore();
   const { user } = useAuth();
 
@@ -18,12 +18,6 @@ export default function AdventureListPage() {
 
   const respond = async (inviteId, accepted) => {
     try { await respondToInvite(inviteId, accepted); } catch { /* store surfaces the error */ }
-  };
-
-  const remove = async (event, adventure) => {
-    event.preventDefault();
-    if (!window.confirm(`Delete ${adventure.name}? This removes the table, invitations, and frame. Player characters are unlinked from the adventure but preserved.`)) return;
-    try { await deleteAdventure(adventure.id); } catch { /* store surfaces the error */ }
   };
 
   return (
@@ -58,7 +52,7 @@ export default function AdventureListPage() {
               <h3>{adventure.name}</h3>
               <p>{adventure.description || 'No description yet.'}</p>
             </Link>
-            {adventure.creator_id === user?.id && <div className={styles.cardActions}><Button type="button" variant="text" onClick={(event) => remove(event, adventure)} disabled={loading}>Delete</Button></div>}
+            {adventure.creator_id === user?.id && <div className={styles.cardActions}><span className={styles.ownerLabel}>Your game</span></div>}
           </article>)}
         </div>
       )}
