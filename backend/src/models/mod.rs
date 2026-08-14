@@ -20,8 +20,8 @@ pub use ai::{
     GenerateResponse,
 };
 pub use character::{
-    Character, CreateCharacterRequest, UpdateCharacterAdvancementRequest, UpdateCharacterRequest,
-    UpdateCharacterStatsRequest,
+    Character, CharacterSummary, CreateCharacterRequest, UpdateCharacterAdvancementRequest,
+    UpdateCharacterRequest, UpdateCharacterStatsRequest,
 };
 pub use content::{ImportBookRequest, SourceBook, UpdateBookContentRequest};
 pub use frame::{

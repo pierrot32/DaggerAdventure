@@ -56,9 +56,7 @@ export default function CharactersPage() {
               <Link className={styles.cardLink} to={`/characters/${character.id}`}>
               <p className="eyebrow">LEVEL {character.level}</p>
               <h3>{character.name}</h3>
-              <p>{character.pronouns}</p>
               <p className="muted">{character.class_id} · {character.ancestry_id} · {character.community_id}</p>
-              <p className={styles.description}>{character.description}</p>
               </Link>
               <div className={styles.cardActions}><button type="button" className={styles.deleteButton} disabled={state.deletingId === character.id} onClick={(event) => handleDelete(event, character)}>{state.deletingId === character.id ? 'Deleting...' : 'Delete character'}</button></div>
             </article>

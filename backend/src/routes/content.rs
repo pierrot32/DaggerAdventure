@@ -14,8 +14,9 @@ use crate::{
 
 pub async fn get_character_creation_book(
     State(state): State<AppState>,
-    AuthUser(_user): AuthUser,
+    AuthUser(actor): AuthUser,
 ) -> Result<Json<SourceBook>, AppError> {
+    require_at_least(&actor, AccessLevel::PlayerOnly)?;
     content_repo::find_character_creation_book(&state.db)
         .await?
         .map(Json)

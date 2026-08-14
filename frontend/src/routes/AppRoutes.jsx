@@ -19,6 +19,7 @@ import CharacterBuilderPage from '../features/characters/CharacterBuilderPage';
 import CharacterDetailPage from '../features/characters/CharacterDetailPage';
 import CharacterProfilePage from '../features/characters/CharacterProfilePage';
 import DruidBeastFormsPage from '../features/characters/DruidBeastFormsPage';
+import EquipmentPage from '../features/equipment/EquipmentPage';
 import FrameLibraryPage from '../features/frames/FrameLibraryPage';
 import FrameEditorPage from '../features/frames/FrameEditorPage';
 import BookImportPage from '../features/admin/BookImportPage';
@@ -98,6 +99,9 @@ export default function AppRoutes() {
       )} />
       <Route path="/characters" element={(
         <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.PLAYER_ONLY]}><AppLayout><CharactersPage /></AppLayout></ProtectedRoute>
+      )} />
+      <Route path="/equipment" element={(
+        <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.PLAYER_ONLY]}><AppLayout><EquipmentPage /></AppLayout></ProtectedRoute>
       )} />
       <Route path="/characters/create" element={(
         <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.PLAYER_ONLY]}><AppLayout><CharacterBuilderPage /></AppLayout></ProtectedRoute>
