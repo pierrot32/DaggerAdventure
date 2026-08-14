@@ -75,6 +75,7 @@ const editableCharacter = (value) => ({
     inventory: editableInventory(value.equipment?.inventory),
   },
   background_story: value.background_story || '', background_notes: value.background_notes || '',
+  birth_city: value.birth_city || '',
   family_members: Array.isArray(value.family_members) ? value.family_members.map((member) => ({ ...member })) : [],
   connections: Array.isArray(value.connections) ? value.connections.join('\n') : value.connections || '',
 });
@@ -430,6 +431,14 @@ export default function CharacterDetailPage({ mode = 'sheet' }) {
             </ul>
           </Panel>
 
+          <Panel title="Background">
+            <div className={styles.statLine}>
+              <div><span>Birth city</span><strong>{character.birth_city || '—'}</strong></div>
+            </div>
+            {character.background_story && <p className={styles.feature}>{character.background_story}</p>}
+            {character.background_notes && <p className={styles.hint}>{character.background_notes}</p>}
+          </Panel>
+
           {(character.domain_cards || []).length > 0 && (
             <Panel title="Domain cards">
               <div className={styles.cards}>
@@ -572,7 +581,7 @@ function AdvancementPanel({ character, book, onClose, onAdvanced }) {
 }
 
 function CharacterEditor({ form, updateField, updateEquipmentField, updateExperience, addExperience, removeExperience, updateInventoryItem, addInventoryItem, removeInventoryItem, updateFamilyMember, addFamilyMember, removeFamilyMember }) {
-  const input = (label, field, type = 'input') => <label className={styles.editField}><span>{label}</span>{type === 'textarea' ? <textarea value={form[field]} onChange={(event) => updateField(field, event.target.value)} /> : <input value={form[field]} onChange={(event) => updateField(field, event.target.value)} />}</label>;
+  const input = (label, field, type = 'input', maxLength) => <label className={styles.editField}><span>{label}</span>{type === 'textarea' ? <textarea value={form[field]} onChange={(event) => updateField(field, event.target.value)} /> : <input maxLength={maxLength} value={form[field]} onChange={(event) => updateField(field, event.target.value)} />}</label>;
   return <section className={styles.editor}>
     <h3>Edit character</h3>
     <div className={styles.editorGrid}>
@@ -599,7 +608,7 @@ function CharacterEditor({ form, updateField, updateEquipmentField, updateExperi
     </div>
     <div className={styles.editorSection}>
       <h4>Background</h4>
-      <div className={styles.editorGrid}>{input('Background story', 'background_story', 'textarea')}{input('Background notes', 'background_notes', 'textarea')}{input('Connections', 'connections', 'textarea')}</div>
+      <div className={styles.editorGrid}>{input('Birth city', 'birth_city', 'input', 160)}{input('Background story', 'background_story', 'textarea')}{input('Background notes', 'background_notes', 'textarea')}{input('Connections', 'connections', 'textarea')}</div>
       {form.family_members.map((member, index) => <div className={styles.familyEditRow} key={member.id || index}>
         <select value={member.relation || 'Other'} onChange={(event) => updateFamilyMember(index, 'relation', event.target.value)}>{familyRelations.map((relation) => <option value={relation} key={relation}>{relation}</option>)}</select>
         <input value={member.name || ''} onChange={(event) => updateFamilyMember(index, 'name', event.target.value)} placeholder="Name" />

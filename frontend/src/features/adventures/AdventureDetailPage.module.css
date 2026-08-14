@@ -60,6 +60,13 @@
 .campaignEditor { display: grid; gap: var(--space-5); margin-top: var(--space-5); }
 .editorIntro { padding: var(--space-4); border-left: 3px solid var(--color-accent); background: rgba(201, 157, 99, .1); }
 .editorIntro p { margin: var(--space-1) 0 0; }
+.campaignViewerActions { display: flex; justify-content: flex-end; margin-top: var(--space-5); }
+.campaignEditorLayout { display: grid; grid-template-columns: minmax(180px, .28fr) minmax(0, 1fr); gap: var(--space-5); }
+.frameSectionNav { display: grid; align-content: start; gap: 4px; }
+.frameSectionNav p { margin: 0 0 var(--space-2); color: var(--color-muted-inverse); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.frameSectionNav button { padding: var(--space-3); border: 1px solid transparent; background: transparent; color: var(--color-muted-inverse); cursor: pointer; font: inherit; text-align: left; }
+.frameSectionNav button:hover, .frameSectionNav .activeFrameSection { border-color: var(--color-accent); background: rgba(201, 157, 99, .12); color: var(--color-text-inverse); }
+.campaignEditorForm { min-width: 0; }
 .notesLayout { display: grid; grid-template-columns: minmax(190px, .35fr) minmax(0, 1fr); gap: var(--space-5); }
 .noteList { display: grid; align-content: start; gap: var(--space-2); }
 .noteList button { display: grid; gap: 4px; padding: var(--space-3); border: 1px solid transparent; background: rgba(244, 238, 228, .06); color: var(--color-text-inverse); cursor: pointer; font: inherit; text-align: left; }
@@ -73,3 +80,4 @@
 @media (max-width: 600px) { .inviteForm { flex-direction: column; } }
 @media (max-width: 700px) { .frameHeading, .managerHeader { align-items: start; flex-direction: column; } .entrySelections { grid-template-columns: 1fr; } }
 @media (max-width: 700px) { .panelHeading { align-items: start; flex-direction: column; } .notesLayout { grid-template-columns: 1fr; } .noteEditor textarea { min-height: 220px; } }
+@media (max-width: 700px) { .campaignEditorLayout { grid-template-columns: 1fr; } .frameSectionNav { grid-template-columns: repeat(2, minmax(0, 1fr)); } .frameSectionNav p { grid-column: 1 / -1; } }

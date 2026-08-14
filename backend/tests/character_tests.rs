@@ -29,6 +29,7 @@ fn create_character_request(adventure_id: Option<uuid::Uuid>) -> CreateCharacter
         background_answers: json!([]),
         background_story: String::new(),
         background_notes: String::new(),
+        birth_city: String::new(),
         family_members: json!([]),
         connections: json!([]),
         equipment: json!({}),

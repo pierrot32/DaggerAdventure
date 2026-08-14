@@ -38,6 +38,8 @@ pub struct CreateCharacterRequest {
     #[serde(default)]
     pub background_notes: String,
     #[serde(default)]
+    pub birth_city: String,
+    #[serde(default)]
     pub family_members: Value,
     pub connections: Value,
     pub equipment: Value,
@@ -79,6 +81,8 @@ pub struct UpdateCharacterRequest {
     pub background_story: String,
     #[serde(default)]
     pub background_notes: String,
+    #[serde(default)]
+    pub birth_city: Option<String>,
     #[serde(default)]
     pub family_members: Value,
     #[serde(default)]
@@ -127,6 +131,7 @@ pub struct Character {
     pub background_answers: Value,
     pub background_story: String,
     pub background_notes: String,
+    pub birth_city: String,
     pub family_members: Value,
     pub connections: Value,
     pub equipment: Value,
@@ -137,7 +142,7 @@ pub struct Character {
 
 #[cfg(test)]
 mod tests {
-    use super::CharacterSummary;
+    use super::{CharacterSummary, UpdateCharacterRequest};
     use serde_json::json;
     use uuid::Uuid;
 
@@ -163,5 +168,33 @@ mod tests {
                 "community_id": "wanderborne"
             })
         );
+    }
+
+    #[test]
+    fn update_birth_city_distinguishes_omitted_from_explicit_empty() {
+        let omitted: UpdateCharacterRequest = serde_json::from_value(json!({
+            "name": "Test Hero",
+            "pronouns": "they/them",
+            "description": "A test hero",
+            "experiences": [],
+            "equipment": {},
+            "family_members": [],
+            "connections": []
+        }))
+        .expect("legacy update payload should deserialize");
+        let explicit_empty: UpdateCharacterRequest = serde_json::from_value(json!({
+            "name": "Test Hero",
+            "pronouns": "they/them",
+            "description": "A test hero",
+            "birth_city": "",
+            "experiences": [],
+            "equipment": {},
+            "family_members": [],
+            "connections": []
+        }))
+        .expect("current update payload should deserialize");
+
+        assert_eq!(omitted.birth_city, None);
+        assert_eq!(explicit_empty.birth_city, Some(String::new()));
     }
 }

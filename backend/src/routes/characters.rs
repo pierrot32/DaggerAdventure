@@ -46,6 +46,12 @@ pub async fn create(
     request.look_description = request.look_description.trim().to_owned();
     request.background_story = request.background_story.trim().to_owned();
     request.background_notes = request.background_notes.trim().to_owned();
+    request.birth_city = request.birth_city.trim().to_owned();
+    if request.birth_city.chars().count() > 160 {
+        return Err(AppError::Validation(
+            "Birth city must be 160 characters or fewer".to_owned(),
+        ));
+    }
     if request.pronouns.is_empty() || request.description.is_empty() {
         return Err(AppError::Validation(
             "Pronouns and description are required".to_owned(),
@@ -101,6 +107,18 @@ pub async fn update(
     request.look_description = request.look_description.trim().to_owned();
     request.background_story = request.background_story.trim().to_owned();
     request.background_notes = request.background_notes.trim().to_owned();
+    request.birth_city = request
+        .birth_city
+        .map(|birth_city| birth_city.trim().to_owned());
+    if request
+        .birth_city
+        .as_ref()
+        .is_some_and(|birth_city| birth_city.chars().count() > 160)
+    {
+        return Err(AppError::Validation(
+            "Birth city must be 160 characters or fewer".to_owned(),
+        ));
+    }
     if request.pronouns.is_empty() || request.description.is_empty() {
         return Err(AppError::Validation(
             "Pronouns and description are required".to_owned(),

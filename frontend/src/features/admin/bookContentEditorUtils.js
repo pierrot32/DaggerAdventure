@@ -133,8 +133,21 @@ export function normalizeWeapon(item, group) {
     name: item.name || '',
     tier: Number(item.tier) || 1,
   };
-  if (group !== 'armor') normalized.is_magic = Boolean(item.is_magic);
+  if (group !== 'armor') {
+    normalized.is_magic = item.is_magic === true
+      || (typeof item.is_magic === 'string' && item.is_magic.toLowerCase() === 'true');
+  }
   return normalized;
+}
+
+export function normalizeLoot(item, fallbackCategory = '') {
+  return {
+    ...clone(item),
+    id: item.id || '',
+    name: item.name || '',
+    category: item.category || fallbackCategory,
+    text: item.text || item.description || '',
+  };
 }
 
 export function normalizeDomainCard(item) {
@@ -233,6 +246,12 @@ export function normalizeBookContent(value) {
     content.equipment[id] = Array.isArray(content.equipment[id])
       ? content.equipment[id].map((item) => normalizeWeapon(item, id))
       : [];
+  });
+  ['items', 'consumables'].forEach((key) => {
+    if (Array.isArray(content[key])) content[key] = content[key].map((item) => normalizeLoot(item, key === 'items' ? 'item' : 'consumable'));
+  });
+  ['item', 'consumable'].forEach((key) => {
+    if (Array.isArray(content.equipment[key])) content.equipment[key] = content.equipment[key].map((item) => normalizeLoot(item, key));
   });
   return migrateLegacyBeastFeatures(content);
 }

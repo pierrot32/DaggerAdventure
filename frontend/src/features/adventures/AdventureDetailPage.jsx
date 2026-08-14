@@ -5,7 +5,7 @@ import Button from '../../components/Button/Button';
 import { useAdventureStore } from './adventureStore';
 import * as adventureApi from './adventureApi';
 import { createLibraryFrame, getAdventureFrame, updateAdventureFrame } from '../frames/frameApi';
-import { contentToForm, draftToContent } from '../frames/frameDraft';
+import { contentToForm, draftToContent, frameEditorSections } from '../frames/frameDraft';
 import { FrameDraftForm } from './CreateAdventurePage';
 import styles from './AdventureDetailPage.module.css';
 
@@ -27,6 +27,8 @@ export default function AdventureDetailPage() {
   const [message, setMessage] = useState('');
   const [frame, setFrame] = useState(null);
   const [frameForm, setFrameForm] = useState(null);
+  const [frameEditMode, setFrameEditMode] = useState(false);
+  const [activeFrameSection, setActiveFrameSection] = useState('details');
   const [frameState, setFrameState] = useState({ loading: true, saving: false, error: '', message: '' });
   const [deleteState, setDeleteState] = useState({ saving: false, error: '' });
   const [players, setPlayers] = useState([]);
@@ -51,6 +53,8 @@ export default function AdventureDetailPage() {
     setMessage('');
     setFrame(null);
     setFrameForm(null);
+    setFrameEditMode(false);
+    setActiveFrameSection('details');
     frameRevision.current = 0;
     setFrameState({ loading: true, saving: false, error: '', message: '' });
     setDeleteState({ saving: false, error: '' });
@@ -101,6 +105,8 @@ export default function AdventureDetailPage() {
         if (!active || !isCurrentRoute(requestGeneration)) return;
         setFrame(value);
         setFrameForm(contentToForm(value.content));
+        setFrameEditMode(false);
+        setActiveFrameSection('details');
         frameRevision.current = 0;
         setFrameState({ loading: false, saving: false, error: '', message: '' });
       })
@@ -259,14 +265,14 @@ export default function AdventureDetailPage() {
   return <section>
     <p className="eyebrow">PRIVATE ADVENTURE</p><h2>{current.name}</h2><p className={styles.description}>{current.description || 'No description yet.'}</p>{error && <p className={styles.error}>{error}</p>}
     <nav className={styles.workspaceTabs} aria-label="Adventure workspace">{tabs.filter((tab) => !tab.creatorOnly || isCreator).map((tab) => <button type="button" key={tab.id} className={activeTab === tab.id ? styles.activeTab : ''} onClick={() => setActiveTab(tab.id)} aria-current={activeTab === tab.id ? 'page' : undefined}>{tab.label}</button>)}</nav>
-    {activeTab === 'campaign' && <CampaignPanel frame={frame} frameForm={frameForm} frameState={frameState} isCreator={isCreator} canCreateCharacter={canCreateCharacter} adventureId={adventureId} updateFrameField={updateFrameField} updateSelection={updateSelection} updateEntrySelection={updateEntrySelection} saveFrame={saveFrame} saveFrameToLibrary={saveFrameToLibrary} />}
+    {activeTab === 'campaign' && <CampaignPanel frame={frame} frameForm={frameForm} frameState={frameState} isCreator={isCreator} frameEditMode={frameEditMode} setFrameEditMode={setFrameEditMode} activeFrameSection={activeFrameSection} setActiveFrameSection={setActiveFrameSection} canCreateCharacter={canCreateCharacter} adventureId={adventureId} updateFrameField={updateFrameField} updateSelection={updateSelection} updateEntrySelection={updateEntrySelection} saveFrame={saveFrame} saveFrameToLibrary={saveFrameToLibrary} />}
     {activeTab === 'players' && <PlayersPanel players={players} playersState={playersState} currentUserId={user?.id} isCreator={isCreator} current={current} invites={invites} email={email} setEmail={setEmail} message={message} submitInvite={submitInvite} setFear={setFear} adventureId={adventureId} />}
     {activeTab === 'notes' && isCreator && <NotesPanel notes={notes} notesState={notesState} noteDraft={noteDraft} setNoteDraft={setNoteDraft} selectNote={selectNote} newNote={newNote} saveNote={saveNote} removeNote={removeNote} />}
     {activeTab === 'settings' && isCreator && <SettingsPanel deleteState={deleteState} removeAdventure={removeAdventure} />}
   </section>;
 }
 
-function CampaignPanel({ frame, frameForm, frameState, isCreator, canCreateCharacter, adventureId, updateFrameField, updateSelection, updateEntrySelection, saveFrame, saveFrameToLibrary }) {
+function CampaignPanel({ frame, frameForm, frameState, isCreator, frameEditMode, setFrameEditMode, activeFrameSection, setActiveFrameSection, canCreateCharacter, adventureId, updateFrameField, updateSelection, updateEntrySelection, saveFrame, saveFrameToLibrary }) {
   if (frameState.loading) return <p className="muted">Loading campaign frame...</p>;
   if (!frame) return <p className={styles.mutedPanel}>{isCreator ? 'Attach a campaign frame to begin shaping this game.' : 'The GM has not attached a campaign frame yet.'}</p>;
   const onSelectionChange = (key, value) => {
@@ -277,7 +283,8 @@ function CampaignPanel({ frame, frameForm, frameState, isCreator, canCreateChara
   };
   return <section className={styles.frameSection}>
     <div className={styles.frameHeading}><div><p className="eyebrow">ACTIVE CAMPAIGN FRAME</p><h3>{frame.content.name}</h3></div><span>Complexity {frame.content.complexity_rating}/5</span></div>
-    {isCreator ? <div className={styles.campaignEditor}><div className={styles.editorIntro}><strong>Campaign description</strong><p className="muted">Edit the complete frame. Source content stays marked, and anything you add is labeled for the table.</p></div><FrameDraftForm form={frameForm} update={updateFrameField} selections={frame.selections || {}} onSelectionChange={onSelectionChange} /><div className={styles.managerActions}><Button type="button" variant="text" onClick={saveFrameToLibrary} disabled={frameState.saving}>Save as library frame</Button><Button type="button" onClick={saveFrame} disabled={frameState.saving}>{frameState.saving ? 'Saving...' : 'Save campaign'}</Button></div></div> : <FrameViewer content={filterFrame(frame.content, frame.selections)} />}
+    {isCreator && !frameEditMode && <div className={styles.campaignViewerActions}><Button type="button" onClick={() => setFrameEditMode(true)}>Edit campaign</Button></div>}
+    {isCreator && frameEditMode ? <div className={styles.campaignEditor}><div className={styles.editorIntro}><strong>Edit campaign section</strong><p className="muted">Choose one section at a time. Source content stays marked, and anything you add is labeled for the table.</p></div><div className={styles.campaignEditorLayout}><aside className={styles.frameSectionNav} aria-label="Campaign frame sections"><p>Sections</p>{frameEditorSections.map((section) => <button type="button" key={section.id} className={activeFrameSection === section.id ? styles.activeFrameSection : ''} onClick={() => setActiveFrameSection(section.id)} aria-current={activeFrameSection === section.id ? 'step' : undefined}>{section.label}</button>)}</aside><div className={styles.campaignEditorForm}><FrameDraftForm form={frameForm} update={updateFrameField} selections={frame.selections || {}} onSelectionChange={onSelectionChange} activeSection={activeFrameSection} /><div className={styles.managerActions}><Button type="button" variant="text" onClick={saveFrameToLibrary} disabled={frameState.saving}>Save as library frame</Button><Button type="button" onClick={saveFrame} disabled={frameState.saving}>{frameState.saving ? 'Saving...' : 'Save campaign'}</Button><Button type="button" variant="text" onClick={() => setFrameEditMode(false)} disabled={frameState.saving}>Done editing</Button></div></div></div></div> : <FrameViewer content={filterFrame(frame.content, frame.selections, isCreator)} showGmNotes={isCreator} />}
     {canCreateCharacter && <Link className={styles.characterLink} to={`/characters/create?adventure=${adventureId}`}>Create a character for this adventure</Link>}
     {frameState.message && <p className="muted" role="status">{frameState.message}</p>}{frameState.error && <p className={styles.error} role="alert">{frameState.error}</p>}
   </section>;

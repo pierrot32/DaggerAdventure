@@ -6,7 +6,7 @@ use crate::models::{Character, CharacterSummary, CreateCharacterRequest};
 const CHARACTER_FIELDS: &str = "id, user_id, adventure_id, name, pronouns, description, size,
     height, weight, eye_color, hair_color, skin_color, look_description, portrait_url, level,
     advancements, class_id, subclass_id, ancestry_id, secondary_ancestry_id, community_id, traits,
-    experiences, background_answers, background_story, background_notes, family_members,
+    experiences, background_answers, background_story, background_notes, birth_city, family_members,
     connections, equipment, domain_cards, stats, created_at, updated_at";
 const CHARACTER_SUMMARY_FIELDS: &str = "id, name, level, class_id, ancestry_id, community_id";
 
@@ -20,9 +20,9 @@ pub async fn create(
          (id, user_id, adventure_id, name, pronouns, description, size, height, weight,
           eye_color, hair_color, skin_color, look_description, class_id, subclass_id,
           ancestry_id, secondary_ancestry_id, community_id, traits, experiences,
-          background_answers, background_story, background_notes, family_members,
+          background_answers, background_story, background_notes, birth_city, family_members,
           connections, equipment, domain_cards, stats)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29)
          RETURNING {CHARACTER_FIELDS}"
     );
     sqlx::query_as::<_, Character>(&query)
@@ -49,6 +49,7 @@ pub async fn create(
         .bind(&request.background_answers)
         .bind(&request.background_story)
         .bind(&request.background_notes)
+        .bind(&request.birth_city)
         .bind(&request.family_members)
         .bind(&request.connections)
         .bind(&request.equipment)
@@ -79,11 +80,11 @@ pub async fn find_visible_to_user(
     // Columns must be qualified with c. - characters and adventures share names
     // (id, name, description, created_at, updated_at), which Postgres rejects as ambiguous.
     let query =
-        "SELECT c.id, c.user_id, c.adventure_id, c.name, c.pronouns, c.description, c.level,
-        c.size, c.height, c.weight, c.eye_color, c.hair_color, c.skin_color, c.look_description,
-        c.portrait_url,
+        "SELECT c.id, c.user_id, c.adventure_id, c.name, c.pronouns, c.description, c.size,
+        c.height, c.weight, c.eye_color, c.hair_color, c.skin_color, c.look_description,
+        c.portrait_url, c.level,
         c.advancements, c.class_id, c.subclass_id, c.ancestry_id, c.secondary_ancestry_id, c.community_id, c.traits,
-        c.experiences, c.background_answers, c.background_story, c.background_notes, c.family_members,
+        c.experiences, c.background_answers, c.background_story, c.background_notes, c.birth_city, c.family_members,
         c.connections, c.equipment, c.domain_cards, c.stats,
         c.created_at, c.updated_at
          FROM characters c
@@ -182,9 +183,9 @@ pub async fn update(
         "UPDATE characters SET name = $1, pronouns = $2, description = $3, size = $4,
          height = $5, weight = $6, eye_color = $7, hair_color = $8, skin_color = $9,
          look_description = $10, experiences = $11, equipment = $12,
-         background_story = $13, background_notes = $14, family_members = $15,
-         connections = $16, updated_at = now()
-         WHERE id = $17 AND user_id = $18 RETURNING {CHARACTER_FIELDS}"
+         background_story = $13, background_notes = $14, birth_city = COALESCE($15, birth_city), family_members = $16,
+         connections = $17, updated_at = now()
+         WHERE id = $18 AND user_id = $19 RETURNING {CHARACTER_FIELDS}"
     );
     sqlx::query_as::<_, Character>(&query)
         .bind(&request.name)
@@ -201,6 +202,7 @@ pub async fn update(
         .bind(&request.equipment)
         .bind(&request.background_story)
         .bind(&request.background_notes)
+        .bind(&request.birth_city)
         .bind(&request.family_members)
         .bind(&request.connections)
         .bind(character_id)
