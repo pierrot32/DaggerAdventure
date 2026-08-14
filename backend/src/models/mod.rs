@@ -4,6 +4,7 @@ pub mod ai;
 pub mod character;
 pub mod content;
 pub mod frame;
+pub mod note;
 pub mod notification;
 pub mod user;
 
@@ -12,8 +13,8 @@ pub use admin::{
     UserListQuery, UserListResponse,
 };
 pub use adventure::{
-    Adventure, AdventureInvite, CreateAdventureRequest, CreateInviteRequest, PendingInviteView,
-    UpdateFearRequest,
+    Adventure, AdventureCharacterSummary, AdventureInvite, AdventurePlayer, CreateAdventureRequest,
+    CreateInviteRequest, PendingInviteView, UpdateFearRequest,
 };
 pub use ai::{
     AiGenerationLog, GenerateCharacterRequest, GenerateCharacterResponse, GenerateRequest,
@@ -28,6 +29,7 @@ pub use frame::{
     AdventureFrame, AttachAdventureFrameRequest, CampaignFrame, CreateCampaignFrameRequest,
     UpdateAdventureFrameRequest, UpdateCampaignFrameRequest,
 };
+pub use note::{AdventureNote, CreateNoteRequest, UpdateNoteRequest};
 pub use notification::Notification;
 pub use user::{
     AccessLevel, LoginRequest, MessageResponse, RegisterRequest, UpdateUserRequest, User,

@@ -5,6 +5,7 @@ pub mod auth;
 pub mod characters;
 pub mod content;
 pub mod frames;
+pub mod notes;
 pub mod notifications;
 pub mod users;
 
@@ -100,6 +101,10 @@ pub fn router(state: AppState) -> Router {
             get(adventures::characters),
         )
         .route(
+            "/api/adventures/:adventure_id/players",
+            get(adventures::players),
+        )
+        .route(
             "/api/adventures/:adventure_id/invites",
             get(adventures::list_invites).post(adventures::create_invite),
         )
@@ -116,6 +121,14 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/adventures/:adventure_id/character-context",
             get(frames::character_context),
+        )
+        .route(
+            "/api/adventures/:adventure_id/notes",
+            get(notes::list).post(notes::create),
+        )
+        .route(
+            "/api/adventures/:adventure_id/notes/:note_id",
+            axum::routing::put(notes::update).delete(notes::delete),
         )
         .route("/api/invites", get(adventures::my_invites))
         .route(

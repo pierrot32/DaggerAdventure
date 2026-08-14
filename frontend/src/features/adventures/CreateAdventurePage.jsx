@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Button from '../../components/Button/Button';
 import { listBuiltinFrames, listLibraryFrames } from '../frames/frameApi';
 import { getCharacterCreationBook } from '../characters/characterApi';
-import { autoFeatureIds, contentToForm, draftToContent, emptyFrame, frameModificationKinds, newModificationEntry, preserveFrameEntryMapShape } from '../frames/frameDraft';
+import { autoFeatureIds, contentToForm, draftToContent, emptyFrame, frameModificationKinds, newModificationEntry, newRepeatableEntry, preserveFrameEntryMapShape } from '../frames/frameDraft';
 import { useAdventureStore } from './adventureStore';
 import styles from './CreateAdventurePage.module.css';
 
@@ -91,10 +91,17 @@ export default function CreateAdventurePage() {
 
 export function FramePreview({ content }) {
   if (!content) return <p className="muted">Choose a frame to preview it.</p>;
-  return <article className={styles.preview}><div className={styles.previewTop}><div><p className="eyebrow">SELECTED FRAME</p><h3>{content.name}</h3></div><span>Complexity {content.complexity_rating}/5</span></div><p>{content.description}</p><p className={styles.pitch}>{content.pitch}</p><div className={styles.tags}>{(content.tone_and_feel || []).map((tone) => <span key={tone}>{tone}</span>)}</div></article>;
+  const tones = Array.isArray(content.tone_and_feel) ? content.tone_and_feel : [];
+  return <article className={styles.preview}><div className={styles.previewTop}><div><p className="eyebrow">SELECTED FRAME</p><h3>{content.name}</h3></div><span>Complexity {content.complexity_rating}/5</span></div><p>{content.description}</p><p className={styles.pitch}>{content.pitch}</p><div className={styles.tags}>{tones.map((tone, index) => <span key={tone?.id || `tone-${index + 1}`}>{displayFrameValue(tone)}</span>)}</div></article>;
 }
 
-export function FrameDraftForm({ form, update, optionLists = {}, activeSection = '', metadataPersistent = false }) {
+function displayFrameValue(value) {
+  if (value === null || value === undefined) return '';
+  if (typeof value !== 'object') return String(value);
+  return displayFrameValue(value.description ?? value.text ?? value.value ?? value.title ?? value.name);
+}
+
+export function FrameDraftForm({ form, update, optionLists = {}, activeSection = '', metadataPersistent = false, selections = {}, onSelectionChange = () => {} }) {
   const availableOptions = optionLists || {};
   const showSection = (section) => !activeSection || activeSection === section;
   const updateGmMessage = (section, value) => update('gm_messages', { ...(form.gm_messages || {}), [section]: value });
@@ -107,23 +114,26 @@ export function FrameDraftForm({ form, update, optionLists = {}, activeSection =
       <label>Complexity<select value={form.complexity_rating} onChange={(event) => update('complexity_rating', event.target.value)}>{[1, 2, 3, 4, 5].map((value) => <option value={value} key={value}>{value} / 5</option>)}</select></label>
       <TextField className={styles.full} label="Description" value={form.description} update={update} field="description" />
     </div>}
-    {showSection('pitch') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Pitch" value={form.gm_messages?.pitch} update={updateGmMessage} field="pitch" />}><TextField label="Pitch" value={form.pitch} update={update} field="pitch" required /></SectionFields>}
-    {showSection('tone_and_feel') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Tone & feel" value={form.gm_messages?.tone_and_feel} update={updateGmMessage} field="tone_and_feel" />}><RepeatableTextList label="Tone & feel" values={form.tone_and_feel} onChange={(value) => update('tone_and_feel', value)} addLabel="tone" placeholder="A tone or feeling" /></SectionFields>}
-    {showSection('themes') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Themes" value={form.gm_messages?.themes} update={updateGmMessage} field="themes" />}><RepeatableTextList label="Themes" values={form.themes} onChange={(value) => update('themes', value)} addLabel="theme" placeholder="A theme" /></SectionFields>}
-    {showSection('touchstones') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Touchstones" value={form.gm_messages?.touchstones} update={updateGmMessage} field="touchstones" />}><RepeatableTextList label="Touchstones" values={form.touchstones} onChange={(value) => update('touchstones', value)} addLabel="touchstone" placeholder="A touchstone" /></SectionFields>}
-    {showSection('overview') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Overview" value={form.gm_messages?.overview} update={updateGmMessage} field="overview" />}><TextField label="Overview" value={form.overview} update={update} field="overview" required /></SectionFields>}
-    {frameModificationKinds.map((kind) => showSection(kind.id) && <SectionFields key={kind.id} note={<TextField className={`${styles.full} ${styles.gmNote}`} label={`GM-only note for ${kind.label}`} value={form.gm_messages?.[kind.id]} update={updateGmMessage} field={kind.id} />}><ModificationList kind={kind} frameName={form.name} entries={form.modifications?.[kind.id] || []} options={availableOptions[kind.id] || []} onChange={(entries) => updateModification(kind.id, entries)} /></SectionFields>)}
-    {showSection('player_principles') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Player principles" value={form.gm_messages?.player_principles} update={updateGmMessage} field="player_principles" />}><RepeatableTextList label="Player principles" values={form.player_principles} onChange={(value) => update('player_principles', value)} addLabel="principle" titlePrefix="Player principle" placeholder="A principle for players" titledEntries /></SectionFields>}
-    {showSection('gm_principles') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for GM principles" value={form.gm_messages?.gm_principles} update={updateGmMessage} field="gm_principles" />}><RepeatableTextList label="GM principles" values={form.gm_principles} onChange={(value) => update('gm_principles', value)} addLabel="principle" titlePrefix="GM principle" placeholder="A principle for the GM" titledEntries /></SectionFields>}
-    {showSection('distinctions') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Distinctions" value={form.gm_messages?.distinctions} update={updateGmMessage} field="distinctions" />}><RepeatableTextList label="Distinctions" values={form.distinctions} onChange={(value) => update('distinctions', value)} addLabel="distinction" titlePrefix="Distinction" placeholder="A distinction" titledEntries /></SectionFields>}
-    {showSection('inciting_incident') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for The inciting incident" value={form.gm_messages?.inciting_incident} update={updateGmMessage} field="inciting_incident" />}><TextField label="The inciting incident" value={form.inciting_incident} update={update} field="inciting_incident" /></SectionFields>}
-    {showSection('campaign_mechanics') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Campaign mechanics" value={form.gm_messages?.campaign_mechanics} update={updateGmMessage} field="campaign_mechanics" />}><RepeatableTextList label="Campaign mechanics" values={form.campaign_mechanics} onChange={(value) => update('campaign_mechanics', value)} addLabel="mechanic" titlePrefix="Campaign mechanic" placeholder="A campaign rule or procedure" tableEditor titledEntries /></SectionFields>}
-    {showSection('session_zero_questions') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Session-zero questions" value={form.gm_messages?.session_zero_questions} update={updateGmMessage} field="session_zero_questions" />}><RepeatableTextList label="Session-zero questions" values={form.session_zero_questions} onChange={(value) => update('session_zero_questions', value)} addLabel="question" placeholder="A question for session zero" /></SectionFields>}
+    {showSection('pitch') && <SectionFields selectionKey="pitch" selections={selections} onSelectionChange={onSelectionChange} note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Pitch" value={form.gm_messages?.pitch} update={updateGmMessage} field="pitch" />}><TextField label="Pitch" value={form.pitch} update={update} field="pitch" required /></SectionFields>}
+    {showSection('tone_and_feel') && <SectionFields selectionKey="tone_and_feel_section" selections={selections} onSelectionChange={onSelectionChange} note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Tone & feel" value={form.gm_messages?.tone_and_feel} update={updateGmMessage} field="tone_and_feel" />}><RepeatableTextList label="Tone & feel" values={form.tone_and_feel} onChange={(value) => update('tone_and_feel', value)} addLabel="tone" placeholder="A tone or feeling" selectionKey="tone_and_feel" selections={selections} onSelectionChange={onSelectionChange} /></SectionFields>}
+    {showSection('themes') && <SectionFields selectionKey="themes_section" selections={selections} onSelectionChange={onSelectionChange} note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Themes" value={form.gm_messages?.themes} update={updateGmMessage} field="themes" />}><RepeatableTextList label="Themes" values={form.themes} onChange={(value) => update('themes', value)} addLabel="theme" placeholder="A theme" selectionKey="themes" selections={selections} onSelectionChange={onSelectionChange} /></SectionFields>}
+    {showSection('touchstones') && <SectionFields selectionKey="touchstones_section" selections={selections} onSelectionChange={onSelectionChange} note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Touchstones" value={form.gm_messages?.touchstones} update={updateGmMessage} field="touchstones" />}><RepeatableTextList label="Touchstones" values={form.touchstones} onChange={(value) => update('touchstones', value)} addLabel="touchstone" placeholder="A touchstone" selectionKey="touchstones" selections={selections} onSelectionChange={onSelectionChange} /></SectionFields>}
+    {showSection('overview') && <SectionFields selectionKey="overview" selections={selections} onSelectionChange={onSelectionChange} note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Overview" value={form.gm_messages?.overview} update={updateGmMessage} field="overview" />}><TextField label="Overview" value={form.overview} update={update} field="overview" required /></SectionFields>}
+    {frameModificationKinds.map((kind) => showSection(kind.id) && <SectionFields key={kind.id} selectionKey={kind.id === 'communities' ? 'modifications' : undefined} selections={selections} onSelectionChange={onSelectionChange} note={<TextField className={`${styles.full} ${styles.gmNote}`} label={`GM-only note for ${kind.label}`} value={form.gm_messages?.[kind.id]} update={updateGmMessage} field={kind.id} />}><ModificationList kind={kind} frameName={form.name} entries={form.modifications?.[kind.id] || []} options={availableOptions[kind.id] || []} onChange={(entries) => updateModification(kind.id, entries)} selections={selections} onSelectionChange={onSelectionChange} /></SectionFields>)}
+    {showSection('player_principles') && <SectionFields selectionKey="player_principles_section" selections={selections} onSelectionChange={onSelectionChange} note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Player principles" value={form.gm_messages?.player_principles} update={updateGmMessage} field="player_principles" />}><RepeatableTextList label="Player principles" values={form.player_principles} onChange={(value) => update('player_principles', value)} addLabel="principle" titlePrefix="Player principle" placeholder="A principle for players" titledEntries selectionKey="player_principles" selections={selections} onSelectionChange={onSelectionChange} /></SectionFields>}
+    {showSection('gm_principles') && <SectionFields selectionKey="gm_principles_section" selections={selections} onSelectionChange={onSelectionChange} note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for GM principles" value={form.gm_messages?.gm_principles} update={updateGmMessage} field="gm_principles" />}><RepeatableTextList label="GM principles" values={form.gm_principles} onChange={(value) => update('gm_principles', value)} addLabel="principle" titlePrefix="GM principle" placeholder="A principle for the GM" titledEntries selectionKey="gm_principles" selections={selections} onSelectionChange={onSelectionChange} /></SectionFields>}
+    {showSection('distinctions') && <SectionFields selectionKey="distinctions_section" selections={selections} onSelectionChange={onSelectionChange} note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Distinctions" value={form.gm_messages?.distinctions} update={updateGmMessage} field="distinctions" />}><RepeatableTextList label="Distinctions" values={form.distinctions} onChange={(value) => update('distinctions', value)} addLabel="distinction" titlePrefix="Distinction" placeholder="A distinction" titledEntries selectionKey="distinctions" selections={selections} onSelectionChange={onSelectionChange} /></SectionFields>}
+    {showSection('inciting_incident') && <SectionFields selectionKey="inciting_incident" selections={selections} onSelectionChange={onSelectionChange} note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for The inciting incident" value={form.gm_messages?.inciting_incident} update={updateGmMessage} field="inciting_incident" />}><TextField label="The inciting incident" value={form.inciting_incident} update={update} field="inciting_incident" /></SectionFields>}
+    {showSection('campaign_mechanics') && <SectionFields selectionKey="campaign_mechanics_section" selections={selections} onSelectionChange={onSelectionChange} note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Campaign mechanics" value={form.gm_messages?.campaign_mechanics} update={updateGmMessage} field="campaign_mechanics" />}><RepeatableTextList label="Campaign mechanics" values={form.campaign_mechanics} onChange={(value) => update('campaign_mechanics', value)} addLabel="mechanic" titlePrefix="Campaign mechanic" placeholder="A campaign rule or procedure" tableEditor titledEntries selectionKey="campaign_mechanics" selections={selections} onSelectionChange={onSelectionChange} /></SectionFields>}
+    {showSection('session_zero_questions') && <SectionFields selectionKey="session_zero_questions_section" selections={selections} onSelectionChange={onSelectionChange} note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Session-zero questions" value={form.gm_messages?.session_zero_questions} update={updateGmMessage} field="session_zero_questions" />}><RepeatableTextList label="Session-zero questions" values={form.session_zero_questions} onChange={(value) => update('session_zero_questions', value)} addLabel="question" placeholder="A question for session zero" selectionKey="session_zero_questions" selections={selections} onSelectionChange={onSelectionChange} /></SectionFields>}
   </div>;
 }
 
-function SectionFields({ note, children }) {
-  return <div className={styles.sectionFields}>{note}{children}</div>;
+function SectionFields({ note, children, selectionKey, selections, onSelectionChange }) {
+  return <div className={styles.sectionFields}>
+    {selectionKey && <label className={styles.sectionVisibility}><input type="checkbox" checked={selections?.[selectionKey] !== false} onChange={(event) => onSelectionChange(selectionKey, event.target.checked)} /><span>Use this section in play</span></label>}
+    {note}{children}
+  </div>;
 }
 
 function TextField({ label, value, update, field, hint, required = false, className = '' }) {
@@ -138,7 +148,7 @@ function normalizeNewlineRuns(value) {
   });
 }
 
-export function RepeatableTextList({ label, values, onChange, addLabel = 'item', titlePrefix, placeholder, tableEditor = false, titledEntries = false }) {
+export function RepeatableTextList({ label, values, onChange, addLabel = 'item', titlePrefix, placeholder, tableEditor = false, titledEntries = false, selectionKey, selections, onSelectionChange = () => {} }) {
   const items = Array.isArray(values) ? values : [];
   const itemValue = (item) => typeof item === 'object' && item !== null ? item.description ?? item.text ?? item.value ?? item.title ?? '' : item;
   const itemTitle = (item, index) => typeof item === 'object' && item !== null ? item.title ?? `${titlePrefix || label} ${index + 1}` : `${titlePrefix || label} ${index + 1}`;
@@ -151,21 +161,25 @@ export function RepeatableTextList({ label, values, onChange, addLabel = 'item',
     return typeof item === 'object' && item !== null ? { ...item, title: value } : { title: value, description: item };
   }));
   const removeItem = (index) => onChange(items.filter((_, itemIndex) => itemIndex !== index));
+  const entryId = (item, index) => typeof item === 'object' && item !== null ? item.id || `${label}-${index}` : `${label}-${index}`;
+  const updateItemSelection = (item, index, value) => onSelectionChange(selectionKey, { ...(selections?.[selectionKey] || {}), [entryId(item, index)]: value });
   const updateItemTable = (index, table) => onChange(items.map((item, itemIndex) => {
     if (itemIndex !== index) return item;
     return typeof item === 'object' && item !== null ? { ...item, table } : titledEntries ? { title: itemTitle(item, index), description: item, table } : { description: item, table };
   }));
   return <fieldset className={styles.repeatableList}>
     <legend>{label}</legend>
-    {items.map((item, index) => <div className={styles.repeatableItem} key={`${label}-${index}`}>
+    {items.map((item, index) => <div className={styles.repeatableItem} key={entryId(item, index)}>
+      {selectionKey && <label className={styles.entryVisibility}><input type="checkbox" checked={selections?.[selectionKey]?.[entryId(item, index)] !== false} onChange={(event) => updateItemSelection(item, index, event.target.checked)} /><span>Use</span></label>}
+      {typeof item === 'object' && item?.origin && <span className={item.origin === 'custom' ? styles.customOrigin : styles.sourceOrigin}>{item.origin === 'custom' ? 'Added by GM' : 'Source content'}</span>}
       <div className={styles.repeatableFields}>
         {titledEntries && <label className={styles.repeatableTitle}>{label} {index + 1} title<input required value={itemTitle(item, index)} onChange={(event) => updateItemTitle(index, event.target.value)} /></label>}
-        <TextField className={styles.repeatableField} label={`${label} ${index + 1} description`} value={itemValue(item)} update={(_field, value) => updateItem(index, value)} field="value" hint={placeholder} required={titledEntries} />
+        <TextField className={styles.repeatableField} label={`${label} ${index + 1} description`} value={itemValue(item)} update={(_field, value) => updateItem(index, value)} field="value" hint={placeholder} required={titledEntries || typeof item === 'object'} />
       </div>
       <button type="button" className={styles.removeButton} onClick={() => removeItem(index)} aria-label={`Remove ${label} ${index + 1}`}>Remove</button>
       {tableEditor && <TableEditor table={item?.table} onChange={(table) => updateItemTable(index, table)} label={`${label} ${index + 1} table`} />}
     </div>)}
-    <button type="button" className={styles.smallButton} onClick={() => onChange([...items, titledEntries ? { title: `${titlePrefix || label} ${items.length + 1}`, description: '' } : ''])}>Add {addLabel}</button>
+    <button type="button" className={styles.smallButton} onClick={() => onChange([...items, newRepeatableEntry(titlePrefix || label, items.length + 1, titledEntries)])}>Add {addLabel}</button>
   </fieldset>;
 }
 
@@ -200,7 +214,7 @@ export function TableEditor({ table, onChange, label = 'Table' }) {
   return <fieldset className={styles.tableEditor}><legend>{label}</legend><div className={styles.tableActions}><button type="button" className={styles.smallButton} onClick={addRow}>Add row</button><button type="button" className={styles.smallButton} onClick={addColumn}>Add column</button><button type="button" className={styles.removeButton} onClick={() => onChange(undefined)}>Remove table</button></div><div className={styles.tableScroll}><table><thead><tr>{normalized.headers.map((header, index) => <th key={`header-${index}`}><input aria-label={`${label} column ${index + 1}`} value={header} onChange={(event) => updateHeader(index, event.target.value)} /><button type="button" className={styles.removeButton} onClick={() => removeColumn(index)} aria-label={`Remove ${label} column ${index + 1}`}>Remove</button></th>)}</tr></thead><tbody>{normalized.rows.map((row, rowIndex) => <tr key={`row-${rowIndex}`}>{row.map((cell, columnIndex) => <td key={`cell-${rowIndex}-${columnIndex}`}><input aria-label={`${label} row ${rowIndex + 1} column ${columnIndex + 1}`} value={cell} onChange={(event) => updateCell(rowIndex, columnIndex, event.target.value)} /></td>)}<td><button type="button" className={styles.removeButton} onClick={() => removeRow(rowIndex)} aria-label={`Remove ${label} row ${rowIndex + 1}`}>Remove row</button></td></tr>)}</tbody></table></div></fieldset>;
 }
 
-function ModificationList({ kind, frameName, entries, options, onChange }) {
+function ModificationList({ kind, frameName, entries, options, onChange, selections = {}, onSelectionChange = () => {} }) {
   const [selectedTargetId, setSelectedTargetId] = useState(options[0]?.id || '');
   useEffect(() => {
     if (!options.some((option) => option.id === selectedTargetId)) setSelectedTargetId(options[0]?.id || '');
@@ -214,6 +228,7 @@ function ModificationList({ kind, frameName, entries, options, onChange }) {
   return <section className={styles.modificationSection}>
     <div className={styles.modificationHeader}><div><h4>{kind.label}</h4><p>Add a feature for a selected {kind.optionLabel}. A feature can be assigned to more than one {kind.optionLabel} after it is created.</p></div><div className={styles.addFeatureControls}><select aria-label={`${kind.optionLabel} to add`} value={selectedTargetId} onChange={(event) => setSelectedTargetId(event.target.value)}><option value="">All {kind.optionPlural}</option>{options.map((option) => <option value={option.id} key={option.id}>{option.name || option.id}</option>)}</select><button type="button" className={styles.smallButton} onClick={addEntry}>Add {kind.optionLabel}</button></div></div>
     {entriesWithIds.map((entry, index) => <article className={styles.modificationEntry} key={entry.id || `${kind.id}-${index}`}>
+      <div className={styles.entryVisibility}><label><input type="checkbox" checked={selections?.[kind.id]?.[entry.id] !== false} onChange={(event) => onSelectionChange(kind.id, { ...(selections?.[kind.id] || {}), [entry.id]: event.target.checked })} /> Use feature</label><span className={entry.origin === 'custom' ? styles.customOrigin : styles.sourceOrigin}>{entry.origin === 'custom' ? 'Added by GM' : 'Source content'}</span></div>
       <div className={styles.modificationEntryHeader}><strong>Feature {index + 1}</strong><button type="button" className={styles.removeButton} onClick={() => removeEntry(index)}>Remove</button></div>
       <div className={styles.modificationGrid}>
         <div className={styles.autoId}><span>Automatic feature ID</span><code>{entry.id}</code></div>

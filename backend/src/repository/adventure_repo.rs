@@ -3,7 +3,10 @@ use uuid::Uuid;
 
 use crate::{
     error::AppError,
-    models::{Adventure, AdventureInvite, PendingInviteView, User},
+    models::{
+        Adventure, AdventureCharacterSummary, AdventureInvite, AdventurePlayer, PendingInviteView,
+        User,
+    },
 };
 
 pub type ResolvedFrame<'a> = (&'a str, Option<&'a str>, &'a serde_json::Value);
@@ -156,6 +159,86 @@ pub async fn is_creator(
     .bind(user_id)
     .fetch_one(pool)
     .await
+}
+
+pub async fn list_players(
+    pool: &PgPool,
+    user: &User,
+    adventure_id: Uuid,
+) -> Result<Vec<AdventurePlayer>, AppError> {
+    let allowed = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(
+             SELECT 1 FROM adventures a
+             LEFT JOIN adventure_members m ON m.adventure_id = a.id AND m.user_id = $2
+             WHERE a.id = $1
+               AND (a.creator_id = $2 OR m.status = 'accepted')
+         )",
+    )
+    .bind(adventure_id)
+    .bind(user.id)
+    .fetch_one(pool)
+    .await?;
+    if !allowed {
+        return Err(AppError::Forbidden(
+            "You must accept the adventure invitation first".to_owned(),
+        ));
+    }
+
+    let rows = sqlx::query_as::<_, PlayerRosterRow>(
+        "SELECT u.id AS user_id, u.name AS user_name,
+                c.id AS character_id, c.name AS character_name, c.level AS character_level,
+                c.class_id AS character_class_id, c.ancestry_id AS character_ancestry_id,
+                c.community_id AS character_community_id
+         FROM adventures a
+         JOIN adventure_members m ON m.adventure_id = a.id AND m.status = 'accepted'
+         JOIN users u ON u.id = m.user_id
+         LEFT JOIN LATERAL (
+             SELECT id, name, level, class_id, ancestry_id, community_id
+             FROM characters
+             WHERE adventure_id = a.id AND user_id = u.id
+             ORDER BY updated_at DESC, id
+             LIMIT 1
+         ) c ON true
+         WHERE a.id = $1
+         ORDER BY CASE WHEN u.id = a.creator_id THEN 0 ELSE 1 END, u.name, u.id",
+    )
+    .bind(adventure_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| AdventurePlayer {
+            user_id: row.user_id,
+            user_name: row.user_name,
+            character: row.character_id.map(|id| AdventureCharacterSummary {
+                id,
+                name: row.character_name.expect("character name accompanies id"),
+                level: row.character_level.expect("character level accompanies id"),
+                class_id: row
+                    .character_class_id
+                    .expect("character class accompanies id"),
+                ancestry_id: row
+                    .character_ancestry_id
+                    .expect("character ancestry accompanies id"),
+                community_id: row
+                    .character_community_id
+                    .expect("character community accompanies id"),
+            }),
+        })
+        .collect())
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct PlayerRosterRow {
+    user_id: Uuid,
+    user_name: String,
+    character_id: Option<Uuid>,
+    character_name: Option<String>,
+    character_level: Option<i32>,
+    character_class_id: Option<String>,
+    character_ancestry_id: Option<String>,
+    character_community_id: Option<String>,
 }
 
 pub async fn create_invite(

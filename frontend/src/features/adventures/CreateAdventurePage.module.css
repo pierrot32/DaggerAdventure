@@ -22,6 +22,8 @@
 .draftIntro p:last-child { max-width: 700px; margin-bottom: 0; color: var(--color-muted-inverse); }
 .frameGrid small { color: var(--color-muted-inverse); font-size: 12px; }
 .sectionFields { display: grid; gap: var(--space-4); }
+.sectionVisibility { display: flex !important; grid-template-columns: none !important; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); border-left: 2px solid var(--color-accent); background: rgba(201, 157, 99, .08); color: var(--color-text-inverse) !important; }
+.sectionVisibility input, .entryVisibility input { width: auto; accent-color: var(--color-accent); }
 .textareaControl { display: grid; gap: var(--space-2); }
 .textareaControl textarea { min-height: 140px; }
 .stripNewlines { justify-self: start; padding: 3px 7px; border: 1px solid var(--color-border); background: transparent; color: var(--color-muted-inverse); cursor: pointer; font: inherit; font-size: 11px; }
@@ -30,6 +32,9 @@
 .repeatableList { display: grid; gap: var(--space-3); min-width: 0; margin: 0; padding: 0; border: 0; }
 .repeatableList legend { padding: 0; color: var(--color-muted-inverse); font-size: 14px; }
 .repeatableItem { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2); align-items: start; }
+.entryVisibility { display: flex !important; grid-column: 1 / -1; align-items: center; gap: var(--space-2); color: var(--color-muted-inverse) !important; font-size: 12px !important; }
+.sourceOrigin, .customOrigin { display: inline-block; color: var(--color-muted-inverse); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+.customOrigin { color: var(--color-accent); }
 .repeatableFields { display: grid; gap: var(--space-3); min-width: 0; }
 .repeatableTitle { min-width: 0; }
 .repeatableField { min-width: 0; }

@@ -54,3 +54,20 @@ pub struct PendingInviteView {
     pub status: String,
     pub created_at: DateTime<Utc>,
 }
+
+#[derive(Debug, Serialize)]
+pub struct AdventurePlayer {
+    pub user_id: Uuid,
+    pub user_name: String,
+    pub character: Option<AdventureCharacterSummary>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct AdventureCharacterSummary {
+    pub id: Uuid,
+    pub name: String,
+    pub level: i32,
+    pub class_id: String,
+    pub ancestry_id: String,
+    pub community_id: String,
+}
