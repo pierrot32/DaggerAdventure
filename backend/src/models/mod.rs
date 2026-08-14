@@ -10,7 +10,7 @@ pub mod user;
 
 pub use admin::{
     AccessAuditEvent, AdminUser, UpdateAccessLevelRequest, UpdateAiGenerationRequest,
-    UserListQuery, UserListResponse,
+    UpdateApprovalRequest, UserListQuery, UserListResponse,
 };
 pub use adventure::{
     Adventure, AdventureCharacterSummary, AdventureInvite, AdventurePlayer, CreateAdventureRequest,

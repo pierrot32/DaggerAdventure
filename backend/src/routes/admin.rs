@@ -9,8 +9,8 @@ use crate::{
     error::AppError,
     middleware::{access_guard::require_at_least, auth_guard::AuthUser},
     models::{
-        AccessLevel, UpdateAccessLevelRequest, UpdateAiGenerationRequest, UserListQuery,
-        UserListResponse,
+        AccessLevel, UpdateAccessLevelRequest, UpdateAiGenerationRequest, UpdateApprovalRequest,
+        UserListQuery, UserListResponse,
     },
     repository::{admin_repo, ai_repo},
     state::AppState,
@@ -48,6 +48,17 @@ pub async fn update_access_level(
     require_at_least(&actor, AccessLevel::Admin)?;
     let user =
         admin_repo::update_access_level(&state.db, &actor, target_id, request.access_level).await?;
+    Ok(Json(user))
+}
+
+pub async fn update_approval(
+    State(state): State<AppState>,
+    AuthUser(actor): AuthUser,
+    Path(target_id): Path<Uuid>,
+    Json(request): Json<UpdateApprovalRequest>,
+) -> Result<Json<crate::models::AdminUser>, AppError> {
+    require_at_least(&actor, AccessLevel::Admin)?;
+    let user = admin_repo::update_approval(&state.db, &actor, target_id, request.approved).await?;
     Ok(Json(user))
 }
 

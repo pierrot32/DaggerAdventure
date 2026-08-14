@@ -113,6 +113,67 @@ pub async fn update_access_level(
     Ok(updated)
 }
 
+pub async fn update_approval(
+    pool: &PgPool,
+    actor: &User,
+    target_id: Uuid,
+    approved: bool,
+) -> Result<AdminUser, AppError> {
+    if actor.id == target_id {
+        return Err(AppError::Conflict(
+            "You cannot approve your own account".to_owned(),
+        ));
+    }
+
+    let mut transaction = pool.begin().await?;
+    let target = sqlx::query_as::<_, AdminUser>(
+        "SELECT id, email, name, access_level, ai_generation_enabled, created_at
+         FROM users WHERE id = $1 FOR UPDATE",
+    )
+    .bind(target_id)
+    .fetch_optional(&mut *transaction)
+    .await?
+    .ok_or_else(|| AppError::NotFound("User not found".to_owned()))?;
+
+    if target.access_level != AccessLevel::Nothing.as_str() {
+        return Err(AppError::Conflict(
+            "User is no longer pending approval".to_owned(),
+        ));
+    }
+
+    if approved {
+        sqlx::query("UPDATE users SET access_level = $1 WHERE id = $2")
+            .bind(AccessLevel::PlayerOnly.as_str())
+            .bind(target_id)
+            .execute(&mut *transaction)
+            .await?;
+
+        sqlx::query(
+            "INSERT INTO access_level_audit_events
+             (id, actor_id, target_user_id, previous_access_level, new_access_level)
+             VALUES ($1, $2, $3, $4, $5)",
+        )
+        .bind(Uuid::new_v4())
+        .bind(actor.id)
+        .bind(target_id)
+        .bind(&target.access_level)
+        .bind(AccessLevel::PlayerOnly.as_str())
+        .execute(&mut *transaction)
+        .await?;
+    }
+
+    let updated = sqlx::query_as::<_, AdminUser>(
+        "SELECT id, email, name, access_level, ai_generation_enabled, created_at
+         FROM users WHERE id = $1",
+    )
+    .bind(target_id)
+    .fetch_one(&mut *transaction)
+    .await?;
+
+    transaction.commit().await?;
+    Ok(updated)
+}
+
 pub async fn update_ai_generation_access(
     pool: &PgPool,
     target_id: Uuid,
