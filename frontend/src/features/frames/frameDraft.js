@@ -107,18 +107,31 @@ function paragraphValues(value) {
 }
 
 function normalizeEntries(value, prefix) {
-  const entries = Array.isArray(value) ? value : paragraphValues(value);
-  return entries.map((entry, index) => {
+  const isObjectMap = isObjectMapEntries(value);
+  const sourceEntries = Array.isArray(value)
+    ? value.map((entry) => ({ entry }))
+    : isObjectMap
+      ? Object.entries(value)
+        .filter(([mapKey]) => mapKey !== frameEntryMapShape)
+        .map(([mapKey, entry]) => ({ entry, mapKey }))
+      : paragraphValues(value).map((entry) => ({ entry }));
+  const normalized = sourceEntries.map(({ entry, mapKey }, index) => {
     if (typeof entry === 'object' && entry !== null && !Array.isArray(entry)) {
-      return {
+      const normalizedEntry = {
         ...entry,
         id: entry.id || `${prefix}-${index + 1}`,
         title: entry.title || `${prefix} ${index + 1}`,
         description: entryValue(entry),
       };
+      if (mapKey !== undefined) normalizedEntry[frameEntryMapKey] = mapKey;
+      return normalizedEntry;
     }
-    return { id: `${prefix}-${index + 1}`, title: `${prefix} ${index + 1}`, description: entryValue(entry) };
+    const normalizedEntry = { id: `${prefix}-${index + 1}`, title: `${prefix} ${index + 1}`, description: entryValue(entry) };
+    if (mapKey !== undefined) normalizedEntry[frameEntryMapKey] = mapKey;
+    return normalizedEntry;
   });
+  if (isObjectMap) normalized[frameEntryMapShape] = 'object';
+  return normalized;
 }
 
 export function contentToDraft(content) {
@@ -238,8 +251,15 @@ function serializeFrameEntries(entries, kind, frameName, options, mapShapes = {}
 }
 
 export function textToEntries(value, prefix) {
-  const entries = Array.isArray(value) ? value : paragraphValues(value);
-  return entries.map((entry, index) => {
+  const isObjectMap = isObjectMapEntries(value);
+  const sourceEntries = Array.isArray(value)
+    ? value.map((entry) => ({ entry }))
+    : isObjectMap
+      ? Object.entries(value)
+        .filter(([mapKey]) => mapKey !== frameEntryMapShape)
+        .map(([mapKey, entry]) => ({ entry, mapKey }))
+      : paragraphValues(value).map((entry) => ({ entry }));
+  const normalized = sourceEntries.map(({ entry, mapKey }, index) => {
     if (typeof entry === 'object' && entry !== null && !Array.isArray(entry)) {
       const description = entryValue(entry).trim();
       return description ? {
@@ -247,11 +267,33 @@ export function textToEntries(value, prefix) {
         id: entry.id || `${prefix}-${index + 1}`,
         title: entry.title || `${prefix} ${index + 1}`,
         description,
+        ...(mapKey !== undefined ? { [frameEntryMapKey]: mapKey } : {}),
       } : null;
     }
     const description = entryValue(entry).trim();
-    return description ? { id: `${prefix}-${index + 1}`, title: `${prefix} ${index + 1}`, description } : null;
+    return description ? {
+      id: `${prefix}-${index + 1}`,
+      title: `${prefix} ${index + 1}`,
+      description,
+      ...(mapKey !== undefined ? { [frameEntryMapKey]: mapKey } : {}),
+    } : null;
   }).filter(Boolean);
+  if (isObjectMap) normalized[frameEntryMapShape] = 'object';
+  return normalized;
+}
+
+function serializeTextEntries(entries, prefix) {
+  const normalized = textToEntries(entries, prefix);
+  const stripMetadata = (entry) => {
+    const serialized = { ...entry };
+    delete serialized[frameEntryMapKey];
+    return serialized;
+  };
+  if (normalized[frameEntryMapShape] !== 'object') return normalized.map(stripMetadata);
+  return Object.fromEntries(normalized.map((entry, index) => [
+    entry[frameEntryMapKey] ?? entry.id ?? `${prefix}-${index + 1}`,
+    stripMetadata(entry),
+  ]));
 }
 
 export function draftToContent(form, optionLists = {}) {
@@ -278,11 +320,11 @@ export function draftToContent(form, optionLists = {}) {
     overview: form.overview.trim(),
     modifications,
     gm_messages: gmMessages,
-    player_principles: textToEntries(form.player_principles, 'Player principle'),
-    gm_principles: textToEntries(form.gm_principles, 'GM principle'),
-    distinctions: textToEntries(form.distinctions, 'Distinction'),
+    player_principles: serializeTextEntries(form.player_principles, 'Player principle'),
+    gm_principles: serializeTextEntries(form.gm_principles, 'GM principle'),
+    distinctions: serializeTextEntries(form.distinctions, 'Distinction'),
     inciting_incident: form.inciting_incident.trim(),
-    campaign_mechanics: textToEntries(form.campaign_mechanics, 'Campaign mechanic'),
+    campaign_mechanics: serializeTextEntries(form.campaign_mechanics, 'Campaign mechanic'),
     session_zero_questions: lineList(form.session_zero_questions),
   };
 }

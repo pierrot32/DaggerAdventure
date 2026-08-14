@@ -30,6 +30,8 @@
 .repeatableList { display: grid; gap: var(--space-3); min-width: 0; margin: 0; padding: 0; border: 0; }
 .repeatableList legend { padding: 0; color: var(--color-muted-inverse); font-size: 14px; }
 .repeatableItem { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2); align-items: start; }
+.repeatableFields { display: grid; gap: var(--space-3); min-width: 0; }
+.repeatableTitle { min-width: 0; }
 .repeatableField { min-width: 0; }
 .repeatableField textarea { min-height: 180px; }
 .modificationSection { display: grid; gap: var(--space-3); margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid rgba(244, 238, 228, .14); }

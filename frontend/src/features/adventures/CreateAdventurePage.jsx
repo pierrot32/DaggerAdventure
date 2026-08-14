@@ -113,11 +113,11 @@ export function FrameDraftForm({ form, update, optionLists = {}, activeSection =
     {showSection('touchstones') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Touchstones" value={form.gm_messages?.touchstones} update={updateGmMessage} field="touchstones" />}><RepeatableTextList label="Touchstones" values={form.touchstones} onChange={(value) => update('touchstones', value)} addLabel="touchstone" placeholder="A touchstone" /></SectionFields>}
     {showSection('overview') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Overview" value={form.gm_messages?.overview} update={updateGmMessage} field="overview" />}><TextField label="Overview" value={form.overview} update={update} field="overview" required /></SectionFields>}
     {frameModificationKinds.map((kind) => showSection(kind.id) && <SectionFields key={kind.id} note={<TextField className={`${styles.full} ${styles.gmNote}`} label={`GM-only note for ${kind.label}`} value={form.gm_messages?.[kind.id]} update={updateGmMessage} field={kind.id} />}><ModificationList kind={kind} frameName={form.name} entries={form.modifications?.[kind.id] || []} options={availableOptions[kind.id] || []} onChange={(entries) => updateModification(kind.id, entries)} /></SectionFields>)}
-    {showSection('player_principles') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Player principles" value={form.gm_messages?.player_principles} update={updateGmMessage} field="player_principles" />}><RepeatableTextList label="Player principles" values={form.player_principles} onChange={(value) => update('player_principles', value)} addLabel="principle" placeholder="A principle for players" /></SectionFields>}
-    {showSection('gm_principles') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for GM principles" value={form.gm_messages?.gm_principles} update={updateGmMessage} field="gm_principles" />}><RepeatableTextList label="GM principles" values={form.gm_principles} onChange={(value) => update('gm_principles', value)} addLabel="principle" placeholder="A principle for the GM" /></SectionFields>}
-    {showSection('distinctions') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Distinctions" value={form.gm_messages?.distinctions} update={updateGmMessage} field="distinctions" />}><RepeatableTextList label="Distinctions" values={form.distinctions} onChange={(value) => update('distinctions', value)} addLabel="distinction" placeholder="A distinction" /></SectionFields>}
+    {showSection('player_principles') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Player principles" value={form.gm_messages?.player_principles} update={updateGmMessage} field="player_principles" />}><RepeatableTextList label="Player principles" values={form.player_principles} onChange={(value) => update('player_principles', value)} addLabel="principle" titlePrefix="Player principle" placeholder="A principle for players" titledEntries /></SectionFields>}
+    {showSection('gm_principles') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for GM principles" value={form.gm_messages?.gm_principles} update={updateGmMessage} field="gm_principles" />}><RepeatableTextList label="GM principles" values={form.gm_principles} onChange={(value) => update('gm_principles', value)} addLabel="principle" titlePrefix="GM principle" placeholder="A principle for the GM" titledEntries /></SectionFields>}
+    {showSection('distinctions') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Distinctions" value={form.gm_messages?.distinctions} update={updateGmMessage} field="distinctions" />}><RepeatableTextList label="Distinctions" values={form.distinctions} onChange={(value) => update('distinctions', value)} addLabel="distinction" titlePrefix="Distinction" placeholder="A distinction" titledEntries /></SectionFields>}
     {showSection('inciting_incident') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for The inciting incident" value={form.gm_messages?.inciting_incident} update={updateGmMessage} field="inciting_incident" />}><TextField label="The inciting incident" value={form.inciting_incident} update={update} field="inciting_incident" /></SectionFields>}
-    {showSection('campaign_mechanics') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Campaign mechanics" value={form.gm_messages?.campaign_mechanics} update={updateGmMessage} field="campaign_mechanics" />}><RepeatableTextList label="Campaign mechanics" values={form.campaign_mechanics} onChange={(value) => update('campaign_mechanics', value)} addLabel="mechanic" placeholder="A campaign rule or procedure" tableEditor /></SectionFields>}
+    {showSection('campaign_mechanics') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Campaign mechanics" value={form.gm_messages?.campaign_mechanics} update={updateGmMessage} field="campaign_mechanics" />}><RepeatableTextList label="Campaign mechanics" values={form.campaign_mechanics} onChange={(value) => update('campaign_mechanics', value)} addLabel="mechanic" titlePrefix="Campaign mechanic" placeholder="A campaign rule or procedure" tableEditor titledEntries /></SectionFields>}
     {showSection('session_zero_questions') && <SectionFields note={<TextField className={`${styles.full} ${styles.gmNote}`} label="GM-only note for Session-zero questions" value={form.gm_messages?.session_zero_questions} update={updateGmMessage} field="session_zero_questions" />}><RepeatableTextList label="Session-zero questions" values={form.session_zero_questions} onChange={(value) => update('session_zero_questions', value)} addLabel="question" placeholder="A question for session zero" /></SectionFields>}
   </div>;
 }
@@ -138,26 +138,34 @@ function normalizeNewlineRuns(value) {
   });
 }
 
-export function RepeatableTextList({ label, values, onChange, addLabel = 'item', placeholder, tableEditor = false }) {
+export function RepeatableTextList({ label, values, onChange, addLabel = 'item', titlePrefix, placeholder, tableEditor = false, titledEntries = false }) {
   const items = Array.isArray(values) ? values : [];
-  const itemValue = (item) => typeof item === 'object' && item !== null ? item.description || item.text || item.value || item.title || '' : item;
+  const itemValue = (item) => typeof item === 'object' && item !== null ? item.description ?? item.text ?? item.value ?? item.title ?? '' : item;
+  const itemTitle = (item, index) => typeof item === 'object' && item !== null ? item.title ?? `${titlePrefix || label} ${index + 1}` : `${titlePrefix || label} ${index + 1}`;
   const updateItem = (index, value) => onChange(items.map((item, itemIndex) => {
     if (itemIndex !== index) return item;
-    return typeof item === 'object' && item !== null ? { ...item, description: value } : value;
+    return typeof item === 'object' && item !== null ? { ...item, description: value } : titledEntries ? { title: itemTitle(item, index), description: value } : value;
+  }));
+  const updateItemTitle = (index, value) => onChange(items.map((item, itemIndex) => {
+    if (itemIndex !== index) return item;
+    return typeof item === 'object' && item !== null ? { ...item, title: value } : { title: value, description: item };
   }));
   const removeItem = (index) => onChange(items.filter((_, itemIndex) => itemIndex !== index));
   const updateItemTable = (index, table) => onChange(items.map((item, itemIndex) => {
     if (itemIndex !== index) return item;
-    return typeof item === 'object' && item !== null ? { ...item, table } : { description: item, table };
+    return typeof item === 'object' && item !== null ? { ...item, table } : titledEntries ? { title: itemTitle(item, index), description: item, table } : { description: item, table };
   }));
   return <fieldset className={styles.repeatableList}>
     <legend>{label}</legend>
     {items.map((item, index) => <div className={styles.repeatableItem} key={`${label}-${index}`}>
-      <TextField className={styles.repeatableField} label={`${label} ${index + 1}`} value={itemValue(item)} update={(_field, value) => updateItem(index, value)} field="value" hint={placeholder} />
+      <div className={styles.repeatableFields}>
+        {titledEntries && <label className={styles.repeatableTitle}>{label} {index + 1} title<input required value={itemTitle(item, index)} onChange={(event) => updateItemTitle(index, event.target.value)} /></label>}
+        <TextField className={styles.repeatableField} label={`${label} ${index + 1} description`} value={itemValue(item)} update={(_field, value) => updateItem(index, value)} field="value" hint={placeholder} required={titledEntries} />
+      </div>
       <button type="button" className={styles.removeButton} onClick={() => removeItem(index)} aria-label={`Remove ${label} ${index + 1}`}>Remove</button>
       {tableEditor && <TableEditor table={item?.table} onChange={(table) => updateItemTable(index, table)} label={`${label} ${index + 1} table`} />}
     </div>)}
-    <button type="button" className={styles.smallButton} onClick={() => onChange([...items, ''])}>Add {addLabel}</button>
+    <button type="button" className={styles.smallButton} onClick={() => onChange([...items, titledEntries ? { title: `${titlePrefix || label} ${items.length + 1}`, description: '' } : ''])}>Add {addLabel}</button>
   </fieldset>;
 }
 

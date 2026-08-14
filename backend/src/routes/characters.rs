@@ -209,6 +209,7 @@ pub async fn advance(
             "Choose exactly two advancements for each level".to_owned(),
         ));
     }
+    validate_advancement_choices(choices, request.level)?;
     let book = content_repo::find_character_creation_book(&state.db)
         .await?
         .ok_or_else(|| {
@@ -225,67 +226,26 @@ pub async fn advance(
         })
         .and_then(|class| class.get("domains"))
         .and_then(Value::as_array)
-        .map(|domains| domains.iter().filter_map(Value::as_str).collect::<Vec<_>>())
+        .map(|domains| {
+            domains
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_owned)
+                .collect::<Vec<_>>()
+        })
         .unwrap_or_default();
     let mut domain_cards = character.domain_cards.clone();
+    let selected_domain_card = validate_domain_card_choice(
+        choices,
+        &book.content,
+        &class_domain_ids,
+        &domain_cards,
+        request.level,
+    )?;
     let domain_cards_history = domain_cards.as_array_mut().ok_or_else(|| {
         AppError::Validation("Character domain card history is invalid".to_owned())
     })?;
-    for choice in choices {
-        let id = choice
-            .get("id")
-            .and_then(serde_json::Value::as_str)
-            .ok_or_else(|| AppError::Validation("Each advancement needs an id".to_owned()))?;
-        if !matches!(
-            id,
-            "traits"
-                | "hit_points"
-                | "stress"
-                | "experiences"
-                | "domain_card"
-                | "evasion"
-                | "subclass"
-                | "proficiency"
-                | "multiclass"
-        ) {
-            return Err(AppError::Validation(
-                "Unknown advancement option".to_owned(),
-            ));
-        }
-        if id == "domain_card" {
-            let domain_id = choice
-                .get("domain_id")
-                .and_then(Value::as_str)
-                .ok_or_else(|| {
-                    AppError::Validation("Choose a domain for the domain card".to_owned())
-                })?;
-            let card_id = choice
-                .get("value")
-                .and_then(Value::as_str)
-                .ok_or_else(|| AppError::Validation("Choose a domain card".to_owned()))?;
-            if !class_domain_ids.iter().any(|item| *item == domain_id) {
-                return Err(AppError::Validation(
-                    "That domain is not available to this class".to_owned(),
-                ));
-            }
-            let selected_card = find_domain_card(&book.content, domain_id, card_id, request.level)
-                .ok_or_else(|| {
-                    AppError::Validation(
-                        "That domain card is not available at this level".to_owned(),
-                    )
-                })?;
-            let already_owned = domain_cards_history.iter().any(|card| {
-                card.get("id").and_then(Value::as_str) == Some(card_id)
-                    && card.get("domainId").and_then(Value::as_str) == Some(domain_id)
-            });
-            if already_owned {
-                return Err(AppError::Validation(
-                    "That domain card is already on this character".to_owned(),
-                ));
-            }
-            domain_cards_history.push(selected_card);
-        }
-    }
+    domain_cards_history.push(selected_domain_card);
     let mut advancements = character.advancements.clone();
     let history = advancements.as_array_mut().ok_or_else(|| {
         AppError::Validation("Character advancement history is invalid".to_owned())
@@ -353,6 +313,102 @@ fn find_domain_card(book: &Value, domain_id: &str, card_id: &str, max_level: i32
     None
 }
 
+fn tier_for_level(level: i32) -> i32 {
+    if level >= 8 {
+        4
+    } else if level >= 5 {
+        3
+    } else if level >= 2 {
+        2
+    } else {
+        1
+    }
+}
+
+fn validate_advancement_choices(choices: &[Value], level: i32) -> Result<(), AppError> {
+    for choice in choices {
+        let id = choice
+            .get("id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| AppError::Validation("Each advancement needs an id".to_owned()))?;
+        if !matches!(
+            id,
+            "traits"
+                | "hit_points"
+                | "stress"
+                | "experiences"
+                | "domain_card"
+                | "evasion"
+                | "subclass"
+                | "proficiency"
+                | "multiclass"
+        ) {
+            return Err(AppError::Validation(
+                "Unknown advancement option".to_owned(),
+            ));
+        }
+        if matches!(id, "subclass" | "proficiency" | "multiclass") && tier_for_level(level) < 3 {
+            return Err(AppError::Validation(
+                "Subclass, proficiency, and multiclass advancements require tier 3".to_owned(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_domain_card_choice(
+    choices: &[Value],
+    book: &Value,
+    class_domain_ids: &[String],
+    owned_cards: &Value,
+    max_level: i32,
+) -> Result<Value, AppError> {
+    let domain_choices = choices
+        .iter()
+        .filter(|choice| choice.get("id").and_then(Value::as_str) == Some("domain_card"))
+        .collect::<Vec<_>>();
+    if domain_choices.len() != 1 {
+        return Err(AppError::Validation(
+            "Choose exactly one domain card as one of your two advancements".to_owned(),
+        ));
+    }
+    let choice = domain_choices[0];
+    let domain_id = choice
+        .get("domain_id")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| AppError::Validation("Choose a domain for the domain card".to_owned()))?;
+    let card_id = choice
+        .get("value")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| AppError::Validation("Choose a domain card".to_owned()))?;
+    if !class_domain_ids.iter().any(|item| item == domain_id) {
+        return Err(AppError::Validation(
+            "That domain is not available to this class".to_owned(),
+        ));
+    }
+    let selected_card = find_domain_card(book, domain_id, card_id, max_level).ok_or_else(|| {
+        AppError::Validation("That domain card is not available at this level".to_owned())
+    })?;
+    let owned_cards = owned_cards.as_array().ok_or_else(|| {
+        AppError::Validation("Character domain card history is invalid".to_owned())
+    })?;
+    if owned_cards.iter().any(|card| {
+        card.get("id").and_then(Value::as_str) == Some(card_id)
+            && card
+                .get("domainId")
+                .or_else(|| card.get("domain_id"))
+                .and_then(Value::as_str)
+                == Some(domain_id)
+    }) {
+        return Err(AppError::Validation(
+            "That domain card is already on this character".to_owned(),
+        ));
+    }
+    Ok(selected_card)
+}
+
 pub async fn link_adventure(
     State(state): State<AppState>,
     AuthUser(user): AuthUser,
@@ -386,4 +442,140 @@ pub async fn link_adventure(
         .await?
         .map(Json)
         .ok_or_else(|| AppError::NotFound("Character not found".to_owned()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{tier_for_level, validate_advancement_choices, validate_domain_card_choice};
+    use serde_json::{Value, json};
+
+    fn test_book() -> Value {
+        json!({
+            "domains": [{
+                "id": "arcana",
+                "name": "Arcana",
+                "level_1_cards": [{"id": "spell-ward", "name": "Spell Ward"}],
+                "level_3_cards": [{"id": "astral-step", "name": "Astral Step"}]
+            }]
+        })
+    }
+
+    fn card_choice(domain_id: &str, card_id: &str) -> Value {
+        json!({"id": "domain_card", "domain_id": domain_id, "value": card_id})
+    }
+
+    #[test]
+    fn rejects_tier_three_advancements_before_tier_three() {
+        for id in ["subclass", "proficiency", "multiclass"] {
+            let error =
+                validate_advancement_choices(&[json!({"id": id}), json!({"id": "domain_card"})], 4)
+                    .expect_err("tier-three advancements should be rejected at level 4");
+
+            assert!(
+                matches!(error, crate::error::AppError::Validation(message) if message.contains("require tier 3"))
+            );
+        }
+    }
+
+    #[test]
+    fn allows_tier_three_advancements_at_tier_three() {
+        assert_eq!(tier_for_level(5), 3);
+
+        for id in ["subclass", "proficiency", "multiclass"] {
+            validate_advancement_choices(&[json!({"id": id}), json!({"id": "domain_card"})], 5)
+                .expect("tier-three advancements should be accepted at level 5");
+        }
+    }
+
+    #[test]
+    fn requires_one_domain_card_choice() {
+        let error = validate_domain_card_choice(
+            &[json!({"id": "evasion"}), json!({"id": "stress"})],
+            &test_book(),
+            &["arcana".to_owned()],
+            &json!([]),
+            2,
+        )
+        .expect_err("a level-up without a domain card should fail");
+
+        assert!(
+            matches!(error, crate::error::AppError::Validation(message) if message.contains("exactly one domain card"))
+        );
+    }
+
+    #[test]
+    fn rejects_domain_card_outside_class_domains() {
+        let error = validate_domain_card_choice(
+            &[
+                card_choice("arcana", "spell-ward"),
+                json!({"id": "evasion"}),
+            ],
+            &test_book(),
+            &["bone".to_owned()],
+            &json!([]),
+            2,
+        )
+        .expect_err("a card from another class domain should fail");
+
+        assert!(
+            matches!(error, crate::error::AppError::Validation(message) if message.contains("not available to this class"))
+        );
+    }
+
+    #[test]
+    fn rejects_domain_card_above_new_level() {
+        let error = validate_domain_card_choice(
+            &[
+                card_choice("arcana", "astral-step"),
+                json!({"id": "evasion"}),
+            ],
+            &test_book(),
+            &["arcana".to_owned()],
+            &json!([]),
+            2,
+        )
+        .expect_err("a card above the new level should fail");
+
+        assert!(
+            matches!(error, crate::error::AppError::Validation(message) if message.contains("not available at this level"))
+        );
+    }
+
+    #[test]
+    fn rejects_owned_domain_card() {
+        let error = validate_domain_card_choice(
+            &[
+                card_choice("arcana", "spell-ward"),
+                json!({"id": "evasion"}),
+            ],
+            &test_book(),
+            &["arcana".to_owned()],
+            &json!([{"id": "spell-ward", "domainId": "arcana"}]),
+            2,
+        )
+        .expect_err("an owned card should fail");
+
+        assert!(
+            matches!(error, crate::error::AppError::Validation(message) if message.contains("already on this character"))
+        );
+    }
+
+    #[test]
+    fn rejects_legacy_owned_domain_card() {
+        let error = validate_domain_card_choice(
+            &[
+                card_choice("arcana", "spell-ward"),
+                json!({"id": "evasion"}),
+            ],
+            &test_book(),
+            &["arcana".to_owned()],
+            &json!([{"id": "spell-ward", "domain_id": "arcana"}]),
+            2,
+        )
+        .expect_err("a legacy owned card should fail");
+
+        assert!(
+            matches!(error, crate::error::AppError::Validation(message) if message.contains("already on this character"))
+        );
+    }
 }
