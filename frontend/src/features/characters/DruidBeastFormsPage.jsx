@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
 import { getCharacter, getCharacterCreationBook } from './characterApi';
 import { tierForLevel } from './characterSheet';
 import styles from './DruidBeastFormsPage.module.css';
@@ -12,6 +13,7 @@ const titleize = (input) => String(input || '')
 
 export default function DruidBeastFormsPage() {
   const { characterId } = useParams();
+  const { user } = useAuth();
   const [character, setCharacter] = useState(null);
   const [book, setBook] = useState(null);
   const [state, setState] = useState({ loading: true, error: '' });
@@ -37,6 +39,7 @@ export default function DruidBeastFormsPage() {
   if (character.class_id !== 'druid') {
     return <section className={styles.notice}><p className="eyebrow">BEASTFORMS</p><h2>Druid feature</h2><p className="muted">Beast forms are available only to Druid characters.</p><Link to={`/characters/${characterId}`} className={styles.button}>Back to character sheet</Link></section>;
   }
+  const isOwner = character.user_id === user?.id;
 
   return (
     <section className={styles.page}>
@@ -47,7 +50,7 @@ export default function DruidBeastFormsPage() {
           <h2>{character.name}'s beast forms</h2>
           <p className="muted">Level {character.level} · Tier {currentTier}. Forms above your tier are hidden until you advance.</p>
         </div>
-        <Link to={`/characters/${characterId}/edit`} className={styles.button}>Edit character</Link>
+        {isOwner && <Link to={`/characters/${characterId}/edit`} className={styles.button}>Edit character</Link>}
       </header>
 
       {forms.length === 0 ? <section className={styles.empty}><h3>No beast forms available</h3><p className="muted">An administrator can add Druid beast forms in the book editor.</p></section> : (

@@ -1,6 +1,7 @@
 .manager { display: grid; gap: var(--space-5); max-width: 980px; margin-top: var(--space-6); }
 .heading, .sectionTools, .actions { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-3); }
 .heading h3 { margin: 0; }
+.keyboardHelp { margin: calc(var(--space-4) * -1) 0 0; color: var(--color-muted-inverse); font-size: 12px; }
 .layout { display: grid; grid-template-columns: minmax(180px, .3fr) minmax(0, 1fr); gap: var(--space-5); }
 .sidebar, .content { min-width: 0; }
 .sectionList { display: grid; gap: 4px; }
@@ -29,4 +30,27 @@
 .actions { justify-content: flex-start; align-items: center; }
 .readOnly { padding: var(--space-3); border-left: 2px solid var(--color-accent); background: rgba(201, 157, 99, .1); }
 .error { color: #ffb4ac; }
-@media (max-width: 700px) { .layout { grid-template-columns: 1fr; } .heading, .sectionTools { align-items: flex-start; flex-direction: column; } .sectionTools form { width: 100%; } }
+.sectionCreation { padding-bottom: var(--space-4); border-bottom: 1px solid rgba(244, 238, 228, .14); }
+.sectionGroup { border-bottom: 1px solid rgba(244, 238, 228, .12); }
+.activeGroup { border-color: var(--color-accent); }
+.sectionHeader { display: flex; align-items: stretch; gap: var(--space-2); min-height: 44px; }
+.sectionButton { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; flex: 1; gap: var(--space-2); padding: var(--space-3); border: 1px solid transparent; background: rgba(244, 238, 228, .06); color: var(--color-muted-inverse); cursor: pointer; font: inherit; text-align: left; }
+.sectionButton:hover, .sectionButton:focus-visible, .activeGroup .sectionButton { border-color: var(--color-accent); background: rgba(201, 157, 99, .12); color: var(--color-text-inverse); }
+.sectionButton strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sectionTitle { cursor: text; }
+.count { color: var(--color-accent); font-size: 12px; }
+.noteLinks { display: grid; gap: 2px; padding: 2px 0 6px 24px; }
+.noteLinks button { min-width: 0; padding: 8px var(--space-2); border: 1px solid transparent; background: transparent; color: var(--color-muted-inverse); cursor: grab; font: inherit; text-align: left; }
+.noteLinks button:hover, .noteLinks button:focus-visible, .noteLinks .selectedNoteLink { border-color: rgba(201, 157, 99, .65); background: rgba(201, 157, 99, .1); color: var(--color-text-inverse); }
+.noteLinks .keyboardDropTarget { border-color: var(--color-accent); box-shadow: inset 3px 0 0 var(--color-accent); }
+.noteLinks button:active { cursor: grabbing; }
+.inlineForm { margin-top: 0; }
+.inlineForm > div { flex-wrap: wrap; }
+.renameInput { flex: 1; min-width: 0; padding: var(--space-2); border: 1px solid var(--color-accent); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text); font: inherit; }
+.content { min-width: 0; min-height: 360px; }
+.contentHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); min-height: 64px; padding-bottom: var(--space-4); border-bottom: 1px solid rgba(244, 238, 228, .14); }
+.contentHeading h4 { margin-top: var(--space-2); color: var(--color-text-inverse); font-size: 20px; }
+.readOnlyNote { min-height: 260px; padding: var(--space-4) 0; }
+.readOnlyNote h4 { margin-bottom: var(--space-3); color: var(--color-text-inverse); font-size: 22px; }
+.readOnlyNote p { margin: 0; color: var(--color-muted-inverse); line-height: 1.65; white-space: pre-wrap; }
+@media (max-width: 700px) { .layout { grid-template-columns: 1fr; } .heading, .sectionTools { align-items: flex-start; flex-direction: column; } .sectionTools form { width: 100%; } .content { min-height: 280px; } }
