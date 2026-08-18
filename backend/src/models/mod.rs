@@ -9,8 +9,9 @@ pub mod notification;
 pub mod user;
 
 pub use admin::{
-    AccessAuditEvent, AdminUser, UpdateAccessLevelRequest, UpdateAiGenerationRequest,
-    UpdateApprovalRequest, UserListQuery, UserListResponse,
+    AccessAuditEvent, AdminUser, AiPromptTemplate, UpdateAccessLevelRequest,
+    UpdateAiGenerationRequest, UpdateAiPromptRequest, UpdateApprovalRequest, UserListQuery,
+    UserListResponse,
 };
 pub use adventure::{
     Adventure, AdventureCharacterSummary, AdventureInvite, AdventurePlayer, CreateAdventureRequest,
@@ -29,7 +30,11 @@ pub use frame::{
     AdventureFrame, AttachAdventureFrameRequest, CampaignFrame, CreateCampaignFrameRequest,
     UpdateAdventureFrameRequest, UpdateCampaignFrameRequest,
 };
-pub use note::{AdventureNote, CreateNoteRequest, UpdateNoteRequest};
+pub use note::{
+    AdventureNote, AdventureNoteSection, CharacterNote, CharacterNoteSection,
+    CharacterNotesResponse, CreateNoteRequest, NoteSectionRequest, ReorderNoteRequest,
+    UpdateNoteRequest,
+};
 pub use notification::Notification;
 pub use user::{
     AccessLevel, LoginRequest, MessageResponse, RegisterRequest, UpdateUserRequest, User,

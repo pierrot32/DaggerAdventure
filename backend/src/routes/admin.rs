@@ -9,8 +9,8 @@ use crate::{
     error::AppError,
     middleware::{access_guard::require_at_least, auth_guard::AuthUser},
     models::{
-        AccessLevel, UpdateAccessLevelRequest, UpdateAiGenerationRequest, UpdateApprovalRequest,
-        UserListQuery, UserListResponse,
+        AccessLevel, AiPromptTemplate, UpdateAccessLevelRequest, UpdateAiGenerationRequest,
+        UpdateAiPromptRequest, UpdateApprovalRequest, UserListQuery, UserListResponse,
     },
     repository::{admin_repo, ai_repo},
     state::AppState,
@@ -102,4 +102,46 @@ pub async fn list_ai_logs(
     )
     .await?;
     Ok(Json(logs))
+}
+
+pub async fn list_ai_prompt_templates(
+    State(state): State<AppState>,
+    AuthUser(actor): AuthUser,
+) -> Result<Json<Vec<AiPromptTemplate>>, AppError> {
+    require_at_least(&actor, AccessLevel::Admin)?;
+    Ok(Json(admin_repo::list_ai_prompt_templates(&state.db).await?))
+}
+
+pub async fn update_ai_prompt_template(
+    State(state): State<AppState>,
+    AuthUser(actor): AuthUser,
+    Path(generation_type): Path<String>,
+    Json(request): Json<UpdateAiPromptRequest>,
+) -> Result<Json<AiPromptTemplate>, AppError> {
+    require_at_least(&actor, AccessLevel::Admin)?;
+    let template = request.template.trim().to_owned();
+    if template.is_empty() {
+        return Err(AppError::Validation(
+            "Prompt template is required".to_owned(),
+        ));
+    }
+    if template.chars().count() > 20_000 {
+        return Err(AppError::Validation(
+            "Prompt template must be 20000 characters or fewer".to_owned(),
+        ));
+    }
+    Ok(Json(
+        admin_repo::update_ai_prompt_template(&state.db, &generation_type, &template).await?,
+    ))
+}
+
+pub async fn reset_ai_prompt_template(
+    State(state): State<AppState>,
+    AuthUser(actor): AuthUser,
+    Path(generation_type): Path<String>,
+) -> Result<Json<AiPromptTemplate>, AppError> {
+    require_at_least(&actor, AccessLevel::Admin)?;
+    Ok(Json(
+        admin_repo::reset_ai_prompt_template(&state.db, &generation_type).await?,
+    ))
 }

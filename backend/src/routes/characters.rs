@@ -10,10 +10,12 @@ use crate::{
     error::AppError,
     middleware::{access_guard::require_at_least, auth_guard::AuthUser},
     models::{
-        AccessLevel, Character, CharacterSummary, CreateCharacterRequest,
+        AccessLevel, Character, CharacterNote, CharacterNoteSection, CharacterNotesResponse,
+        CharacterSummary, CreateCharacterRequest, NoteSectionRequest,
         UpdateCharacterAdvancementRequest, UpdateCharacterRequest, UpdateCharacterStatsRequest,
+        UpdateNoteRequest,
     },
-    repository::{character_repo, content_repo},
+    repository::{character_repo, content_repo, note_repo},
     state::AppState,
     utils::validation,
 };
@@ -153,6 +155,189 @@ pub async fn get(
         .await?
         .map(Json)
         .ok_or_else(|| AppError::NotFound("Character not found".to_owned()))
+}
+
+pub async fn list_notes(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+    Path(character_id): Path<Uuid>,
+) -> Result<Json<CharacterNotesResponse>, AppError> {
+    require_at_least(&user, AccessLevel::PlayerOnly)?;
+    let character = character_repo::find_visible_to_user(&state.db, user.id, character_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Character not found".to_owned()))?;
+    note_repo::ensure_character_default_section(&state.db, character.id, character.user_id).await?;
+    let role = if character.user_id == user.id {
+        "owner"
+    } else {
+        "gm"
+    };
+    Ok(Json(CharacterNotesResponse {
+        role: role.to_owned(),
+        sections: note_repo::list_character_sections(&state.db, character.id).await?,
+        notes: note_repo::list_character_notes(&state.db, character.id).await?,
+    }))
+}
+
+pub async fn create_note_section(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+    Path(character_id): Path<Uuid>,
+    Json(request): Json<NoteSectionRequest>,
+) -> Result<(axum::http::StatusCode, Json<CharacterNoteSection>), AppError> {
+    require_character_owner(&state, &user, character_id).await?;
+    let name = validate_character_section_name(request.name)?;
+    validate_note_position(request.position)?;
+    Ok((
+        axum::http::StatusCode::CREATED,
+        Json(
+            note_repo::create_character_section(
+                &state.db,
+                character_id,
+                user.id,
+                &name,
+                request.position,
+            )
+            .await?,
+        ),
+    ))
+}
+
+pub async fn update_note_section(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+    Path((character_id, section_id)): Path<(Uuid, Uuid)>,
+    Json(request): Json<NoteSectionRequest>,
+) -> Result<Json<CharacterNoteSection>, AppError> {
+    require_character_owner(&state, &user, character_id).await?;
+    let name = validate_character_section_name(request.name)?;
+    validate_note_position(request.position)?;
+    note_repo::update_character_section(
+        &state.db,
+        character_id,
+        section_id,
+        user.id,
+        &name,
+        request.position,
+    )
+    .await?
+    .map(Json)
+    .ok_or_else(|| AppError::NotFound("Notes section not found".to_owned()))
+}
+
+pub async fn delete_note_section(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+    Path((character_id, section_id)): Path<(Uuid, Uuid)>,
+) -> Result<axum::http::StatusCode, AppError> {
+    require_character_owner(&state, &user, character_id).await?;
+    if !note_repo::delete_character_section(&state.db, character_id, section_id, user.id).await? {
+        return Err(AppError::NotFound("Notes section not found".to_owned()));
+    }
+    Ok(axum::http::StatusCode::NO_CONTENT)
+}
+
+pub async fn create_note(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+    Path(character_id): Path<Uuid>,
+    Json(request): Json<crate::models::CreateNoteRequest>,
+) -> Result<(axum::http::StatusCode, Json<CharacterNote>), AppError> {
+    require_character_owner(&state, &user, character_id).await?;
+    let character = character_repo::find_for_user(&state.db, user.id, character_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Character not found".to_owned()))?;
+    note_repo::ensure_character_default_section(&state.db, character.id, user.id).await?;
+    let (title, body) = crate::routes::notes::validate_note(request.title, request.body)?;
+    validate_note_position(request.position)?;
+    Ok((
+        axum::http::StatusCode::CREATED,
+        Json(
+            note_repo::create_character_note(
+                &state.db,
+                character_id,
+                user.id,
+                &title,
+                &body,
+                request.section_id,
+                request.position,
+            )
+            .await?,
+        ),
+    ))
+}
+
+pub async fn update_note(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+    Path((character_id, note_id)): Path<(Uuid, Uuid)>,
+    Json(request): Json<UpdateNoteRequest>,
+) -> Result<Json<CharacterNote>, AppError> {
+    require_character_owner(&state, &user, character_id).await?;
+    let (title, body) = crate::routes::notes::validate_note(request.title, request.body)?;
+    validate_note_position(request.position)?;
+    note_repo::update_character_note(
+        &state.db,
+        character_id,
+        note_id,
+        user.id,
+        &title,
+        &body,
+        request.section_id,
+        request.position,
+    )
+    .await?
+    .map(Json)
+    .ok_or_else(|| AppError::NotFound("Note not found".to_owned()))
+}
+
+pub async fn delete_note(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+    Path((character_id, note_id)): Path<(Uuid, Uuid)>,
+) -> Result<axum::http::StatusCode, AppError> {
+    require_character_owner(&state, &user, character_id).await?;
+    if !note_repo::delete_character_note(&state.db, character_id, note_id, user.id).await? {
+        return Err(AppError::NotFound("Note not found".to_owned()));
+    }
+    Ok(axum::http::StatusCode::NO_CONTENT)
+}
+
+fn validate_character_section_name(name: String) -> Result<String, AppError> {
+    let name = name.trim().to_owned();
+    if name.is_empty() {
+        return Err(AppError::Validation("Section name is required".to_owned()));
+    }
+    if name.chars().count() > 80 {
+        return Err(AppError::Validation(
+            "Section name must be 80 characters or fewer".to_owned(),
+        ));
+    }
+    Ok(name)
+}
+
+fn validate_note_position(position: Option<i32>) -> Result<(), AppError> {
+    if position.is_some_and(|value| !(0..=10_000).contains(&value)) {
+        return Err(AppError::Validation("Note position is invalid".to_owned()));
+    }
+    Ok(())
+}
+
+async fn require_character_owner(
+    state: &AppState,
+    user: &crate::models::User,
+    character_id: Uuid,
+) -> Result<(), AppError> {
+    require_at_least(user, AccessLevel::PlayerOnly)?;
+    if character_repo::find_for_user(&state.db, user.id, character_id)
+        .await?
+        .is_none()
+    {
+        return Err(AppError::Forbidden(
+            "Only the character owner can manage notes".to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 pub async fn delete(

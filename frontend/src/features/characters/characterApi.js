@@ -20,6 +20,13 @@ export const updateCharacter = (id, payload) => request(`/api/characters/${id}`,
   method: 'PUT',
   body: JSON.stringify(payload),
 });
+export const listCharacterNotes = (id) => request(`/api/characters/${id}/notes`);
+export const createCharacterNoteSection = (id, payload) => request(`/api/characters/${id}/note-sections`, { method: 'POST', body: JSON.stringify(payload) });
+export const updateCharacterNoteSection = (characterId, sectionId, payload) => request(`/api/characters/${characterId}/note-sections/${sectionId}`, { method: 'PUT', body: JSON.stringify(payload) });
+export const deleteCharacterNoteSection = (characterId, sectionId) => request(`/api/characters/${characterId}/note-sections/${sectionId}`, { method: 'DELETE' });
+export const createCharacterNote = (id, payload) => request(`/api/characters/${id}/notes`, { method: 'POST', body: JSON.stringify(payload) });
+export const updateCharacterNote = (characterId, noteId, payload) => request(`/api/characters/${characterId}/notes/${noteId}`, { method: 'PUT', body: JSON.stringify(payload) });
+export const deleteCharacterNote = (characterId, noteId) => request(`/api/characters/${characterId}/notes/${noteId}`, { method: 'DELETE' });
 export const createCharacter = (payload) => request('/api/characters', {
   method: 'POST',
   body: JSON.stringify(payload),

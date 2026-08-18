@@ -53,6 +53,7 @@ export default function AppLayout({ children }) {
               <Link to="/admin/users" onClick={closeMenu}>Users</Link>
               <Link to="/admin/audit" onClick={closeMenu}>Audit</Link>
               <Link to="/admin/ai" onClick={closeMenu}>AI lab</Link>
+              <Link to="/admin/ai/prompts" onClick={closeMenu}>Prompts</Link>
               <Link to="/admin/ai/logs" onClick={closeMenu}>AI log</Link>
             </div>}
           </div>}

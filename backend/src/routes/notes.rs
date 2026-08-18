@@ -7,7 +7,10 @@ use uuid::Uuid;
 use crate::{
     error::AppError,
     middleware::{access_guard::require_at_least, auth_guard::AuthUser},
-    models::{AccessLevel, AdventureNote, CreateNoteRequest, UpdateNoteRequest},
+    models::{
+        AccessLevel, AdventureNote, AdventureNoteSection, CreateNoteRequest, NoteSectionRequest,
+        UpdateNoteRequest,
+    },
     repository::{adventure_repo, note_repo},
     state::AppState,
 };
@@ -21,9 +24,80 @@ pub async fn list(
     Path(adventure_id): Path<Uuid>,
 ) -> Result<Json<Vec<AdventureNote>>, AppError> {
     require_creator(&state, &user, adventure_id).await?;
+    note_repo::ensure_adventure_default_section(&state.db, adventure_id, user.id).await?;
     Ok(Json(
-        note_repo::list(&state.db, adventure_id, user.id).await?,
+        note_repo::list_adventure_notes(&state.db, adventure_id, user.id).await?,
     ))
+}
+
+pub async fn list_sections(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+    Path(adventure_id): Path<Uuid>,
+) -> Result<Json<Vec<AdventureNoteSection>>, AppError> {
+    require_creator(&state, &user, adventure_id).await?;
+    note_repo::ensure_adventure_default_section(&state.db, adventure_id, user.id).await?;
+    Ok(Json(
+        note_repo::list_adventure_sections(&state.db, adventure_id, user.id).await?,
+    ))
+}
+
+pub async fn create_section(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+    Path(adventure_id): Path<Uuid>,
+    Json(request): Json<NoteSectionRequest>,
+) -> Result<(axum::http::StatusCode, Json<AdventureNoteSection>), AppError> {
+    require_creator(&state, &user, adventure_id).await?;
+    let name = validate_section_name(request.name)?;
+    validate_position(request.position)?;
+    Ok((
+        axum::http::StatusCode::CREATED,
+        Json(
+            note_repo::create_adventure_section(
+                &state.db,
+                adventure_id,
+                user.id,
+                &name,
+                request.position,
+            )
+            .await?,
+        ),
+    ))
+}
+
+pub async fn update_section(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+    Path((adventure_id, section_id)): Path<(Uuid, Uuid)>,
+    Json(request): Json<NoteSectionRequest>,
+) -> Result<Json<AdventureNoteSection>, AppError> {
+    require_creator(&state, &user, adventure_id).await?;
+    let name = validate_section_name(request.name)?;
+    validate_position(request.position)?;
+    note_repo::update_adventure_section(
+        &state.db,
+        adventure_id,
+        section_id,
+        user.id,
+        &name,
+        request.position,
+    )
+    .await?
+    .map(Json)
+    .ok_or_else(|| AppError::NotFound("Notes section not found".to_owned()))
+}
+
+pub async fn delete_section(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+    Path((adventure_id, section_id)): Path<(Uuid, Uuid)>,
+) -> Result<axum::http::StatusCode, AppError> {
+    require_creator(&state, &user, adventure_id).await?;
+    if !note_repo::delete_adventure_section(&state.db, adventure_id, section_id, user.id).await? {
+        return Err(AppError::NotFound("Notes section not found".to_owned()));
+    }
+    Ok(axum::http::StatusCode::NO_CONTENT)
 }
 
 pub async fn create(
@@ -33,10 +107,22 @@ pub async fn create(
     Json(request): Json<CreateNoteRequest>,
 ) -> Result<(axum::http::StatusCode, Json<AdventureNote>), AppError> {
     require_creator(&state, &user, adventure_id).await?;
+    note_repo::ensure_adventure_default_section(&state.db, adventure_id, user.id).await?;
     let (title, body) = validate_note(request.title, request.body)?;
     Ok((
         axum::http::StatusCode::CREATED,
-        Json(note_repo::create(&state.db, adventure_id, user.id, &title, &body).await?),
+        Json(
+            note_repo::create_adventure_note(
+                &state.db,
+                adventure_id,
+                user.id,
+                &title,
+                &body,
+                request.section_id,
+                request.position,
+            )
+            .await?,
+        ),
     ))
 }
 
@@ -48,10 +134,19 @@ pub async fn update(
 ) -> Result<Json<AdventureNote>, AppError> {
     require_creator(&state, &user, adventure_id).await?;
     let (title, body) = validate_note(request.title, request.body)?;
-    note_repo::update(&state.db, adventure_id, note_id, user.id, &title, &body)
-        .await?
-        .map(Json)
-        .ok_or_else(|| AppError::NotFound("Note not found".to_owned()))
+    note_repo::update_adventure_note(
+        &state.db,
+        adventure_id,
+        note_id,
+        user.id,
+        &title,
+        &body,
+        request.section_id,
+        request.position,
+    )
+    .await?
+    .map(Json)
+    .ok_or_else(|| AppError::NotFound("Note not found".to_owned()))
 }
 
 pub async fn delete(
@@ -60,10 +155,30 @@ pub async fn delete(
     Path((adventure_id, note_id)): Path<(Uuid, Uuid)>,
 ) -> Result<axum::http::StatusCode, AppError> {
     require_creator(&state, &user, adventure_id).await?;
-    if !note_repo::delete(&state.db, adventure_id, note_id, user.id).await? {
+    if !note_repo::delete_adventure_note(&state.db, adventure_id, note_id, user.id).await? {
         return Err(AppError::NotFound("Note not found".to_owned()));
     }
     Ok(axum::http::StatusCode::NO_CONTENT)
+}
+
+fn validate_section_name(name: String) -> Result<String, AppError> {
+    let name = name.trim().to_owned();
+    if name.is_empty() {
+        return Err(AppError::Validation("Section name is required".to_owned()));
+    }
+    if name.chars().count() > 80 {
+        return Err(AppError::Validation(
+            "Section name must be 80 characters or fewer".to_owned(),
+        ));
+    }
+    Ok(name)
+}
+
+fn validate_position(position: Option<i32>) -> Result<(), AppError> {
+    if position.is_some_and(|value| !(0..=10_000).contains(&value)) {
+        return Err(AppError::Validation("Note position is invalid".to_owned()));
+    }
+    Ok(())
 }
 
 pub fn validate_note(title: String, body: String) -> Result<(String, String), AppError> {
@@ -104,7 +219,7 @@ async fn require_creator(
 
 #[cfg(test)]
 mod tests {
-    use super::validate_note;
+    use super::{validate_note, validate_position, validate_section_name};
 
     #[test]
     fn trims_and_accepts_valid_notes() {
@@ -119,5 +234,18 @@ mod tests {
         assert!(validate_note("title".to_owned(), " ".to_owned()).is_err());
         assert!(validate_note("x".repeat(161), "body".to_owned()).is_err());
         assert!(validate_note("title".to_owned(), "x".repeat(10_001)).is_err());
+    }
+
+    #[test]
+    fn validates_section_names_and_positions() {
+        assert_eq!(
+            validate_section_name(" General ".to_owned()).unwrap(),
+            "General"
+        );
+        assert!(validate_section_name(" ".to_owned()).is_err());
+        assert!(validate_section_name("x".repeat(81)).is_err());
+        assert!(validate_position(Some(-1)).is_err());
+        assert!(validate_position(Some(10_001)).is_err());
+        assert!(validate_position(Some(10_000)).is_ok());
     }
 }

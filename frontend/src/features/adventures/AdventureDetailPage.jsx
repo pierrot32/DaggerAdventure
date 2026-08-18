@@ -7,10 +7,12 @@ import * as adventureApi from './adventureApi';
 import { createLibraryFrame, getAdventureFrame, updateAdventureFrame } from '../frames/frameApi';
 import { contentToForm, draftToContent, frameEditorSections } from '../frames/frameDraft';
 import { FrameDraftForm } from './CreateAdventurePage';
+import NoteManager from '../notes/NoteManager';
 import styles from './AdventureDetailPage.module.css';
 
 const tabs = [
   { id: 'campaign', label: 'Campaign' },
+  { id: 'story', label: 'Story' },
   { id: 'players', label: 'Players' },
   { id: 'notes', label: 'Notes', creatorOnly: true },
   { id: 'settings', label: 'Settings', creatorOnly: true },
@@ -34,10 +36,11 @@ export default function AdventureDetailPage() {
   const [players, setPlayers] = useState([]);
   const [playersState, setPlayersState] = useState({ loading: true, error: '' });
   const [notes, setNotes] = useState([]);
+  const [noteSections, setNoteSections] = useState([]);
   const [notesState, setNotesState] = useState({ loading: true, saving: false, error: '', message: '' });
-  const [noteDraft, setNoteDraft] = useState({ id: null, title: '', body: '' });
   const routeRequestRef = useRef(0);
   const frameRevision = useRef(0);
+  const notesRequestRef = useRef(0);
 
   useEffect(() => {
     const requestGeneration = ++routeRequestRef.current;
@@ -61,7 +64,7 @@ export default function AdventureDetailPage() {
     setPlayers([]);
     setPlayersState({ loading: true, error: '' });
     setNotes([]);
-    setNoteDraft({ id: null, title: '', body: '' });
+    setNoteSections([]);
     setNotesState({ loading: true, saving: false, error: '', message: '' });
   }, [adventureId, clearInvites]);
 
@@ -119,16 +122,17 @@ export default function AdventureDetailPage() {
   useEffect(() => {
     let active = true;
     const requestGeneration = routeRequestRef.current;
+    const notesRequest = ++notesRequestRef.current;
     if (!current || current.id !== adventureId || current.creator_id !== user?.id) return () => { active = false; };
-    adventureApi.listAdventureNotes(adventureId)
-      .then((value) => {
-        if (!active || !isCurrentRoute(requestGeneration)) return;
-        setNotes(value);
-        setNoteDraft(value[0] || { id: null, title: '', body: '' });
+    Promise.all([adventureApi.listAdventureNotes(adventureId), adventureApi.listAdventureNoteSections(adventureId)])
+      .then(([nextNotes, nextSections]) => {
+        if (!active || !isCurrentRoute(requestGeneration) || notesRequestRef.current !== notesRequest) return;
+        setNotes(nextNotes);
+        setNoteSections(nextSections);
         setNotesState({ loading: false, saving: false, error: '', message: '' });
       })
       .catch((requestError) => {
-        if (active && isCurrentRoute(requestGeneration)) setNotesState({ loading: false, saving: false, error: requestError.message, message: '' });
+        if (active && isCurrentRoute(requestGeneration) && notesRequestRef.current === notesRequest) setNotesState({ loading: false, saving: false, error: requestError.message, message: '' });
       });
     return () => { active = false; };
   }, [adventureId, current, user]);
@@ -205,48 +209,131 @@ export default function AdventureDetailPage() {
     }
   };
 
-  const selectNote = (note) => {
-    setNoteDraft(note);
-    setNotesState((state) => ({ ...state, error: '', message: '' }));
-  };
-  const newNote = () => {
-    setNoteDraft({ id: null, title: '', body: '' });
-    setNotesState((state) => ({ ...state, error: '', message: '' }));
-  };
-  const saveNote = async (event) => {
-    event.preventDefault();
+  const saveNote = async (draft) => {
     const requestGeneration = routeRequestRef.current;
     const isActive = () => isCurrentRoute(requestGeneration);
     setNotesState((state) => ({ ...state, saving: true, error: '', message: '' }));
     try {
-      const saved = noteDraft.id
-        ? await adventureApi.updateAdventureNote(adventureId, noteDraft.id, { title: noteDraft.title, body: noteDraft.body })
-        : await adventureApi.createAdventureNote(adventureId, { title: noteDraft.title, body: noteDraft.body });
-      if (!isActive()) return;
-      setNotes((currentNotes) => noteDraft.id ? currentNotes.map((note) => note.id === saved.id ? saved : note) : [saved, ...currentNotes]);
-      setNoteDraft(saved);
+      const payload = { title: draft.title, body: draft.body, section_id: draft.section_id, position: draft.position };
+      const saved = draft.id ? await adventureApi.updateAdventureNote(adventureId, draft.id, payload) : await adventureApi.createAdventureNote(adventureId, payload);
+      if (!isActive()) return null;
+      setNotes((currentNotes) => draft.id ? currentNotes.map((note) => note.id === saved.id ? saved : note) : [...currentNotes, saved]);
+      const notesRequest = ++notesRequestRef.current;
+      try {
+        const [nextNotes, nextSections] = await Promise.all([adventureApi.listAdventureNotes(adventureId), adventureApi.listAdventureNoteSections(adventureId)]);
+        if (!isActive() || notesRequestRef.current !== notesRequest) return saved;
+        setNotes(nextNotes);
+        setNoteSections(nextSections);
+      } catch (refreshError) {
+        if (isActive() && notesRequestRef.current === notesRequest) setNotesState({ loading: false, saving: false, error: `Note saved, but the list could not be refreshed: ${refreshError.message}`, message: '' });
+        return saved;
+      }
       setNotesState({ loading: false, saving: false, error: '', message: 'Note saved.' });
+      return saved;
     } catch (saveError) {
       if (isActive()) setNotesState((state) => ({ ...state, saving: false, error: saveError.message, message: '' }));
+      return null;
     }
   };
-  const removeNote = async () => {
-    if (!noteDraft.id || !window.confirm('Delete this GM note?')) return;
+  const removeNote = async (noteId) => {
     const requestGeneration = routeRequestRef.current;
     const isActive = () => isCurrentRoute(requestGeneration);
-    const noteId = noteDraft.id;
     setNotesState((state) => ({ ...state, saving: true, error: '', message: '' }));
     try {
       await adventureApi.deleteAdventureNote(adventureId, noteId);
-      if (!isActive()) return;
-      const remaining = notes.filter((note) => note.id !== noteId);
-      setNotes(remaining);
-      setNoteDraft(remaining[0] || { id: null, title: '', body: '' });
+      if (!isActive()) return false;
+      setNotes((currentNotes) => currentNotes.filter((note) => note.id !== noteId));
+      const notesRequest = ++notesRequestRef.current;
+      try {
+        const [nextNotes, nextSections] = await Promise.all([adventureApi.listAdventureNotes(adventureId), adventureApi.listAdventureNoteSections(adventureId)]);
+        if (!isActive() || notesRequestRef.current !== notesRequest) return true;
+        setNotes(nextNotes);
+        setNoteSections(nextSections);
+      } catch (refreshError) {
+        if (isActive() && notesRequestRef.current === notesRequest) setNotesState({ loading: false, saving: false, error: `Note deleted, but the list could not be refreshed: ${refreshError.message}`, message: '' });
+        return true;
+      }
       setNotesState({ loading: false, saving: false, error: '', message: 'Note deleted.' });
+      return true;
     } catch (deleteError) {
       if (isActive()) setNotesState((state) => ({ ...state, saving: false, error: deleteError.message }));
+      return false;
     }
   };
+  const refreshNotesCollection = async (requestGeneration, successMessage, refreshErrorPrefix) => {
+    const isActive = () => isCurrentRoute(requestGeneration);
+    const notesRequest = ++notesRequestRef.current;
+    try {
+      const [nextNotes, nextSections] = await Promise.all([adventureApi.listAdventureNotes(adventureId), adventureApi.listAdventureNoteSections(adventureId)]);
+      if (!isActive() || notesRequestRef.current !== notesRequest) return false;
+      setNotes(nextNotes);
+      setNoteSections(nextSections);
+      setNotesState({ loading: false, saving: false, error: '', message: successMessage });
+      return true;
+    } catch (refreshError) {
+      if (isActive() && notesRequestRef.current === notesRequest) setNotesState({ loading: false, saving: false, error: `${refreshErrorPrefix}, but the list could not be refreshed: ${refreshError.message}`, message: '' });
+      return false;
+    }
+  };
+  const createNoteSection = async (name) => {
+    const requestGeneration = routeRequestRef.current;
+    const isActive = () => isCurrentRoute(requestGeneration);
+    setNotesState((state) => ({ ...state, saving: true, error: '', message: '' }));
+    try {
+      const created = await adventureApi.createAdventureNoteSection(adventureId, { name });
+      if (!isActive()) return null;
+      setNoteSections((currentSections) => [...currentSections, created]);
+      await refreshNotesCollection(requestGeneration, 'Section created.', 'Section created');
+      return isActive() ? created : null;
+    } catch (sectionError) {
+      if (isActive()) setNotesState((state) => ({ ...state, saving: false, error: sectionError.message, message: '' }));
+      return null;
+    }
+  };
+  const renameNoteSection = async (sectionId, name) => {
+    const requestGeneration = routeRequestRef.current;
+    const isActive = () => isCurrentRoute(requestGeneration);
+    setNotesState((state) => ({ ...state, saving: true, error: '', message: '' }));
+    try {
+      const updated = await adventureApi.updateAdventureNoteSection(adventureId, sectionId, { name });
+      if (!isActive()) return;
+      setNoteSections((currentSections) => currentSections.map((section) => section.id === updated.id ? updated : section));
+      await refreshNotesCollection(requestGeneration, 'Section renamed.', 'Section renamed');
+    } catch (sectionError) {
+      if (isActive()) setNotesState((state) => ({ ...state, saving: false, error: sectionError.message, message: '' }));
+    }
+  };
+  const deleteNoteSection = async (sectionId) => {
+    const requestGeneration = routeRequestRef.current;
+    const isActive = () => isCurrentRoute(requestGeneration);
+    setNotesState((state) => ({ ...state, saving: true, error: '', message: '' }));
+    try {
+      await adventureApi.deleteAdventureNoteSection(adventureId, sectionId);
+      if (!isActive()) return null;
+      const notesRequest = ++notesRequestRef.current;
+      try {
+        const [nextNotes, nextSections] = await Promise.all([adventureApi.listAdventureNotes(adventureId), adventureApi.listAdventureNoteSections(adventureId)]);
+        if (!isActive() || notesRequestRef.current !== notesRequest) return null;
+        if (!Array.isArray(nextSections) || nextSections.some((section) => section?.id === sectionId) || !nextSections.some((section) => section?.id && section.id !== sectionId)) throw new Error('The refreshed section list was not canonical after deletion.');
+        setNotes(nextNotes);
+        setNoteSections(nextSections);
+        setNotesState({ loading: false, saving: false, error: '', message: 'Section deleted.' });
+        return { deleted: true, sections: nextSections };
+      } catch (refreshError) {
+        if (isActive() && notesRequestRef.current === notesRequest) setNotesState({ loading: false, saving: false, error: `Section deleted, but the list could not be refreshed: ${refreshError.message}`, message: '' });
+        return isActive() && notesRequestRef.current === notesRequest ? { deleted: true, deletedSectionId: sectionId, sections: null } : null;
+      }
+    } catch (sectionError) {
+      if (isActive()) setNotesState((state) => ({ ...state, saving: false, error: sectionError.message, message: '' }));
+      return false;
+    }
+  };
+  const retryNotes = async () => {
+    const requestGeneration = routeRequestRef.current;
+    setNotesState((state) => ({ ...state, loading: true, error: '', message: '' }));
+    return refreshNotesCollection(requestGeneration, 'Notes refreshed.', 'Notes refresh');
+  };
+  const moveNote = async (note, sectionId, position) => saveNote({ ...note, section_id: sectionId, position });
 
   const removeAdventure = async () => {
     if (!window.confirm(`Delete ${current.name}? This removes its members, invitations, and frame. Player characters are unlinked from the adventure but preserved.`)) return;
@@ -263,11 +350,12 @@ export default function AdventureDetailPage() {
   };
 
   return <section>
-    <p className="eyebrow">PRIVATE ADVENTURE</p><h2>{current.name}</h2><p className={styles.description}>{current.description || 'No description yet.'}</p>{error && <p className={styles.error}>{error}</p>}
+    <h2>{current.name}</h2>{error && <p className={styles.error}>{error}</p>}
     <nav className={styles.workspaceTabs} aria-label="Adventure workspace">{tabs.filter((tab) => !tab.creatorOnly || isCreator).map((tab) => <button type="button" key={tab.id} className={activeTab === tab.id ? styles.activeTab : ''} onClick={() => setActiveTab(tab.id)} aria-current={activeTab === tab.id ? 'page' : undefined}>{tab.label}</button>)}</nav>
     {activeTab === 'campaign' && <CampaignPanel frame={frame} frameForm={frameForm} frameState={frameState} isCreator={isCreator} frameEditMode={frameEditMode} setFrameEditMode={setFrameEditMode} activeFrameSection={activeFrameSection} setActiveFrameSection={setActiveFrameSection} canCreateCharacter={canCreateCharacter} adventureId={adventureId} updateFrameField={updateFrameField} updateSelection={updateSelection} updateEntrySelection={updateEntrySelection} saveFrame={saveFrame} saveFrameToLibrary={saveFrameToLibrary} />}
+    {activeTab === 'story' && <StoryPanel description={current.description} />}
     {activeTab === 'players' && <PlayersPanel players={players} playersState={playersState} currentUserId={user?.id} isCreator={isCreator} current={current} invites={invites} email={email} setEmail={setEmail} message={message} submitInvite={submitInvite} setFear={setFear} adventureId={adventureId} />}
-    {activeTab === 'notes' && isCreator && <NotesPanel notes={notes} notesState={notesState} noteDraft={noteDraft} setNoteDraft={setNoteDraft} selectNote={selectNote} newNote={newNote} saveNote={saveNote} removeNote={removeNote} />}
+    {activeTab === 'notes' && isCreator && <NoteManager title="Notes" eyebrow="GM NOTEBOOK" sections={noteSections} notes={notes} loading={notesState.loading} saving={notesState.saving} error={notesState.error} message={notesState.message} onSaveNote={saveNote} onDeleteNote={removeNote} onCreateSection={createNoteSection} onRenameSection={renameNoteSection} onDeleteSection={deleteNoteSection} onMoveNote={moveNote} onRetry={retryNotes} />}
     {activeTab === 'settings' && isCreator && <SettingsPanel deleteState={deleteState} removeAdventure={removeAdventure} />}
   </section>;
 }
@@ -297,8 +385,8 @@ function PlayersPanel({ players, playersState, currentUserId, isCreator, current
   </section>;
 }
 
-function NotesPanel({ notes, notesState, noteDraft, setNoteDraft, selectNote, newNote, saveNote, removeNote }) {
-  return <section className={styles.workspacePanel}><div className={styles.panelHeading}><div><p className="eyebrow">GM NOTEBOOK</p><h3>Notes</h3></div><Button type="button" variant="text" onClick={newNote}>New note</Button></div>{notesState.loading ? <p className="muted">Loading notes...</p> : <div className={styles.notesLayout}><div className={styles.noteList}>{notes.length === 0 ? <p className="muted">No notes yet. Start a private thread for future story-line planning.</p> : notes.map((note) => <button type="button" className={note.id === noteDraft.id ? styles.selectedNote : ''} key={note.id} onClick={() => selectNote(note)}><strong>{note.title}</strong><span>{new Date(note.updated_at).toLocaleDateString()}</span></button>)}</div><form className={styles.noteEditor} onSubmit={saveNote}><label>Title<input required maxLength="160" value={noteDraft.title} onChange={(event) => setNoteDraft({ ...noteDraft, title: event.target.value })} /></label><label>Note body<textarea required maxLength="10000" value={noteDraft.body} onChange={(event) => setNoteDraft({ ...noteDraft, body: event.target.value })} /></label><div className={styles.noteActions}><Button type="submit" disabled={notesState.saving}>{notesState.saving ? 'Saving...' : 'Save note'}</Button>{noteDraft.id && <Button type="button" variant="text" onClick={removeNote} disabled={notesState.saving}>Delete note</Button>}</div></form></div>}{notesState.message && <p className="muted" role="status">{notesState.message}</p>}{notesState.error && <p className={styles.error} role="alert">{notesState.error}</p>}</section>;
+function StoryPanel({ description }) {
+  return <section className={styles.workspacePanel}><div className={styles.panelHeading}><div><p className="eyebrow">CAMPAIGN STORY</p><h3>Story</h3></div></div>{description ? <p className={styles.storyText}>{description}</p> : <p className="muted">The GM has not added a story description yet.</p>}</section>;
 }
 
 function SettingsPanel({ deleteState, removeAdventure }) {

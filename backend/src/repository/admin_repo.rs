@@ -1,9 +1,11 @@
+use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::{
     error::AppError,
-    models::{AccessAuditEvent, AccessLevel, AdminUser, User, UserListQuery},
+    models::{AccessAuditEvent, AccessLevel, AdminUser, AiPromptTemplate, User, UserListQuery},
+    repository::ai_repo,
 };
 
 pub async fn list_users(
@@ -217,4 +219,66 @@ pub async fn list_audit_events(
     .bind((page - 1) * limit)
     .fetch_all(pool)
     .await
+}
+
+pub async fn list_ai_prompt_templates(pool: &PgPool) -> Result<Vec<AiPromptTemplate>, AppError> {
+    let mut templates = Vec::with_capacity(ai_repo::PROMPT_TEMPLATE_KEYS.len());
+    for generation_type in ai_repo::PROMPT_TEMPLATE_KEYS {
+        let row = sqlx::query_as::<_, AiPromptTemplate>(
+            "SELECT generation_type, template, updated_at
+             FROM ai_prompt_templates WHERE generation_type = $1",
+        )
+        .bind(*generation_type)
+        .fetch_optional(pool)
+        .await?;
+        templates.push(row.unwrap_or_else(|| AiPromptTemplate {
+            generation_type: (*generation_type).to_owned(),
+            template: ai_repo::default_prompt_template(generation_type).to_owned(),
+            updated_at: Utc::now(),
+        }));
+    }
+    Ok(templates)
+}
+
+pub async fn update_ai_prompt_template(
+    pool: &PgPool,
+    generation_type: &str,
+    template: &str,
+) -> Result<AiPromptTemplate, AppError> {
+    if !ai_repo::PROMPT_TEMPLATE_KEYS.contains(&generation_type) {
+        return Err(AppError::NotFound(
+            "AI prompt template not found".to_owned(),
+        ));
+    }
+    sqlx::query_as::<_, AiPromptTemplate>(
+        "INSERT INTO ai_prompt_templates (generation_type, template, updated_at)
+         VALUES ($1, $2, now())
+         ON CONFLICT (generation_type) DO UPDATE SET template = EXCLUDED.template, updated_at = now()
+         RETURNING generation_type, template, updated_at",
+    )
+    .bind(generation_type)
+    .bind(template)
+    .fetch_one(pool)
+    .await
+    .map_err(AppError::from)
+}
+
+pub async fn reset_ai_prompt_template(
+    pool: &PgPool,
+    generation_type: &str,
+) -> Result<AiPromptTemplate, AppError> {
+    if !ai_repo::PROMPT_TEMPLATE_KEYS.contains(&generation_type) {
+        return Err(AppError::NotFound(
+            "AI prompt template not found".to_owned(),
+        ));
+    }
+    sqlx::query("DELETE FROM ai_prompt_templates WHERE generation_type = $1")
+        .bind(generation_type)
+        .execute(pool)
+        .await?;
+    Ok(AiPromptTemplate {
+        generation_type: generation_type.to_owned(),
+        template: ai_repo::default_prompt_template(generation_type).to_owned(),
+        updated_at: Utc::now(),
+    })
 }
