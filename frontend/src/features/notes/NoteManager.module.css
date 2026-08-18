@@ -1,0 +1,32 @@
+.manager { display: grid; gap: var(--space-5); max-width: 980px; margin-top: var(--space-6); }
+.heading, .sectionTools, .actions { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-3); }
+.heading h3 { margin: 0; }
+.layout { display: grid; grid-template-columns: minmax(180px, .3fr) minmax(0, 1fr); gap: var(--space-5); }
+.sidebar, .content { min-width: 0; }
+.sectionList { display: grid; gap: 4px; }
+.sectionList button { display: flex; justify-content: space-between; gap: var(--space-2); padding: var(--space-3); border: 1px solid transparent; background: rgba(244, 238, 228, .06); color: var(--color-muted-inverse); cursor: pointer; font: inherit; text-align: left; }
+.sectionList button:hover, .sectionList .selectedSection { border-color: var(--color-accent); background: rgba(201, 157, 99, .12); color: var(--color-text-inverse); }
+.sectionList span { color: var(--color-accent); }
+.inlineForm, .sectionTools form, .editor { display: grid; gap: var(--space-2); }
+.inlineForm { margin-top: var(--space-4); }
+.inlineForm label, .sectionTools label, .editor label { color: var(--color-muted-inverse); font-size: 12px; }
+.inlineForm > div, .sectionTools form > div { display: flex; gap: var(--space-2); }
+.inlineForm input, .sectionTools input, .editor input, .editor textarea, .editor select { width: 100%; padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text); font: inherit; }
+.sectionTools { align-items: flex-end; padding-bottom: var(--space-4); border-bottom: 1px solid rgba(244, 238, 228, .14); }
+.sectionTools form { flex: 1; }
+.noteList { display: grid; gap: var(--space-3); min-height: 80px; padding-top: var(--space-4); }
+.noteCard { display: grid; gap: var(--space-2); padding: var(--space-4); border: 1px solid rgba(244, 238, 228, .14); background: rgba(244, 238, 228, .06); cursor: grab; }
+.noteCard:focus-visible, .noteCard:hover, .selectedNote { border-color: var(--color-accent); }
+.noteCard:active { cursor: grabbing; }
+.noteCard > div:first-child { display: flex; justify-content: space-between; gap: var(--space-3); }
+.noteCard strong { color: var(--color-text-inverse); }
+.noteCard span { color: var(--color-muted-inverse); font-size: 12px; }
+.noteCard p { margin: 0; color: var(--color-muted-inverse); line-height: 1.55; white-space: pre-wrap; }
+.moveActions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
+.moveActions select { min-width: 150px; padding: 7px; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
+.editor { margin-top: var(--space-5); padding-top: var(--space-5); border-top: 1px solid rgba(244, 238, 228, .14); }
+.editor textarea { min-height: 220px; resize: vertical; line-height: 1.6; }
+.actions { justify-content: flex-start; align-items: center; }
+.readOnly { padding: var(--space-3); border-left: 2px solid var(--color-accent); background: rgba(201, 157, 99, .1); }
+.error { color: #ffb4ac; }
+@media (max-width: 700px) { .layout { grid-template-columns: 1fr; } .heading, .sectionTools { align-items: flex-start; flex-direction: column; } .sectionTools form { width: 100%; } }

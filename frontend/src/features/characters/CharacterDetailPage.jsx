@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { listAdventures } from '../adventures/adventureApi';
 import {
-  advanceCharacter, generateCharacterImage, getCharacter, getCharacterCreationBook, linkCharacterToAdventure, updateCharacter, updateCharacterStats,
+  advanceCharacter, createCharacterNote, createCharacterNoteSection, deleteCharacterNote, deleteCharacterNoteSection,
+  generateCharacterImage, getCharacter, getCharacterCreationBook, linkCharacterToAdventure, listCharacterNotes,
+  updateCharacter, updateCharacterNote, updateCharacterNoteSection, updateCharacterStats,
 } from './characterApi';
+import NoteManager from '../notes/NoteManager';
 import {
   GOLD_LIMITS, TRAIT_ACTIONS, TRAIT_IDS, deriveSheet, normalizeStats, tierForLevel,
 } from './characterSheet';
@@ -92,8 +95,23 @@ export default function CharacterDetailPage({ mode = 'sheet' }) {
   const [advancementOpen, setAdvancementOpen] = useState(false);
   const [adventureState, setAdventureState] = useState({ loading: true, error: '' });
   const [state, setState] = useState({ loading: true, saving: false, error: '' });
+  const [notesData, setNotesData] = useState({ role: 'unavailable', sections: [], notes: [] });
+  const [notesState, setNotesState] = useState({ loading: true, saving: false, error: '', message: '' });
+  const characterRequestRef = useRef(0);
+  const notesRequestRef = useRef(0);
+  const notesCharacterRef = useRef(null);
+
+  const isCurrentCharacter = (requestGeneration) => characterRequestRef.current === requestGeneration;
 
   useEffect(() => {
+    const requestGeneration = ++characterRequestRef.current;
+    return () => {
+      if (characterRequestRef.current === requestGeneration) characterRequestRef.current += 1;
+    };
+  }, [characterId]);
+
+  useEffect(() => {
+    let active = true;
     Promise.all([
       getCharacter(characterId),
       listAdventures()
@@ -102,6 +120,7 @@ export default function CharacterDetailPage({ mode = 'sheet' }) {
       getCharacterCreationBook().then((response) => response.content).catch(() => null),
     ])
       .then(([nextCharacter, adventureResult, nextBook]) => {
+        if (!active) return;
         setCharacter(nextCharacter);
         setEditForm(editableCharacter(nextCharacter));
         setAdventures(adventureResult.items);
@@ -111,7 +130,22 @@ export default function CharacterDetailPage({ mode = 'sheet' }) {
         setStats(normalizeStats(nextCharacter.stats, deriveSheet(nextCharacter, nextBook)));
         setState({ loading: false, saving: false, error: '' });
       })
-      .catch((error) => setState({ loading: false, saving: false, error: error.message }));
+      .catch((error) => {
+        if (active) setState({ loading: false, saving: false, error: error.message });
+      });
+    return () => { active = false; };
+  }, [characterId]);
+
+  useEffect(() => {
+    let active = true;
+    const requestGeneration = characterRequestRef.current;
+    const notesRequest = ++notesRequestRef.current;
+    setNotesState({ loading: true, saving: false, error: '', message: '' });
+    setNotesData((current) => ({ ...current, role: 'unavailable' }));
+    listCharacterNotes(characterId)
+      .then((data) => { if (active && isCurrentCharacter(requestGeneration) && notesRequestRef.current === notesRequest) { notesCharacterRef.current = characterId; setNotesData(data); setNotesState({ loading: false, saving: false, error: '', message: '' }); } })
+      .catch((error) => { if (active && isCurrentCharacter(requestGeneration) && notesRequestRef.current === notesRequest) { notesCharacterRef.current = characterId; setNotesData({ role: 'unavailable', sections: [], notes: [] }); setNotesState({ loading: false, saving: false, error: error.message, message: '' }); } });
+    return () => { active = false; };
   }, [characterId]);
 
   const derived = useMemo(() => deriveSheet(character, book), [character, book]);
@@ -203,6 +237,126 @@ export default function CharacterDetailPage({ mode = 'sheet' }) {
     }
   };
 
+  const saveCharacterNote = async (draft) => {
+    const notesRequest = notesRequestRef.current;
+    setNotesState((current) => ({ ...current, saving: true, error: '', message: '' }));
+    try {
+      const payload = { title: draft.title, body: draft.body, section_id: draft.section_id, position: draft.position };
+      const saved = draft.id ? await updateCharacterNote(characterId, draft.id, payload) : await createCharacterNote(characterId, payload);
+      if (notesRequestRef.current !== notesRequest) return null;
+      setNotesData((current) => ({ ...current, notes: draft.id ? current.notes.map((note) => note.id === saved.id ? saved : note) : [...current.notes, saved] }));
+      const refreshRequest = ++notesRequestRef.current;
+      try {
+        const nextData = await listCharacterNotes(characterId);
+        if (notesRequestRef.current !== refreshRequest) return saved;
+        setNotesData(nextData);
+      } catch (refreshError) {
+        if (notesRequestRef.current === refreshRequest) setNotesState({ loading: false, saving: false, error: `Note saved, but the list could not be refreshed: ${refreshError.message}`, message: '' });
+        return saved;
+      }
+      setNotesState({ loading: false, saving: false, error: '', message: 'Note saved.' });
+      return saved;
+    } catch (error) {
+      setNotesState((current) => ({ ...current, saving: false, error: error.message, message: '' }));
+      return null;
+    }
+  };
+  const removeCharacterNote = async (noteId) => {
+    const notesRequest = notesRequestRef.current;
+    setNotesState((current) => ({ ...current, saving: true, error: '', message: '' }));
+    try {
+      await deleteCharacterNote(characterId, noteId);
+      if (notesRequestRef.current !== notesRequest) return false;
+      setNotesData((current) => ({ ...current, notes: current.notes.filter((note) => note.id !== noteId) }));
+      const refreshRequest = ++notesRequestRef.current;
+      try {
+        const nextData = await listCharacterNotes(characterId);
+        if (notesRequestRef.current !== refreshRequest) return true;
+        setNotesData(nextData);
+      } catch (refreshError) {
+        if (notesRequestRef.current === refreshRequest) setNotesState({ loading: false, saving: false, error: `Note deleted, but the list could not be refreshed: ${refreshError.message}`, message: '' });
+        return true;
+      }
+      setNotesState({ loading: false, saving: false, error: '', message: 'Note deleted.' });
+      return true;
+    } catch (error) {
+      setNotesState((current) => ({ ...current, saving: false, error: error.message, message: '' }));
+      return false;
+    }
+  };
+  const refreshCharacterNotes = async (requestGeneration, successMessage, refreshErrorPrefix) => {
+    const isActive = () => isCurrentCharacter(requestGeneration);
+    const refreshRequest = ++notesRequestRef.current;
+    try {
+      const nextData = await listCharacterNotes(characterId);
+      if (!isActive() || notesRequestRef.current !== refreshRequest) return false;
+      setNotesData(nextData);
+      setNotesState({ loading: false, saving: false, error: '', message: successMessage });
+      return true;
+    } catch (refreshError) {
+      if (isActive() && notesRequestRef.current === refreshRequest) setNotesState({ loading: false, saving: false, error: `${refreshErrorPrefix}, but the list could not be refreshed: ${refreshError.message}`, message: '' });
+      return false;
+    }
+  };
+  const createCharacterSection = async (name) => {
+    const requestGeneration = characterRequestRef.current;
+    const isActive = () => isCurrentCharacter(requestGeneration);
+    setNotesState((current) => ({ ...current, saving: true, error: '', message: '' }));
+    try {
+      const created = await createCharacterNoteSection(characterId, { name });
+      if (!isActive()) return null;
+      setNotesData((current) => ({ ...current, sections: [...current.sections, created] }));
+      await refreshCharacterNotes(requestGeneration, 'Section created.', 'Section created');
+      return isActive() ? created : null;
+    } catch (error) {
+      if (isActive()) setNotesState((current) => ({ ...current, saving: false, error: error.message, message: '' }));
+      return null;
+    }
+  };
+  const renameCharacterSection = async (sectionId, name) => {
+    const requestGeneration = characterRequestRef.current;
+    const isActive = () => isCurrentCharacter(requestGeneration);
+    setNotesState((current) => ({ ...current, saving: true, error: '', message: '' }));
+    try {
+      const updated = await updateCharacterNoteSection(characterId, sectionId, { name });
+      if (!isActive()) return;
+      setNotesData((current) => ({ ...current, sections: current.sections.map((section) => section.id === updated.id ? updated : section) }));
+      await refreshCharacterNotes(requestGeneration, 'Section renamed.', 'Section renamed');
+    } catch (error) {
+      if (isActive()) setNotesState((current) => ({ ...current, saving: false, error: error.message, message: '' }));
+    }
+  };
+  const deleteCharacterSection = async (sectionId) => {
+    const requestGeneration = characterRequestRef.current;
+    const isActive = () => isCurrentCharacter(requestGeneration);
+    setNotesState((current) => ({ ...current, saving: true, error: '', message: '' }));
+    try {
+      await deleteCharacterNoteSection(characterId, sectionId);
+      if (!isActive()) return null;
+      const refreshRequest = ++notesRequestRef.current;
+      try {
+        const nextData = await listCharacterNotes(characterId);
+        if (!isActive() || notesRequestRef.current !== refreshRequest) return null;
+        if (!Array.isArray(nextData.sections) || nextData.sections.some((section) => section?.id === sectionId) || !nextData.sections.some((section) => section?.id && section.id !== sectionId)) throw new Error('The refreshed section list was not canonical after deletion.');
+        setNotesData(nextData);
+        setNotesState({ loading: false, saving: false, error: '', message: 'Section deleted.' });
+        return { deleted: true, sections: nextData.sections };
+      } catch (refreshError) {
+        if (isActive() && notesRequestRef.current === refreshRequest) setNotesState({ loading: false, saving: false, error: `Section deleted, but the list could not be refreshed: ${refreshError.message}`, message: '' });
+        return isActive() && notesRequestRef.current === refreshRequest ? { deleted: true, deletedSectionId: sectionId, sections: null } : null;
+      }
+    } catch (error) {
+      if (isActive()) setNotesState((current) => ({ ...current, saving: false, error: error.message, message: '' }));
+      return false;
+    }
+  };
+  const retryNotes = async () => {
+    const requestGeneration = characterRequestRef.current;
+    setNotesState((current) => ({ ...current, loading: true, error: '', message: '' }));
+    return refreshCharacterNotes(requestGeneration, 'Notes refreshed.', 'Notes refresh');
+  };
+  const moveCharacterNote = (note, sectionId, position) => saveCharacterNote({ ...note, section_id: sectionId, position });
+
   if (state.loading) return <p className="muted">Loading character sheet...</p>;
   if (!character || !stats) return <p className={styles.error}>{state.error || 'Character not found.'}</p>;
 
@@ -210,6 +364,8 @@ export default function CharacterDetailPage({ mode = 'sheet' }) {
   const equipment = character.equipment || {};
   const heritage = [character.ancestry_id, character.secondary_ancestry_id, character.community_id]
     .filter(Boolean).map(titleize).join(' · ');
+  const currentNotesData = notesCharacterRef.current === characterId ? notesData : { role: 'unavailable', sections: [], notes: [] };
+  const notesManager = <NoteManager key={characterId} title="Character notes" eyebrow="CHARACTER NOTEBOOK" sections={currentNotesData.sections} notes={currentNotesData.notes} loading={notesState.loading || notesCharacterRef.current !== characterId} saving={notesState.saving} error={notesState.error} message={notesState.message} readOnly={currentNotesData.role !== 'owner'} onSaveNote={saveCharacterNote} onDeleteNote={removeCharacterNote} onCreateSection={createCharacterSection} onRenameSection={renameCharacterSection} onDeleteSection={deleteCharacterSection} onMoveNote={moveCharacterNote} onRetry={retryNotes} />;
 
   if (mode === 'edit') {
     return (
@@ -234,6 +390,7 @@ export default function CharacterDetailPage({ mode = 'sheet' }) {
         {adventureState.error && <p className={styles.error} role="status">Available adventures could not be loaded. The current link is preserved.</p>}
         {state.error && <p className={styles.error}>{state.error}</p>}
         <CharacterEditor form={editForm} updateField={updateEditField} updateEquipmentField={updateEquipmentField} updateExperience={updateExperience} addExperience={addExperience} removeExperience={removeExperience} updateInventoryItem={updateInventoryItem} addInventoryItem={addInventoryItem} removeInventoryItem={removeInventoryItem} updateFamilyMember={updateFamilyMember} addFamilyMember={addFamilyMember} removeFamilyMember={removeFamilyMember} />
+        {notesManager}
         <div className={styles.editActions}>
           <Link to={`/characters/${characterId}`} className={styles.cancelButton}>Cancel</Link>
           <button type="button" className={styles.editButton} disabled={state.saving} onClick={saveCharacter}>{state.saving ? 'Saving...' : 'Save character'}</button>
@@ -454,6 +611,8 @@ export default function CharacterDetailPage({ mode = 'sheet' }) {
           )}
         </div>
       </div>
+
+      {notesManager}
 
     </section>
   );

@@ -14,6 +14,10 @@ export const declineInvite = (id) => request(`/api/invites/${id}/decline`, { met
 export const listMyInvites = () => request('/api/invites');
 export const updateFear = (id, fear) => request(`/api/adventures/${id}/fear`, { method: 'PATCH', body: JSON.stringify({ fear }) });
 export const listAdventureNotes = (id) => request(`/api/adventures/${id}/notes`);
+export const listAdventureNoteSections = (id) => request(`/api/adventures/${id}/note-sections`);
+export const createAdventureNoteSection = (id, payload) => request(`/api/adventures/${id}/note-sections`, { method: 'POST', body: JSON.stringify(payload) });
+export const updateAdventureNoteSection = (adventureId, sectionId, payload) => request(`/api/adventures/${adventureId}/note-sections/${sectionId}`, { method: 'PUT', body: JSON.stringify(payload) });
+export const deleteAdventureNoteSection = (adventureId, sectionId) => request(`/api/adventures/${adventureId}/note-sections/${sectionId}`, { method: 'DELETE' });
 export const createAdventureNote = (id, payload) => request(`/api/adventures/${id}/notes`, { method: 'POST', body: JSON.stringify(payload) });
 export const updateAdventureNote = (adventureId, noteId, payload) => request(`/api/adventures/${adventureId}/notes/${noteId}`, { method: 'PUT', body: JSON.stringify(payload) });
 export const deleteAdventureNote = (adventureId, noteId) => request(`/api/adventures/${adventureId}/notes/${noteId}`, { method: 'DELETE' });

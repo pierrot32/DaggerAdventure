@@ -51,6 +51,23 @@ pub fn router(state: AppState) -> Router {
                 .delete(characters::delete),
         )
         .route(
+            "/api/characters/:character_id/notes",
+            get(characters::list_notes).post(characters::create_note),
+        )
+        .route(
+            "/api/characters/:character_id/notes/:note_id",
+            axum::routing::put(characters::update_note).delete(characters::delete_note),
+        )
+        .route(
+            "/api/characters/:character_id/note-sections",
+            post(characters::create_note_section),
+        )
+        .route(
+            "/api/characters/:character_id/note-sections/:section_id",
+            axum::routing::put(characters::update_note_section)
+                .delete(characters::delete_note_section),
+        )
+        .route(
             "/api/characters/:character_id/stats",
             axum::routing::patch(characters::update_stats),
         )
@@ -73,6 +90,15 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/api/admin/access-audit", get(admin::list_audit_events))
         .route("/api/admin/ai-logs", get(admin::list_ai_logs))
+        .route(
+            "/api/admin/ai-prompts",
+            get(admin::list_ai_prompt_templates),
+        )
+        .route(
+            "/api/admin/ai-prompts/:generation_type",
+            axum::routing::put(admin::update_ai_prompt_template)
+                .delete(admin::reset_ai_prompt_template),
+        )
         .route(
             "/api/admin/users/:target_id/ai-generation",
             axum::routing::patch(admin::update_ai_generation_access),
@@ -129,6 +155,14 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/adventures/:adventure_id/notes",
             get(notes::list).post(notes::create),
+        )
+        .route(
+            "/api/adventures/:adventure_id/note-sections",
+            get(notes::list_sections).post(notes::create_section),
+        )
+        .route(
+            "/api/adventures/:adventure_id/note-sections/:section_id",
+            axum::routing::put(notes::update_section).delete(notes::delete_section),
         )
         .route(
             "/api/adventures/:adventure_id/notes/:note_id",

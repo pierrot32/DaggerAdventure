@@ -15,6 +15,7 @@ pub async fn create(
     user_id: Uuid,
     request: &CreateCharacterRequest,
 ) -> Result<Character, sqlx::Error> {
+    let mut transaction = pool.begin().await?;
     let query = format!(
         "INSERT INTO characters
          (id, user_id, adventure_id, name, pronouns, description, size, height, weight,
@@ -25,7 +26,7 @@ pub async fn create(
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29)
          RETURNING {CHARACTER_FIELDS}"
     );
-    sqlx::query_as::<_, Character>(&query)
+    let character = sqlx::query_as::<_, Character>(&query)
         .bind(Uuid::new_v4())
         .bind(user_id)
         .bind(request.adventure_id)
@@ -55,8 +56,21 @@ pub async fn create(
         .bind(&request.equipment)
         .bind(&request.domain_cards)
         .bind(&request.stats)
-        .fetch_one(pool)
-        .await
+        .fetch_one(&mut *transaction)
+        .await?;
+
+    sqlx::query(
+        "INSERT INTO character_note_sections (id, character_id, owner_id, name, position)
+         VALUES ($1, $2, $3, 'General', 0)",
+    )
+    .bind(Uuid::new_v4())
+    .bind(character.id)
+    .bind(user_id)
+    .execute(&mut *transaction)
+    .await?;
+
+    transaction.commit().await?;
+    Ok(character)
 }
 
 pub async fn find_for_user(

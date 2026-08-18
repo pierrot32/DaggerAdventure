@@ -10,6 +10,7 @@ import AdminUsersPage from '../features/admin/AdminUsersPage';
 import AdminAuditPage from '../features/admin/AdminAuditPage';
 import AdminAiPlaygroundPage from '../features/admin/AdminAiPlaygroundPage';
 import AdminAiLogsPage from '../features/admin/AdminAiLogsPage';
+import AdminAiPromptsPage from '../features/admin/AdminAiPromptsPage';
 import AdventureListPage from '../features/adventures/AdventureListPage';
 import AdventureDetailPage from '../features/adventures/AdventureDetailPage';
 import CreateAdventurePage from '../features/adventures/CreateAdventurePage';
@@ -63,6 +64,11 @@ export default function AppRoutes() {
       <Route path="/admin/ai/logs" element={(
         <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.ADMIN]}>
           <AppLayout><AdminAiLogsPage /></AppLayout>
+        </ProtectedRoute>
+      )} />
+      <Route path="/admin/ai/prompts" element={(
+        <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.ADMIN]}>
+          <AppLayout><AdminAiPromptsPage /></AppLayout>
         </ProtectedRoute>
       )} />
       <Route path="/adventures" element={(

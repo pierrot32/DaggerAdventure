@@ -39,6 +39,16 @@ pub async fn create(
     .execute(&mut *transaction)
     .await?;
 
+    sqlx::query(
+        "INSERT INTO adventure_note_sections (id, adventure_id, creator_id, name, position)
+         VALUES ($1, $2, $3, 'General', 0)",
+    )
+    .bind(Uuid::new_v4())
+    .bind(adventure.id)
+    .bind(creator_id)
+    .execute(&mut *transaction)
+    .await?;
+
     transaction.commit().await?;
     Ok(adventure)
 }
@@ -67,6 +77,16 @@ pub async fn create_with_frame(
         "INSERT INTO adventure_members (adventure_id, user_id, status)
          VALUES ($1, $2, 'accepted')",
     )
+    .bind(adventure.id)
+    .bind(creator_id)
+    .execute(&mut *transaction)
+    .await?;
+
+    sqlx::query(
+        "INSERT INTO adventure_note_sections (id, adventure_id, creator_id, name, position)
+         VALUES ($1, $2, $3, 'General', 0)",
+    )
+    .bind(Uuid::new_v4())
     .bind(adventure.id)
     .bind(creator_id)
     .execute(&mut *transaction)

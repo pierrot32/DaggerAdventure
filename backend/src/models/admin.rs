@@ -54,3 +54,15 @@ pub struct AccessAuditEvent {
     pub new_access_level: String,
     pub created_at: DateTime<Utc>,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateAiPromptRequest {
+    pub template: String,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct AiPromptTemplate {
+    pub generation_type: String,
+    pub template: String,
+    pub updated_at: DateTime<Utc>,
+}
