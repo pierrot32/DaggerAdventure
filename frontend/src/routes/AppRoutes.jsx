@@ -28,6 +28,7 @@ import BookImportPage from '../features/admin/BookImportPage';
 import BookContentEditorPage from '../features/admin/BookContentEditorPage';
 import BeastFeatureEditorPage from '../features/admin/BeastFeatureEditorPage';
 import SettingsPage from '../features/account/SettingsPage';
+import SoundboardPage from '../features/soundboards/SoundboardPage';
 
 // Single source of truth for the route tree - add future feature
 // pages here, nested under AppLayout like DashboardPage
@@ -109,6 +110,9 @@ export default function AppRoutes() {
       )} />
       <Route path="/equipment" element={(
         <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.PLAYER_ONLY]}><AppLayout><EquipmentPage /></AppLayout></ProtectedRoute>
+      )} />
+      <Route path="/soundboards" element={(
+        <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.ADVENTURE_MAKER]}><AppLayout><SoundboardPage /></AppLayout></ProtectedRoute>
       )} />
       <Route path="/characters/create" element={(
         <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.PLAYER_ONLY]}><AppLayout><CharacterBuilderPage /></AppLayout></ProtectedRoute>

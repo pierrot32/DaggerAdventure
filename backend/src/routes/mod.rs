@@ -7,10 +7,13 @@ pub mod content;
 pub mod frames;
 pub mod notes;
 pub mod notifications;
+pub mod soundboards;
 pub mod users;
 
 use axum::{
-    Router, middleware,
+    Router,
+    extract::DefaultBodyLimit,
+    middleware,
     routing::{get, post},
 };
 
@@ -181,6 +184,29 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/notifications/:notification_id/read",
             post(notifications::mark_read),
+        )
+        .route(
+            "/api/soundboards",
+            get(soundboards::list).post(soundboards::create),
+        )
+        .route(
+            "/api/soundboards/:board_id",
+            get(soundboards::get)
+                .patch(soundboards::update)
+                .delete(soundboards::delete),
+        )
+        .route(
+            "/api/soundboards/:board_id/sounds",
+            post(soundboards::create_sound)
+                .layer(DefaultBodyLimit::max(soundboards::MAX_UPLOAD_BYTES)),
+        )
+        .route(
+            "/api/soundboards/:board_id/sounds/:sound_id",
+            axum::routing::delete(soundboards::delete_sound),
+        )
+        .route(
+            "/api/soundboards/:board_id/sounds/:sound_id/:kind",
+            get(soundboards::media),
         )
         .route_layer(middleware::from_fn_with_state(state.clone(), require_auth));
 

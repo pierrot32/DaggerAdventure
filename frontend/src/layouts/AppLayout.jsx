@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useNotificationStore } from '../features/notifications/notificationStore';
 import { canCreateAdventure, canManageUsers, canPlay } from '../utils/permissions';
+import SoundPlayer from '../features/soundboards/SoundPlayer';
 import styles from './AppLayout.module.css';
 
 export default function AppLayout({ children }) {
@@ -47,6 +48,7 @@ export default function AppLayout({ children }) {
           </div>
           <Link className={styles.navLink} to="/characters">Characters</Link>
           {canPlay(user) && <Link className={styles.navLink} to="/equipment">Equipment</Link>}
+          {canCreateAdventure(user) && <Link className={styles.navLink} to="/soundboards">Sound</Link>}
           {canManageUsers(user) && <div className={styles.menu}>
             <button className={styles.menuTrigger} type="button" aria-expanded={openMenu === 'admin'} onClick={() => toggleMenu('admin')}>Admin</button>
             {openMenu === 'admin' && <div className={styles.menuPanel}>
@@ -80,6 +82,7 @@ export default function AppLayout({ children }) {
         </nav>
       </header>
       <main className={styles.content}>{children}</main>
+      <SoundPlayer />
     </div>
   );
 }

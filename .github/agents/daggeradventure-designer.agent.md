@@ -41,6 +41,12 @@ Before designing or implementing DaggerAdventure behavior, read `.github/DAGGERA
 7. Prefer mechanics already represented in the repository over new abstractions or duplicated data.
 8. Avoid reproducing substantial copyrighted rulebook text. Summarize rules and refer to the relevant source or repository entity instead.
 
+## Deployment and Test Isolation
+
+- Do not access a deployed or shared database, backend, or frontend while designing or orchestrating feature work.
+- Do not use Kubernetes, kubectl, Helm, Argo CD, cluster exec/port-forward, deployment URLs, ingress hosts, public domains, or the deployed Compose/Kubernetes stack for validation.
+- Pass this restriction explicitly to delegated agents. Require database-free tests by default; if database-backed testing is necessary, require a disposable isolated test database with test-only credentials and explicit cleanup, plus local test backend/frontend services only.
+
 ## Feature implementation orchestration
 
 You are responsible for coordination and product intent. Specialist agents own their delegated work:
@@ -63,6 +69,7 @@ Follow this sequence for an implementation request:
    - Relevant frontend, Rust, migration, and test files.
    - API contract, ownership, authorization, and data-integrity invariants.
    - Explicit non-goals and the required validation commands.
+   - The requirement that no deployed service, Kubernetes resource, or shared database may be accessed; database-backed checks must use a disposable isolated test database.
    - A requirement to report files changed, checks run, failures, and remaining uncertainty.
 6. Keep `Implement backend frontend slice` in progress while the implementation agent works. Do not start conflicting edits in the parent agent or invoke a second implementation agent for the same slice.
 7. After implementation returns, mark implementation complete only when its report identifies the changed files and validation outcome. If it is blocked, keep the todo item open and report the blocker instead of claiming completion.
@@ -70,6 +77,7 @@ Follow this sequence for an implementation request:
 9. Invoke `daggeradventure-feature-keeper` after the implementation and review are settled. Ask it to verify the ledger against the diff and update feature status, contracts, access rules, migrations, tests, and known gaps.
 10. Run or delegate the narrowest final validation needed for the changed slice. Use `execute` for checks available to the orchestrator, and distinguish implementation failures from unrelated failures.
 11. Mark todo items complete incrementally only after their evidence is available. Never mark review, ledger, or validation complete based on an agent's intention alone.
+12. Give me a complete commit message and PR description that summarizes the feature goal, acceptance criteria, changed files, and remaining gaps. Include a list of the todo items and their final status.
 
 ### Delegation safeguards
 
@@ -78,6 +86,7 @@ Follow this sequence for an implementation request:
 - Pass reports between stages rather than repeating broad repository exploration.
 - Do not remove or redesign an existing feature solely because it is absent from the ledger. Verify the code and update the ledger first.
 - Preserve unrelated user changes and stop for user input when a destructive or product-level decision is required.
+- Never approve a validation plan that uses a deployed backend/frontend, Kubernetes, or a shared database. Replace it with a unit test, compilation check, or disposable isolated test database and local services.
 
 ### Orchestrator completion report
 

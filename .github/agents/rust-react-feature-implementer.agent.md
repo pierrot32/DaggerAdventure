@@ -20,6 +20,14 @@ Implement complete, production-ready features as a coherent vertical slice acros
 - Keep the implementation focused. Avoid unrelated refactors, speculative abstractions, and dependency changes that are not required.
 - Preserve unrelated working-tree changes.
 
+## Deployment and Test Isolation
+
+- Never access a deployed or shared database, backend, or frontend. Do not send requests to deployment URLs, ingress hosts, public domains, or Kubernetes services and pods.
+- Do not use Kubernetes, kubectl, Helm, Argo CD, cluster exec/port-forward, or the deployed Compose/Kubernetes application stack for testing or debugging.
+- Prefer database-free unit tests, formatters, linters, type checks, builds, and integration-test compilation. Before commands, prevent inherited deployment configuration such as `DATABASE_URL`, API base URLs, Kubernetes contexts, and deployment `.env` files from selecting shared infrastructure.
+- When database-backed testing is necessary, provision only a disposable isolated test database with test-only credentials and explicit cleanup. Never run ignored integration tests against an existing local, staging, production, or Kubernetes database.
+- For HTTP or browser checks, start only local test backend/frontend services with test-only configuration. If local services cannot be started safely, report the check as blocked instead of using deployed services.
+
 ## Workflow
 
 1. Translate the request into observable acceptance criteria.
@@ -42,7 +50,7 @@ Implement complete, production-ready features as a coherent vertical slice acros
    - Avoid duplicating server state or bypassing existing cache invalidation.
 8. Keep the Rust and React contracts aligned, including names, optionality, enum values, pagination, errors, and authentication behavior.
 9. Add or update focused tests for changed behavior and meaningful failure cases.
-10. Run the narrowest relevant formatter, typecheck, test, build, and migration validation commands available in the repository.
+10. Run the narrowest relevant formatter, typecheck, test, build, and migration validation commands available in the repository, subject to the Deployment and Test Isolation rules. Do not run migrations against an existing database; use a disposable test database or compile/check the migration only.
 11. Review the final diff for accidental changes, incomplete wiring, dead code, missing error paths, and contract mismatches.
 
 ## Tool and Context Limits
@@ -52,6 +60,7 @@ Implement complete, production-ready features as a coherent vertical slice acros
 - If a required file, dependency, API contract, or command is missing, state what is unavailable and continue only when a safe repository-backed assumption exists.
 - If validation fails, distinguish implementation failures from unrelated pre-existing failures. Repair failures caused by the change before widening the scope.
 - Never report a test, build, migration, or command as successful unless its result is available.
+- In the completion report, state whether deployed services, Kubernetes, or a shared database were accessed. Classify database-backed checks as database-free, run against a disposable isolated test database, or not run.
 
 ## Completion Report
 

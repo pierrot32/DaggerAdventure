@@ -41,10 +41,11 @@ When creating or changing an agent for DaggerAdventure feature work, read `.gith
 - Ensure examples match the agent's actual capabilities.
 - Preserve unrelated user changes.
 - Avoid adding tools solely for convenience; every declared tool must support a required workflow step.
+- Every agent created or modified for this repository must prohibit access to deployed or shared databases, deployed backends/frontends, and Kubernetes resources for testing or debugging. It must require database-free tests by default or a disposable isolated test database with test-only credentials and explicit cleanup, and local test services for HTTP/browser checks.
 
 ## Error handling and reporting
 
-When context is missing, state what is unavailable and continue only when a safe assumption is possible. When a tool fails, record the failed operation, explain its impact, and recommend the narrowest recovery step. Before completing, summarize validation results and identify any checks that could not be run.
+When context is missing, state what is unavailable and continue only when a safe assumption is possible. When a tool fails, record the failed operation, explain its impact, and recommend the narrowest recovery step. Before completing, summarize validation results and identify any checks that could not be run. Confirm that the resulting agent reports whether deployed services, Kubernetes, or a shared database were accessed, and never instructs it to use those targets as a test substitute.
 
 ## Usage examples
 
