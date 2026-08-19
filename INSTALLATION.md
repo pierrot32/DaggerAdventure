@@ -247,6 +247,18 @@ docker compose ps
 
 The `argocd` container is a one-shot installer and should exit with status 0 after it completes. The k3s cluster may take several minutes to initialize.
 
+For an existing installation, reload the upload limits once after pulling this change:
+
+```bash
+KUBECTL="docker compose exec -T k3s kubectl --kubeconfig /k3s-config/kubeconfig.yaml"
+$KUBECTL -n ingress-nginx patch configmap ingress-nginx-controller --type=merge -p '{"data":{"proxy-body-size":"64m"}}'
+$KUBECTL -n ingress-nginx rollout restart deployment/ingress-nginx-controller
+$KUBECTL -n ingress-nginx rollout status deployment/ingress-nginx-controller --timeout=300s
+docker compose restart nginx
+```
+
+The ingress annotation and outer Nginx template also set the limit to 64 MB. The backend accepts sound upload requests up to 60 MiB, including multipart overhead.
+
 ### 5. Issue TLS certificates
 
 Run the certificate bootstrap once for each public domain, after DNS and port forwarding work:
