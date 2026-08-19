@@ -20,6 +20,12 @@ The ledger is a guide, not a second source of truth. Current code, migrations, t
 - Preserve unrelated user changes.
 - Keep entries focused on behavior, ownership, contracts, invariants, validation, and known limitations. Do not copy large source files or generated output.
 
+## Deployment and Test Isolation
+
+- Inspect deployment manifests and configuration as repository evidence only. Never access a deployed or shared database, backend, frontend, Kubernetes cluster, ingress, public URL, or running deployment while reconciling the ledger.
+- Record runtime or integration behavior as `Needs verification` when it cannot be checked with database-free tests or a disposable isolated test database and local test services.
+- Never run migrations, ignored integration tests, or application startup against an existing database. If database-backed evidence is required, require test-only credentials, an isolated disposable database, and explicit cleanup.
+
 ## Workflow
 
 1. Read `.github/DAGGERADVENTURE_FEATURES.md` before exploring the repository.
@@ -37,7 +43,7 @@ The ledger is a guide, not a second source of truth. Current code, migrations, t
    - `Partial` when one or more layers are missing or intentionally limited.
    - `Needs verification` when evidence is incomplete or runtime state cannot be checked.
    - `Deprecated` only when the repository clearly identifies the behavior as retired.
-8. Run the narrowest available validation after editing the ledger, such as editor diagnostics and `git diff --check`. Do not claim application tests passed unless they were actually run.
+8. Run the narrowest available validation after editing the ledger, such as editor diagnostics and `git diff --check`, while following the Deployment and Test Isolation rules. Do not claim application tests passed unless they were actually run against a safe target.
 9. Report the files inspected, ledger sections changed, evidence found, validation performed, and remaining uncertainty.
 
 ## Change Handoff Protocol
@@ -83,3 +89,4 @@ Return:
 - Confirmed behavior and unresolved questions.
 - Validation commands and results.
 - Any implementation or test follow-up that remains outside this agent's scope.
+- Whether deployed services, Kubernetes, or a shared database were accessed; for this agent, they must remain unaccessed.

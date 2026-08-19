@@ -6,6 +6,7 @@ pub mod content;
 pub mod frame;
 pub mod note;
 pub mod notification;
+pub mod soundboard;
 pub mod user;
 
 pub use admin::{
@@ -36,6 +37,10 @@ pub use note::{
     UpdateNoteRequest,
 };
 pub use notification::Notification;
+pub use soundboard::{
+    CreateSoundBoardRequest, SoundBoard, SoundBoardDetail, SoundLabel, SoundRecord,
+    UpdateSoundBoardRequest,
+};
 pub use user::{
     AccessLevel, LoginRequest, MessageResponse, RegisterRequest, UpdateUserRequest, User,
     UserResponse,
