@@ -38,8 +38,8 @@ pub use note::{
 };
 pub use notification::Notification;
 pub use soundboard::{
-    CreateSoundBoardRequest, SoundBoard, SoundBoardDetail, SoundLabel, SoundRecord,
-    UpdateSoundBoardRequest,
+    CreateSoundBoardRequest, SoundBoard, SoundBoardDetail, SoundLabel, SoundLibraryTrack,
+    SoundRecord, SoundSource, SoundSourceRequest, UpdateSoundBoardRequest,
 };
 pub use user::{
     AccessLevel, LoginRequest, MessageResponse, RegisterRequest, UpdateUserRequest, User,
