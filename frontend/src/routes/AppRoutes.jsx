@@ -18,6 +18,7 @@ import NotificationsPage from '../features/notifications/NotificationsPage';
 import CharactersPage from '../features/characters/CharactersPage';
 import CharacterBuilderPage from '../features/characters/CharacterBuilderPage';
 import CharacterDetailPage from '../features/characters/CharacterDetailPage';
+import CharacterNotesPage from '../features/characters/CharacterNotesPage';
 import CharacterProfilePage from '../features/characters/CharacterProfilePage';
 import DruidBeastFormsPage from '../features/characters/DruidBeastFormsPage';
 import EquipmentPage from '../features/equipment/EquipmentPage';
@@ -111,6 +112,9 @@ export default function AppRoutes() {
       )} />
       <Route path="/characters/create" element={(
         <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.PLAYER_ONLY]}><AppLayout><CharacterBuilderPage /></AppLayout></ProtectedRoute>
+      )} />
+      <Route path="/characters/:characterId/notes" element={(
+        <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.PLAYER_ONLY]}><AppLayout><CharacterNotesPage /></AppLayout></ProtectedRoute>
       )} />
       <Route path="/characters/:characterId/edit" element={(
         <ProtectedRoute allowedAccessLevels={[ACCESS_LEVELS.PLAYER_ONLY]}><AppLayout><CharacterDetailPage mode="edit" /></AppLayout></ProtectedRoute>

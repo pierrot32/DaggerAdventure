@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
 import { getCharacter } from './characterApi';
 import styles from './CharacterProfilePage.module.css';
 
@@ -13,6 +14,7 @@ const asList = (value) => (Array.isArray(value) ? value : value ? [value] : []);
 
 export default function CharacterProfilePage() {
   const { characterId } = useParams();
+  const { user } = useAuth();
   const [character, setCharacter] = useState(null);
   const [state, setState] = useState({ loading: true, error: '' });
 
@@ -30,6 +32,7 @@ export default function CharacterProfilePage() {
 
   const connections = asList(character.connections);
   const family = asList(character.family_members);
+  const isOwner = character.user_id === user?.id;
 
   return (
     <section className={styles.page}>
@@ -40,7 +43,7 @@ export default function CharacterProfilePage() {
           <h2>{character.name}</h2>
           <p className="muted">The story, appearance, and relationships behind the sheet.</p>
         </div>
-        <Link to={`/characters/${characterId}/edit`} className={styles.editButton}>Edit character</Link>
+        {isOwner && <Link to={`/characters/${characterId}/edit`} className={styles.editButton}>Edit character</Link>}
       </header>
 
       <div className={styles.hero}>
