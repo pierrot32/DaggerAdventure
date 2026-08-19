@@ -208,6 +208,32 @@ pub fn router(state: AppState) -> Router {
             "/api/soundboards/:board_id/sounds/:sound_id/:kind",
             get(soundboards::media),
         )
+        .route(
+            "/api/sound-sources",
+            get(soundboards::sources).post(soundboards::create_source),
+        )
+        .route(
+            "/api/sound-sources/:source_id",
+            axum::routing::put(soundboards::update_source).delete(soundboards::delete_source),
+        )
+        .route(
+            "/api/sound-library",
+            get(soundboards::library)
+                .post(soundboards::create_library_track)
+                .layer(DefaultBodyLimit::max(soundboards::MAX_UPLOAD_BYTES)),
+        )
+        .route(
+            "/api/sound-library/:track_id",
+            axum::routing::delete(soundboards::delete_library_track),
+        )
+        .route(
+            "/api/sound-library/:track_id/:kind",
+            get(soundboards::library_media),
+        )
+        .route(
+            "/api/soundboards/:board_id/library/:track_id",
+            post(soundboards::attach_library_track).delete(soundboards::detach_library_track),
+        )
         .route_layer(middleware::from_fn_with_state(state.clone(), require_auth));
 
     Router::new()
