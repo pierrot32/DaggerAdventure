@@ -5,6 +5,7 @@ metadata:
   namespace: dagger-adventure
   annotations:
     nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "64m"
 spec:
   # host must match APP_DOMAIN set in .env / docker-compose (not templated - k8s manifests
   # are applied verbatim by Argo CD, so keep this in sync manually if the domain changes)

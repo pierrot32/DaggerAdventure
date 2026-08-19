@@ -7,6 +7,8 @@ server {
         root /var/www/certbot;
     }
 
+    client_max_body_size 64m;
+
     location / {
         return 301 https://$host$request_uri;
     }
@@ -20,6 +22,8 @@ server {
     ssl_certificate     /etc/letsencrypt/live/${APP_DOMAIN}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${APP_DOMAIN}/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
+
+    client_max_body_size 64m;
 
     gzip on;
     gzip_vary on;
