@@ -108,7 +108,9 @@ mod tests {
     #[test]
     fn rank_orders_access_levels() {
         assert!(AccessLevel::Nothing.rank() < AccessLevel::PlayerOnly.rank());
-        assert!(AccessLevel::PlayerOnly.rank() < AccessLevel::AdventureMaker.rank());
+        assert!(
+            AccessLevel::PlayerOnly.rank() < AccessLevel::AdventureMaker.rank()
+        );
         assert!(AccessLevel::AdventureMaker.rank() < AccessLevel::Admin.rank());
     }
 
@@ -120,7 +122,8 @@ mod tests {
             AccessLevel::AdventureMaker,
             AccessLevel::Admin,
         ] {
-            let parsed: AccessLevel = level.as_str().parse().expect("as_str output should parse");
+            let parsed: AccessLevel =
+                level.as_str().parse().expect("as_str output should parse");
             assert_eq!(parsed.rank(), level.rank());
         }
     }

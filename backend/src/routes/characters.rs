@@ -10,10 +10,10 @@ use crate::{
     error::AppError,
     middleware::{access_guard::require_at_least, auth_guard::AuthUser},
     models::{
-        AccessLevel, Character, CharacterNote, CharacterNoteSection, CharacterNotesResponse,
-        CharacterSummary, CreateCharacterRequest, NoteSectionRequest,
-        UpdateCharacterAdvancementRequest, UpdateCharacterRequest, UpdateCharacterStatsRequest,
-        UpdateNoteRequest,
+        AccessLevel, Character, CharacterNote, CharacterNoteSection,
+        CharacterNotesResponse, CharacterSummary, CreateCharacterRequest,
+        NoteSectionRequest, UpdateCharacterAdvancementRequest,
+        UpdateCharacterRequest, UpdateCharacterStatsRequest, UpdateNoteRequest,
     },
     repository::{character_repo, content_repo, note_repo},
     state::AppState,
@@ -60,12 +60,17 @@ pub async fn create(
         ));
     }
     if let Some(adventure_id) = request.adventure_id {
-        let adventure =
-            crate::repository::adventure_repo::find_visible(&state.db, &user, adventure_id)
-                .await?
-                .ok_or_else(|| {
-                    AppError::Forbidden("You must belong to that adventure first".to_owned())
-                })?;
+        let adventure = crate::repository::adventure_repo::find_visible(
+            &state.db,
+            &user,
+            adventure_id,
+        )
+        .await?
+        .ok_or_else(|| {
+            AppError::Forbidden(
+                "You must belong to that adventure first".to_owned(),
+            )
+        })?;
         if adventure.creator_id != user.id {
             let is_member = sqlx::query_scalar::<_, bool>(
                 "SELECT EXISTS(
@@ -163,10 +168,18 @@ pub async fn list_notes(
     Path(character_id): Path<Uuid>,
 ) -> Result<Json<CharacterNotesResponse>, AppError> {
     require_at_least(&user, AccessLevel::PlayerOnly)?;
-    let character = character_repo::find_visible_to_user(&state.db, user.id, character_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Character not found".to_owned()))?;
-    note_repo::ensure_character_default_section(&state.db, character.id, character.user_id).await?;
+    let character =
+        character_repo::find_visible_to_user(&state.db, user.id, character_id)
+            .await?
+            .ok_or_else(|| {
+                AppError::NotFound("Character not found".to_owned())
+            })?;
+    note_repo::ensure_character_default_section(
+        &state.db,
+        character.id,
+        character.user_id,
+    )
+    .await?;
     let role = if character.user_id == user.id {
         "owner"
     } else {
@@ -174,7 +187,8 @@ pub async fn list_notes(
     };
     Ok(Json(CharacterNotesResponse {
         role: role.to_owned(),
-        sections: note_repo::list_character_sections(&state.db, character.id).await?,
+        sections: note_repo::list_character_sections(&state.db, character.id)
+            .await?,
         notes: note_repo::list_character_notes(&state.db, character.id).await?,
     }))
 }
@@ -231,7 +245,14 @@ pub async fn delete_note_section(
     Path((character_id, section_id)): Path<(Uuid, Uuid)>,
 ) -> Result<axum::http::StatusCode, AppError> {
     require_character_owner(&state, &user, character_id).await?;
-    if !note_repo::delete_character_section(&state.db, character_id, section_id, user.id).await? {
+    if !note_repo::delete_character_section(
+        &state.db,
+        character_id,
+        section_id,
+        user.id,
+    )
+    .await?
+    {
         return Err(AppError::NotFound("Notes section not found".to_owned()));
     }
     Ok(axum::http::StatusCode::NO_CONTENT)
@@ -244,11 +265,20 @@ pub async fn create_note(
     Json(request): Json<crate::models::CreateNoteRequest>,
 ) -> Result<(axum::http::StatusCode, Json<CharacterNote>), AppError> {
     require_character_owner(&state, &user, character_id).await?;
-    let character = character_repo::find_for_user(&state.db, user.id, character_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Character not found".to_owned()))?;
-    note_repo::ensure_character_default_section(&state.db, character.id, user.id).await?;
-    let (title, body) = crate::routes::notes::validate_note(request.title, request.body)?;
+    let character =
+        character_repo::find_for_user(&state.db, user.id, character_id)
+            .await?
+            .ok_or_else(|| {
+                AppError::NotFound("Character not found".to_owned())
+            })?;
+    note_repo::ensure_character_default_section(
+        &state.db,
+        character.id,
+        user.id,
+    )
+    .await?;
+    let (title, body) =
+        crate::routes::notes::validate_note(request.title, request.body)?;
     validate_note_position(request.position)?;
     Ok((
         axum::http::StatusCode::CREATED,
@@ -274,7 +304,8 @@ pub async fn update_note(
     Json(request): Json<UpdateNoteRequest>,
 ) -> Result<Json<CharacterNote>, AppError> {
     require_character_owner(&state, &user, character_id).await?;
-    let (title, body) = crate::routes::notes::validate_note(request.title, request.body)?;
+    let (title, body) =
+        crate::routes::notes::validate_note(request.title, request.body)?;
     validate_note_position(request.position)?;
     note_repo::update_character_note(
         &state.db,
@@ -297,7 +328,14 @@ pub async fn delete_note(
     Path((character_id, note_id)): Path<(Uuid, Uuid)>,
 ) -> Result<axum::http::StatusCode, AppError> {
     require_character_owner(&state, &user, character_id).await?;
-    if !note_repo::delete_character_note(&state.db, character_id, note_id, user.id).await? {
+    if !note_repo::delete_character_note(
+        &state.db,
+        character_id,
+        note_id,
+        user.id,
+    )
+    .await?
+    {
         return Err(AppError::NotFound("Note not found".to_owned()));
     }
     Ok(axum::http::StatusCode::NO_CONTENT)
@@ -306,7 +344,9 @@ pub async fn delete_note(
 fn validate_character_section_name(name: String) -> Result<String, AppError> {
     let name = name.trim().to_owned();
     if name.is_empty() {
-        return Err(AppError::Validation("Section name is required".to_owned()));
+        return Err(AppError::Validation(
+            "Section name is required".to_owned(),
+        ));
     }
     if name.chars().count() > 80 {
         return Err(AppError::Validation(
@@ -318,7 +358,9 @@ fn validate_character_section_name(name: String) -> Result<String, AppError> {
 
 fn validate_note_position(position: Option<i32>) -> Result<(), AppError> {
     if position.is_some_and(|value| !(0..=10_000).contains(&value)) {
-        return Err(AppError::Validation("Note position is invalid".to_owned()));
+        return Err(AppError::Validation(
+            "Note position is invalid".to_owned(),
+        ));
     }
     Ok(())
 }
@@ -346,7 +388,9 @@ pub async fn delete(
     Path(character_id): Path<Uuid>,
 ) -> Result<axum::http::StatusCode, AppError> {
     require_at_least(&user, AccessLevel::PlayerOnly)?;
-    if !character_repo::delete_for_user(&state.db, user.id, character_id).await? {
+    if !character_repo::delete_for_user(&state.db, user.id, character_id)
+        .await?
+    {
         return Err(AppError::NotFound("Character not found".to_owned()));
     }
     Ok(axum::http::StatusCode::NO_CONTENT)
@@ -364,10 +408,15 @@ pub async fn update_stats(
             "Character stats must be an object".to_owned(),
         ));
     }
-    character_repo::update_stats(&state.db, user.id, character_id, &request.stats)
-        .await?
-        .map(Json)
-        .ok_or_else(|| AppError::NotFound("Character not found".to_owned()))
+    character_repo::update_stats(
+        &state.db,
+        user.id,
+        character_id,
+        &request.stats,
+    )
+    .await?
+    .map(Json)
+    .ok_or_else(|| AppError::NotFound("Character not found".to_owned()))
 }
 
 pub async fn advance(
@@ -382,9 +431,12 @@ pub async fn advance(
             "Character level must be between 2 and 10".to_owned(),
         ));
     }
-    let character = character_repo::find_for_user(&state.db, user.id, character_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Character not found".to_owned()))?;
+    let character =
+        character_repo::find_for_user(&state.db, user.id, character_id)
+            .await?
+            .ok_or_else(|| {
+                AppError::NotFound("Character not found".to_owned())
+            })?;
     if request.level != character.level + 1 {
         return Err(AppError::Validation(format!(
             "Advance one level at a time. This character is level {}",
@@ -405,7 +457,9 @@ pub async fn advance(
         ));
     }
     let choices = request.choices.as_array().ok_or_else(|| {
-        AppError::Validation("Advancement choices must be a JSON array".to_owned())
+        AppError::Validation(
+            "Advancement choices must be a JSON array".to_owned(),
+        )
     })?;
     if choices.len() != 2 {
         return Err(AppError::Validation(
@@ -416,7 +470,9 @@ pub async fn advance(
     let book = content_repo::find_character_creation_book(&state.db)
         .await?
         .ok_or_else(|| {
-            AppError::Validation("No book content is available for domain cards".to_owned())
+            AppError::Validation(
+                "No book content is available for domain cards".to_owned(),
+            )
         })?;
     let class_domain_ids = book
         .content
@@ -424,7 +480,8 @@ pub async fn advance(
         .and_then(Value::as_array)
         .and_then(|classes| {
             classes.iter().find(|class| {
-                class.get("id").and_then(Value::as_str) == Some(character.class_id.as_str())
+                class.get("id").and_then(Value::as_str)
+                    == Some(character.class_id.as_str())
             })
         })
         .and_then(|class| class.get("domains"))
@@ -445,13 +502,18 @@ pub async fn advance(
         &domain_cards,
         request.level,
     )?;
-    let domain_cards_history = domain_cards.as_array_mut().ok_or_else(|| {
-        AppError::Validation("Character domain card history is invalid".to_owned())
-    })?;
+    let domain_cards_history =
+        domain_cards.as_array_mut().ok_or_else(|| {
+            AppError::Validation(
+                "Character domain card history is invalid".to_owned(),
+            )
+        })?;
     domain_cards_history.push(selected_domain_card);
     let mut advancements = character.advancements.clone();
     let history = advancements.as_array_mut().ok_or_else(|| {
-        AppError::Validation("Character advancement history is invalid".to_owned())
+        AppError::Validation(
+            "Character advancement history is invalid".to_owned(),
+        )
     })?;
     history.push(serde_json::json!({
         "level": request.level,
@@ -467,7 +529,11 @@ pub async fn advance(
     {
         experiences
             .as_array_mut()
-            .ok_or_else(|| AppError::Validation("Character Experiences are invalid".to_owned()))?
+            .ok_or_else(|| {
+                AppError::Validation(
+                    "Character Experiences are invalid".to_owned(),
+                )
+            })?
             .push(serde_json::json!({ "name": experience, "modifier": 2 }));
     }
     character_repo::advance(
@@ -482,24 +548,30 @@ pub async fn advance(
     )
     .await?
     .map(Json)
-    .ok_or_else(|| AppError::NotFound("Character changed before it could be advanced".to_owned()))
+    .ok_or_else(|| {
+        AppError::NotFound(
+            "Character changed before it could be advanced".to_owned(),
+        )
+    })
 }
 
-fn find_domain_card(book: &Value, domain_id: &str, card_id: &str, max_level: i32) -> Option<Value> {
-    let domain = book
-        .get("domains")
-        .and_then(Value::as_array)?
-        .iter()
-        .find(|domain| domain.get("id").and_then(Value::as_str) == Some(domain_id))?;
+fn find_domain_card(
+    book: &Value,
+    domain_id: &str,
+    card_id: &str,
+    max_level: i32,
+) -> Option<Value> {
+    let domain = book.get("domains").and_then(Value::as_array)?.iter().find(
+        |domain| domain.get("id").and_then(Value::as_str) == Some(domain_id),
+    )?;
     for level in 1..=max_level {
         let key = format!("level_{level}_cards");
         let Some(cards) = domain.get(&key).and_then(Value::as_array) else {
             continue;
         };
-        if let Some(card) = cards
-            .iter()
-            .find(|card| card.get("id").and_then(Value::as_str) == Some(card_id))
-        {
+        if let Some(card) = cards.iter().find(|card| {
+            card.get("id").and_then(Value::as_str) == Some(card_id)
+        }) {
             let mut canonical = card.as_object()?.clone();
             canonical.insert("domainId".to_owned(), json!(domain_id));
             canonical.insert(
@@ -528,12 +600,14 @@ fn tier_for_level(level: i32) -> i32 {
     }
 }
 
-fn validate_advancement_choices(choices: &[Value], level: i32) -> Result<(), AppError> {
+fn validate_advancement_choices(
+    choices: &[Value],
+    level: i32,
+) -> Result<(), AppError> {
     for choice in choices {
-        let id = choice
-            .get("id")
-            .and_then(Value::as_str)
-            .ok_or_else(|| AppError::Validation("Each advancement needs an id".to_owned()))?;
+        let id = choice.get("id").and_then(Value::as_str).ok_or_else(|| {
+            AppError::Validation("Each advancement needs an id".to_owned())
+        })?;
         if !matches!(
             id,
             "traits"
@@ -550,7 +624,9 @@ fn validate_advancement_choices(choices: &[Value], level: i32) -> Result<(), App
                 "Unknown advancement option".to_owned(),
             ));
         }
-        if matches!(id, "subclass" | "proficiency" | "multiclass") && tier_for_level(level) < 3 {
+        if matches!(id, "subclass" | "proficiency" | "multiclass")
+            && tier_for_level(level) < 3
+        {
             return Err(AppError::Validation(
                 "Subclass, proficiency, and multiclass advancements require tier 3".to_owned(),
             ));
@@ -568,11 +644,14 @@ fn validate_domain_card_choice(
 ) -> Result<Value, AppError> {
     let domain_choices = choices
         .iter()
-        .filter(|choice| choice.get("id").and_then(Value::as_str) == Some("domain_card"))
+        .filter(|choice| {
+            choice.get("id").and_then(Value::as_str) == Some("domain_card")
+        })
         .collect::<Vec<_>>();
     if domain_choices.len() != 1 {
         return Err(AppError::Validation(
-            "Choose exactly one domain card as one of your two advancements".to_owned(),
+            "Choose exactly one domain card as one of your two advancements"
+                .to_owned(),
         ));
     }
     let choice = domain_choices[0];
@@ -580,22 +659,33 @@ fn validate_domain_card_choice(
         .get("domain_id")
         .and_then(Value::as_str)
         .filter(|value| !value.trim().is_empty())
-        .ok_or_else(|| AppError::Validation("Choose a domain for the domain card".to_owned()))?;
+        .ok_or_else(|| {
+            AppError::Validation(
+                "Choose a domain for the domain card".to_owned(),
+            )
+        })?;
     let card_id = choice
         .get("value")
         .and_then(Value::as_str)
         .filter(|value| !value.trim().is_empty())
-        .ok_or_else(|| AppError::Validation("Choose a domain card".to_owned()))?;
+        .ok_or_else(|| {
+            AppError::Validation("Choose a domain card".to_owned())
+        })?;
     if !class_domain_ids.iter().any(|item| item == domain_id) {
         return Err(AppError::Validation(
             "That domain is not available to this class".to_owned(),
         ));
     }
-    let selected_card = find_domain_card(book, domain_id, card_id, max_level).ok_or_else(|| {
-        AppError::Validation("That domain card is not available at this level".to_owned())
+    let selected_card = find_domain_card(book, domain_id, card_id, max_level)
+        .ok_or_else(|| {
+        AppError::Validation(
+            "That domain card is not available at this level".to_owned(),
+        )
     })?;
     let owned_cards = owned_cards.as_array().ok_or_else(|| {
-        AppError::Validation("Character domain card history is invalid".to_owned())
+        AppError::Validation(
+            "Character domain card history is invalid".to_owned(),
+        )
     })?;
     if owned_cards.iter().any(|card| {
         card.get("id").and_then(Value::as_str) == Some(card_id)
@@ -620,12 +710,17 @@ pub async fn link_adventure(
 ) -> Result<Json<Character>, AppError> {
     require_at_least(&user, AccessLevel::PlayerOnly)?;
     if let Some(adventure_id) = request.adventure_id {
-        let adventure =
-            crate::repository::adventure_repo::find_visible(&state.db, &user, adventure_id)
-                .await?
-                .ok_or_else(|| {
-                    AppError::Forbidden("You must belong to that adventure first".to_owned())
-                })?;
+        let adventure = crate::repository::adventure_repo::find_visible(
+            &state.db,
+            &user,
+            adventure_id,
+        )
+        .await?
+        .ok_or_else(|| {
+            AppError::Forbidden(
+                "You must belong to that adventure first".to_owned(),
+            )
+        })?;
         if adventure.creator_id != user.id {
             let is_member = sqlx::query_scalar::<_, bool>(
                 "SELECT EXISTS(SELECT 1 FROM adventure_members WHERE adventure_id = $1 AND user_id = $2 AND status = 'accepted')",
@@ -641,15 +736,23 @@ pub async fn link_adventure(
             }
         }
     }
-    character_repo::link_to_adventure(&state.db, user.id, character_id, request.adventure_id)
-        .await?
-        .map(Json)
-        .ok_or_else(|| AppError::NotFound("Character not found".to_owned()))
+    character_repo::link_to_adventure(
+        &state.db,
+        user.id,
+        character_id,
+        request.adventure_id,
+    )
+    .await?
+    .map(Json)
+    .ok_or_else(|| AppError::NotFound("Character not found".to_owned()))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{tier_for_level, validate_advancement_choices, validate_domain_card_choice};
+    use super::{
+        tier_for_level, validate_advancement_choices,
+        validate_domain_card_choice,
+    };
     use serde_json::{Value, json};
 
     fn test_book() -> Value {
@@ -670,9 +773,13 @@ mod tests {
     #[test]
     fn rejects_tier_three_advancements_before_tier_three() {
         for id in ["subclass", "proficiency", "multiclass"] {
-            let error =
-                validate_advancement_choices(&[json!({"id": id}), json!({"id": "domain_card"})], 4)
-                    .expect_err("tier-three advancements should be rejected at level 4");
+            let error = validate_advancement_choices(
+                &[json!({"id": id}), json!({"id": "domain_card"})],
+                4,
+            )
+            .expect_err(
+                "tier-three advancements should be rejected at level 4",
+            );
 
             assert!(
                 matches!(error, crate::error::AppError::Validation(message) if message.contains("require tier 3"))
@@ -685,8 +792,11 @@ mod tests {
         assert_eq!(tier_for_level(5), 3);
 
         for id in ["subclass", "proficiency", "multiclass"] {
-            validate_advancement_choices(&[json!({"id": id}), json!({"id": "domain_card"})], 5)
-                .expect("tier-three advancements should be accepted at level 5");
+            validate_advancement_choices(
+                &[json!({"id": id}), json!({"id": "domain_card"})],
+                5,
+            )
+            .expect("tier-three advancements should be accepted at level 5");
         }
     }
 

@@ -5,7 +5,9 @@ use axum::{
     body::Body,
     http::{Request, StatusCode, header},
 };
-use backend::{config::Config, repository::content_repo, routes, state::AppState};
+use backend::{
+    config::Config, repository::content_repo, routes, state::AppState,
+};
 use common::fixtures::{admin_user, player_user, sample_book, sample_content};
 use hyper::body::to_bytes;
 use serde_json::json;
@@ -28,7 +30,11 @@ fn app(pool: PgPool, jwt_secret: &str) -> Router {
     })
 }
 
-fn request_with_cookie(uri: &str, method: axum::http::Method, token: &str) -> Request<Body> {
+fn request_with_cookie(
+    uri: &str,
+    method: axum::http::Method,
+    token: &str,
+) -> Request<Body> {
     Request::builder()
         .method(method)
         .uri(uri)
@@ -161,7 +167,9 @@ async fn admin_content_routes_enforce_access_and_persist_updates(pool: PgPool) {
 
 #[sqlx::test]
 #[ignore = "requires DATABASE_URL and disposable Postgres test databases"]
-async fn admin_content_routes_return_validation_and_not_found_errors(pool: PgPool) {
+async fn admin_content_routes_return_validation_and_not_found_errors(
+    pool: PgPool,
+) {
     let jwt_secret = "test-secret";
     let admin = admin_user(&pool, jwt_secret).await;
     let application = app(pool, jwt_secret);

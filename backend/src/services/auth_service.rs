@@ -35,18 +35,22 @@ pub async fn register(
     let name = validation::validate_name(&request.name)?;
     validation::validate_password(&request.password)?;
 
-    let password_hash = password::hash(&request.password)
-        .map_err(|_| AppError::Internal("unable to hash password".to_owned()))?;
+    let password_hash = password::hash(&request.password).map_err(|_| {
+        AppError::Internal("unable to hash password".to_owned())
+    })?;
 
-    let user = user_repo::create(pool, Uuid::new_v4(), &email, &name, &password_hash)
-        .await
-        .map_err(|error| {
-            if user_repo::is_unique_violation(&error) {
-                AppError::Conflict("An account with that email already exists".to_owned())
-            } else {
-                AppError::Internal(error.to_string())
-            }
-        })?;
+    let user =
+        user_repo::create(pool, Uuid::new_v4(), &email, &name, &password_hash)
+            .await
+            .map_err(|error| {
+                if user_repo::is_unique_violation(&error) {
+                    AppError::Conflict(
+                        "An account with that email already exists".to_owned(),
+                    )
+                } else {
+                    AppError::Internal(error.to_string())
+                }
+            })?;
 
     let token = issue_token(&user, jwt_secret)?;
     adventure_repo::link_pending_invites(pool, &user)
@@ -65,9 +69,12 @@ pub async fn login(
 ) -> Result<AuthResult, AppError> {
     let email = validation::normalize_email(&request.email)?;
 
-    let user = user_repo::find_by_email(pool, &email)
-        .await?
-        .ok_or_else(|| AppError::Unauthorized("Invalid email or password".to_owned()))?;
+    let user =
+        user_repo::find_by_email(pool, &email)
+            .await?
+            .ok_or_else(|| {
+                AppError::Unauthorized("Invalid email or password".to_owned())
+            })?;
 
     if !password::verify(&request.password, &user.password_hash) {
         return Err(AppError::Unauthorized(

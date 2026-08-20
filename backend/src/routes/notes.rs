@@ -8,8 +8,8 @@ use crate::{
     error::AppError,
     middleware::{access_guard::require_at_least, auth_guard::AuthUser},
     models::{
-        AccessLevel, AdventureNote, AdventureNoteSection, CreateNoteRequest, NoteSectionRequest,
-        UpdateNoteRequest,
+        AccessLevel, AdventureNote, AdventureNoteSection, CreateNoteRequest,
+        NoteSectionRequest, UpdateNoteRequest,
     },
     repository::{adventure_repo, note_repo},
     state::AppState,
@@ -24,9 +24,15 @@ pub async fn list(
     Path(adventure_id): Path<Uuid>,
 ) -> Result<Json<Vec<AdventureNote>>, AppError> {
     require_creator(&state, &user, adventure_id).await?;
-    note_repo::ensure_adventure_default_section(&state.db, adventure_id, user.id).await?;
+    note_repo::ensure_adventure_default_section(
+        &state.db,
+        adventure_id,
+        user.id,
+    )
+    .await?;
     Ok(Json(
-        note_repo::list_adventure_notes(&state.db, adventure_id, user.id).await?,
+        note_repo::list_adventure_notes(&state.db, adventure_id, user.id)
+            .await?,
     ))
 }
 
@@ -36,9 +42,15 @@ pub async fn list_sections(
     Path(adventure_id): Path<Uuid>,
 ) -> Result<Json<Vec<AdventureNoteSection>>, AppError> {
     require_creator(&state, &user, adventure_id).await?;
-    note_repo::ensure_adventure_default_section(&state.db, adventure_id, user.id).await?;
+    note_repo::ensure_adventure_default_section(
+        &state.db,
+        adventure_id,
+        user.id,
+    )
+    .await?;
     Ok(Json(
-        note_repo::list_adventure_sections(&state.db, adventure_id, user.id).await?,
+        note_repo::list_adventure_sections(&state.db, adventure_id, user.id)
+            .await?,
     ))
 }
 
@@ -94,7 +106,14 @@ pub async fn delete_section(
     Path((adventure_id, section_id)): Path<(Uuid, Uuid)>,
 ) -> Result<axum::http::StatusCode, AppError> {
     require_creator(&state, &user, adventure_id).await?;
-    if !note_repo::delete_adventure_section(&state.db, adventure_id, section_id, user.id).await? {
+    if !note_repo::delete_adventure_section(
+        &state.db,
+        adventure_id,
+        section_id,
+        user.id,
+    )
+    .await?
+    {
         return Err(AppError::NotFound("Notes section not found".to_owned()));
     }
     Ok(axum::http::StatusCode::NO_CONTENT)
@@ -107,7 +126,12 @@ pub async fn create(
     Json(request): Json<CreateNoteRequest>,
 ) -> Result<(axum::http::StatusCode, Json<AdventureNote>), AppError> {
     require_creator(&state, &user, adventure_id).await?;
-    note_repo::ensure_adventure_default_section(&state.db, adventure_id, user.id).await?;
+    note_repo::ensure_adventure_default_section(
+        &state.db,
+        adventure_id,
+        user.id,
+    )
+    .await?;
     let (title, body) = validate_note(request.title, request.body)?;
     Ok((
         axum::http::StatusCode::CREATED,
@@ -155,7 +179,14 @@ pub async fn delete(
     Path((adventure_id, note_id)): Path<(Uuid, Uuid)>,
 ) -> Result<axum::http::StatusCode, AppError> {
     require_creator(&state, &user, adventure_id).await?;
-    if !note_repo::delete_adventure_note(&state.db, adventure_id, note_id, user.id).await? {
+    if !note_repo::delete_adventure_note(
+        &state.db,
+        adventure_id,
+        note_id,
+        user.id,
+    )
+    .await?
+    {
         return Err(AppError::NotFound("Note not found".to_owned()));
     }
     Ok(axum::http::StatusCode::NO_CONTENT)
@@ -164,7 +195,9 @@ pub async fn delete(
 fn validate_section_name(name: String) -> Result<String, AppError> {
     let name = name.trim().to_owned();
     if name.is_empty() {
-        return Err(AppError::Validation("Section name is required".to_owned()));
+        return Err(AppError::Validation(
+            "Section name is required".to_owned(),
+        ));
     }
     if name.chars().count() > 80 {
         return Err(AppError::Validation(
@@ -176,12 +209,17 @@ fn validate_section_name(name: String) -> Result<String, AppError> {
 
 fn validate_position(position: Option<i32>) -> Result<(), AppError> {
     if position.is_some_and(|value| !(0..=10_000).contains(&value)) {
-        return Err(AppError::Validation("Note position is invalid".to_owned()));
+        return Err(AppError::Validation(
+            "Note position is invalid".to_owned(),
+        ));
     }
     Ok(())
 }
 
-pub fn validate_note(title: String, body: String) -> Result<(String, String), AppError> {
+pub fn validate_note(
+    title: String,
+    body: String,
+) -> Result<(String, String), AppError> {
     let title = title.trim().to_owned();
     let body = body.trim().to_owned();
     if title.is_empty() {
@@ -223,9 +261,15 @@ mod tests {
 
     #[test]
     fn trims_and_accepts_valid_notes() {
-        let note = validate_note("  Plan  ".to_owned(), "  Follow the red road.  ".to_owned())
-            .expect("valid note");
-        assert_eq!(note, ("Plan".to_owned(), "Follow the red road.".to_owned()));
+        let note = validate_note(
+            "  Plan  ".to_owned(),
+            "  Follow the red road.  ".to_owned(),
+        )
+        .expect("valid note");
+        assert_eq!(
+            note,
+            ("Plan".to_owned(), "Follow the red road.".to_owned())
+        );
     }
 
     #[test]

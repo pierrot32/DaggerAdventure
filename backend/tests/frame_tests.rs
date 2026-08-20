@@ -38,7 +38,9 @@ fn frame_content(pitch: &str) -> serde_json::Value {
 
 #[sqlx::test]
 #[ignore = "requires DATABASE_URL and disposable Postgres test databases"]
-async fn library_frames_are_private_and_adventure_snapshots_are_isolated(pool: sqlx::PgPool) {
+async fn library_frames_are_private_and_adventure_snapshots_are_isolated(
+    pool: sqlx::PgPool,
+) {
     let owner_result = admin_user(&pool, "test-secret").await;
     let other_result = admin_user(&pool, "test-secret").await;
     let owner = load_user(&pool, owner_result.user.id).await;
@@ -68,9 +70,10 @@ async fn library_frames_are_private_and_adventure_snapshots_are_isolated(pool: s
             .is_none()
     );
 
-    let adventure = adventure_repo::create(&pool, owner.id, "Snapshot Test", None)
-        .await
-        .expect("adventure should be created");
+    let adventure =
+        adventure_repo::create(&pool, owner.id, "Snapshot Test", None)
+            .await
+            .expect("adventure should be created");
     let attached = frame_repo::attach(
         &pool,
         &owner,
@@ -105,7 +108,9 @@ async fn library_frames_are_private_and_adventure_snapshots_are_isolated(pool: s
 
 #[sqlx::test]
 #[ignore = "requires DATABASE_URL and disposable Postgres test databases"]
-async fn adventure_creation_rolls_back_when_frame_attachment_fails(pool: sqlx::PgPool) {
+async fn adventure_creation_rolls_back_when_frame_attachment_fails(
+    pool: sqlx::PgPool,
+) {
     let owner_result = admin_user(&pool, "test-secret").await;
     let content = frame_content("Rollback pitch");
     let invalid_source = ("invalid", Some("source"), &content);
@@ -133,14 +138,17 @@ async fn adventure_creation_rolls_back_when_frame_attachment_fails(pool: sqlx::P
 
 #[sqlx::test]
 #[ignore = "requires DATABASE_URL and disposable Postgres test databases"]
-async fn pending_invitees_cannot_read_frames_until_accepting_membership(pool: sqlx::PgPool) {
+async fn pending_invitees_cannot_read_frames_until_accepting_membership(
+    pool: sqlx::PgPool,
+) {
     let owner_result = admin_user(&pool, "test-secret").await;
     let member_result = player_user(&pool, "test-secret").await;
     let owner = load_user(&pool, owner_result.user.id).await;
     let member = load_user(&pool, member_result.user.id).await;
-    let adventure = adventure_repo::create(&pool, owner.id, "Visibility Test", None)
-        .await
-        .expect("adventure should be created");
+    let adventure =
+        adventure_repo::create(&pool, owner.id, "Visibility Test", None)
+            .await
+            .expect("adventure should be created");
     frame_repo::attach(
         &pool,
         &owner,

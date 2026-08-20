@@ -102,7 +102,9 @@ async fn duplicate_email_registration_is_rejected(pool: sqlx::PgPool) {
 
 #[sqlx::test]
 #[ignore = "requires DATABASE_URL and disposable Postgres test databases"]
-async fn admin_grants_access_and_invitation_workflow_succeeds(pool: sqlx::PgPool) {
+async fn admin_grants_access_and_invitation_workflow_succeeds(
+    pool: sqlx::PgPool,
+) {
     let jwt_secret = "test-secret";
     let admin_email = format!("admin-{}@example.com", uuid::Uuid::new_v4());
     let maker_email = format!("maker-{}@example.com", uuid::Uuid::new_v4());
@@ -161,9 +163,14 @@ async fn admin_grants_access_and_invitation_workflow_succeeds(pool: sqlx::PgPool
     )
     .await
     .expect("maker should create an adventure");
-    let invite = adventure_repo::create_invite(&pool, &maker, adventure.id, &invited_email)
-        .await
-        .expect("maker should create an invite");
+    let invite = adventure_repo::create_invite(
+        &pool,
+        &maker,
+        adventure.id,
+        &invited_email,
+    )
+    .await
+    .expect("maker should create an invite");
 
     let invited_response = auth_service::register(
         &pool,
@@ -186,9 +193,14 @@ async fn admin_grants_access_and_invitation_workflow_succeeds(pool: sqlx::PgPool
         .expect("notification lookup should succeed");
     assert_eq!(notifications.len(), 1);
 
-    admin_repo::update_access_level(&pool, &admin, invited.id, AccessLevel::PlayerOnly)
-        .await
-        .expect("admin player grant should succeed");
+    admin_repo::update_access_level(
+        &pool,
+        &admin,
+        invited.id,
+        AccessLevel::PlayerOnly,
+    )
+    .await
+    .expect("admin player grant should succeed");
     let accepted = adventure_repo::accept_invite(&pool, &invited, invite.id)
         .await
         .expect("player should accept their invitation");
@@ -199,14 +211,23 @@ async fn admin_grants_access_and_invitation_workflow_succeeds(pool: sqlx::PgPool
 /// inbox and the accept/decline actions must not be gated behind `player_only`.
 #[sqlx::test]
 #[ignore = "requires DATABASE_URL and disposable Postgres test databases"]
-async fn invitee_without_access_level_can_list_and_accept_invites(pool: sqlx::PgPool) {
+async fn invitee_without_access_level_can_list_and_accept_invites(
+    pool: sqlx::PgPool,
+) {
     let jwt_secret = "test-secret";
-    let maker = register_with_level(&pool, jwt_secret, "maker", AccessLevel::AdventureMaker).await;
+    let maker = register_with_level(
+        &pool,
+        jwt_secret,
+        "maker",
+        AccessLevel::AdventureMaker,
+    )
+    .await;
     let invited_email = format!("invited-{}@example.com", uuid::Uuid::new_v4());
 
-    let adventure = adventure_repo::create(&pool, maker.id, "Fear Test Table", None)
-        .await
-        .expect("maker should create an adventure");
+    let adventure =
+        adventure_repo::create(&pool, maker.id, "Fear Test Table", None)
+            .await
+            .expect("maker should create an adventure");
     adventure_repo::create_invite(&pool, &maker, adventure.id, &invited_email)
         .await
         .expect("maker should create an invite");
@@ -235,9 +256,10 @@ async fn invitee_without_access_level_can_list_and_accept_invites(pool: sqlx::Pg
     assert_eq!(pending[0].adventure_name, "Fear Test Table");
     assert_eq!(pending[0].inviter_name, maker.name);
 
-    let accepted = adventure_repo::accept_invite(&pool, &invited, pending[0].id)
-        .await
-        .expect("invitee should accept without a prior access grant");
+    let accepted =
+        adventure_repo::accept_invite(&pool, &invited, pending[0].id)
+            .await
+            .expect("invitee should accept without a prior access grant");
     assert_eq!(accepted.status, "accepted");
 
     let still_pending = adventure_repo::list_pending_for_user(&pool, &invited)
@@ -251,20 +273,39 @@ async fn invitee_without_access_level_can_list_and_accept_invites(pool: sqlx::Pg
 
 #[sqlx::test]
 #[ignore = "requires DATABASE_URL and disposable Postgres test databases"]
-async fn invitee_can_decline_and_only_gm_moves_the_fear_pool(pool: sqlx::PgPool) {
+async fn invitee_can_decline_and_only_gm_moves_the_fear_pool(
+    pool: sqlx::PgPool,
+) {
     let jwt_secret = "test-secret";
-    let maker = register_with_level(&pool, jwt_secret, "maker", AccessLevel::AdventureMaker).await;
-    let outsider =
-        register_with_level(&pool, jwt_secret, "outsider", AccessLevel::PlayerOnly).await;
+    let maker = register_with_level(
+        &pool,
+        jwt_secret,
+        "maker",
+        AccessLevel::AdventureMaker,
+    )
+    .await;
+    let outsider = register_with_level(
+        &pool,
+        jwt_secret,
+        "outsider",
+        AccessLevel::PlayerOnly,
+    )
+    .await;
 
-    let adventure = adventure_repo::create(&pool, maker.id, "Fear Pool Table", None)
-        .await
-        .expect("maker should create an adventure");
+    let adventure =
+        adventure_repo::create(&pool, maker.id, "Fear Pool Table", None)
+            .await
+            .expect("maker should create an adventure");
     assert_eq!(adventure.fear, 0, "a new table starts with no Fear");
 
-    let invite = adventure_repo::create_invite(&pool, &maker, adventure.id, &outsider.email)
-        .await
-        .expect("maker should create an invite");
+    let invite = adventure_repo::create_invite(
+        &pool,
+        &maker,
+        adventure.id,
+        &outsider.email,
+    )
+    .await
+    .expect("maker should create an invite");
     let declined = adventure_repo::decline_invite(&pool, &outsider, invite.id)
         .await
         .expect("invitee should decline their invitation");
@@ -280,7 +321,8 @@ async fn invitee_can_decline_and_only_gm_moves_the_fear_pool(pool: sqlx::PgPool)
         .expect("out of range Fear should clamp rather than fail");
     assert_eq!(clamped.fear, 12, "Fear caps at 12");
 
-    let forbidden = adventure_repo::update_fear(&pool, &outsider, adventure.id, 1).await;
+    let forbidden =
+        adventure_repo::update_fear(&pool, &outsider, adventure.id, 1).await;
     assert!(
         forbidden.is_err(),
         "only the adventure creator may change Fear"
@@ -289,13 +331,27 @@ async fn invitee_can_decline_and_only_gm_moves_the_fear_pool(pool: sqlx::PgPool)
 
 #[sqlx::test]
 #[ignore = "requires DATABASE_URL and disposable Postgres test databases"]
-async fn only_the_adventure_creator_can_delete_and_cascades_related_rows(pool: sqlx::PgPool) {
-    let maker =
-        register_with_level(&pool, "test-secret", "maker", AccessLevel::AdventureMaker).await;
-    let other = register_with_level(&pool, "test-secret", "other", AccessLevel::PlayerOnly).await;
-    let adventure = adventure_repo::create(&pool, maker.id, "Delete Test Table", None)
-        .await
-        .expect("adventure should be created");
+async fn only_the_adventure_creator_can_delete_and_cascades_related_rows(
+    pool: sqlx::PgPool,
+) {
+    let maker = register_with_level(
+        &pool,
+        "test-secret",
+        "maker",
+        AccessLevel::AdventureMaker,
+    )
+    .await;
+    let other = register_with_level(
+        &pool,
+        "test-secret",
+        "other",
+        AccessLevel::PlayerOnly,
+    )
+    .await;
+    let adventure =
+        adventure_repo::create(&pool, maker.id, "Delete Test Table", None)
+            .await
+            .expect("adventure should be created");
     adventure_repo::create_invite(&pool, &maker, adventure.id, &other.email)
         .await
         .expect("invite should be created");
@@ -311,12 +367,13 @@ async fn only_the_adventure_creator_can_delete_and_cascades_related_rows(pool: s
             .expect("creator should delete the adventure")
     );
 
-    let adventure_count =
-        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM adventures WHERE id = $1")
-            .bind(adventure.id)
-            .fetch_one(&pool)
-            .await
-            .expect("adventure count should be readable");
+    let adventure_count = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM adventures WHERE id = $1",
+    )
+    .bind(adventure.id)
+    .fetch_one(&pool)
+    .await
+    .expect("adventure count should be readable");
     let invite_count = sqlx::query_scalar::<_, i64>(
         "SELECT COUNT(*) FROM adventure_invites WHERE adventure_id = $1",
     )

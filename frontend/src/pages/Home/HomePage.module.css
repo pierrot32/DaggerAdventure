@@ -1,39 +1,45 @@
 .shell {
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: clamp(40px, 8vw, 120px);
-  background: radial-gradient(circle at 10% 90%, var(--color-bg-accent) 0, transparent 42%), var(--color-bg);
+	min-height: 100svh;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	padding: clamp(40px, 8vw, 120px);
+	background:
+		radial-gradient(
+			circle at 10% 90%,
+			var(--color-bg-accent) 0,
+			transparent 42%
+		),
+		var(--color-bg);
 }
 
 .shell h1 {
-  max-width: 580px;
-  font-size: clamp(48px, 7vw, 92px);
-  line-height: 0.98;
-  color: var(--color-text-inverse);
+	max-width: 580px;
+	font-size: clamp(48px, 7vw, 92px);
+	line-height: 0.98;
+	color: var(--color-text-inverse);
 }
 
 .intro {
-  max-width: 420px;
-  margin-top: var(--space-6);
-  color: var(--color-muted-inverse);
-  font-size: 18px;
+	max-width: 420px;
+	margin-top: var(--space-6);
+	color: var(--color-muted-inverse);
+	font-size: 18px;
 }
 
 .actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-6);
-  margin-top: var(--space-7);
-  max-width: 280px;
+	display: flex;
+	align-items: center;
+	gap: var(--space-6);
+	margin-top: var(--space-7);
+	max-width: 280px;
 }
 
 .sigil {
-  align-self: flex-end;
-  margin-top: var(--space-7);
-  color: var(--color-accent);
-  font-size: 100px;
-  line-height: 1;
-  transform: rotate(18deg);
+	align-self: flex-end;
+	margin-top: var(--space-7);
+	color: var(--color-accent);
+	font-size: 100px;
+	line-height: 1;
+	transform: rotate(18deg);
 }

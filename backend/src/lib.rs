@@ -8,6 +8,8 @@ pub mod services;
 pub mod state;
 pub mod utils;
 
-pub async fn run_migrations(pool: &sqlx::PgPool) -> Result<(), sqlx::migrate::MigrateError> {
+pub async fn run_migrations(
+    pool: &sqlx::PgPool,
+) -> Result<(), sqlx::migrate::MigrateError> {
     sqlx::migrate!("./migrations").run(pool).await
 }

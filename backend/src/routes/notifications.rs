@@ -24,6 +24,7 @@ pub async fn mark_read(
     Path(notification_id): Path<Uuid>,
 ) -> Result<Json<Notification>, AppError> {
     Ok(Json(
-        notification_repo::mark_read(&state.db, user.id, notification_id).await?,
+        notification_repo::mark_read(&state.db, user.id, notification_id)
+            .await?,
     ))
 }

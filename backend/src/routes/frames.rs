@@ -9,8 +9,9 @@ use crate::{
     error::AppError,
     middleware::{access_guard::require_at_least, auth_guard::AuthUser},
     models::{
-        AccessLevel, AdventureFrame, AttachAdventureFrameRequest, CampaignFrame,
-        CreateCampaignFrameRequest, UpdateAdventureFrameRequest, UpdateCampaignFrameRequest,
+        AccessLevel, AdventureFrame, AttachAdventureFrameRequest,
+        CampaignFrame, CreateCampaignFrameRequest, UpdateAdventureFrameRequest,
+        UpdateCampaignFrameRequest,
     },
     repository::{adventure_repo, frame_repo},
     state::AppState,
@@ -102,8 +103,11 @@ pub async fn get_adventure_frame(
 ) -> Result<Json<AdventureFrame>, AppError> {
     let mut frame = frame_repo::find_for_user(&state.db, &user, adventure_id)
         .await?
-        .ok_or_else(|| AppError::NotFound("No campaign frame is attached".to_owned()))?;
-    let is_creator = adventure_repo::is_creator(&state.db, adventure_id, user.id).await?;
+        .ok_or_else(|| {
+            AppError::NotFound("No campaign frame is attached".to_owned())
+        })?;
+    let is_creator =
+        adventure_repo::is_creator(&state.db, adventure_id, user.id).await?;
     if !can_view_unfiltered_content(is_creator) {
         frame.content = filter_content(&frame.content, &frame.selections);
     }
@@ -159,7 +163,9 @@ pub async fn update_adventure_frame(
     )
     .await?
     .map(Json)
-    .ok_or_else(|| AppError::NotFound("No campaign frame is attached".to_owned()))
+    .ok_or_else(|| {
+        AppError::NotFound("No campaign frame is attached".to_owned())
+    })
 }
 
 pub async fn character_context(
@@ -170,7 +176,9 @@ pub async fn character_context(
     require_at_least(&user, AccessLevel::PlayerOnly)?;
     let frame = frame_repo::find_for_user(&state.db, &user, adventure_id)
         .await?
-        .ok_or_else(|| AppError::NotFound("No campaign frame is attached".to_owned()))?;
+        .ok_or_else(|| {
+            AppError::NotFound("No campaign frame is attached".to_owned())
+        })?;
     let filtered_content = filter_content(&frame.content, &frame.selections);
     Ok(Json(json!({
         "content": player_character_context(&filtered_content),
@@ -194,12 +202,16 @@ pub async fn resolve_source(
             let id = source_id
                 .filter(|value| !value.trim().is_empty())
                 .ok_or_else(|| {
-                    AppError::Validation("A built-in frame needs a source id".to_owned())
+                    AppError::Validation(
+                        "A built-in frame needs a source id".to_owned(),
+                    )
                 })?;
             let content = frame_repo::find_builtin(&state.db, id)
                 .await?
                 .ok_or_else(|| {
-                    AppError::NotFound("Built-in campaign frame not found".to_owned())
+                    AppError::NotFound(
+                        "Built-in campaign frame not found".to_owned(),
+                    )
                 })?;
             validate_frame_content(&content)?;
             Ok(("builtin".to_owned(), Some(id.to_owned()), content))
@@ -208,11 +220,17 @@ pub async fn resolve_source(
             let id = source_id
                 .and_then(|value| Uuid::parse_str(value).ok())
                 .ok_or_else(|| {
-                    AppError::Validation("A library frame needs a valid source id".to_owned())
+                    AppError::Validation(
+                        "A library frame needs a valid source id".to_owned(),
+                    )
                 })?;
             let frame = frame_repo::find_library(&state.db, user.id, id)
                 .await?
-                .ok_or_else(|| AppError::NotFound("Library campaign frame not found".to_owned()))?;
+                .ok_or_else(|| {
+                    AppError::NotFound(
+                        "Library campaign frame not found".to_owned(),
+                    )
+                })?;
             validate_frame_content(&frame.content)?;
             Ok(("library".to_owned(), Some(id.to_string()), frame.content))
         }
@@ -282,7 +300,9 @@ fn validate_metadata(
 
 pub fn validate_frame_content(content: &Value) -> Result<(), AppError> {
     let object = content.as_object().ok_or_else(|| {
-        AppError::Validation("Campaign frame content must be a JSON object".to_owned())
+        AppError::Validation(
+            "Campaign frame content must be a JSON object".to_owned(),
+        )
     })?;
     for field in ["id", "name", "pitch", "overview"] {
         if object
@@ -296,7 +316,8 @@ pub fn validate_frame_content(content: &Value) -> Result<(), AppError> {
         }
     }
     if let Some(complexity) = object.get("complexity_rating")
-        && (!complexity.is_i64() || !(1..=5).contains(&complexity.as_i64().unwrap_or_default()))
+        && (!complexity.is_i64()
+            || !(1..=5).contains(&complexity.as_i64().unwrap_or_default()))
     {
         return Err(AppError::Validation(
             "Campaign frame complexity must be between 1 and 5".to_owned(),
@@ -304,7 +325,9 @@ pub fn validate_frame_content(content: &Value) -> Result<(), AppError> {
     }
     if let Some(modifications) = object.get("modifications") {
         let modifications = modifications.as_object().ok_or_else(|| {
-            AppError::Validation("Frame modifications must be a JSON object".to_owned())
+            AppError::Validation(
+                "Frame modifications must be a JSON object".to_owned(),
+            )
         })?;
         for kind in ["communities", "ancestries", "classes"] {
             if let Some(entries) = modifications.get(kind) {
@@ -314,7 +337,9 @@ pub fn validate_frame_content(content: &Value) -> Result<(), AppError> {
     }
     if let Some(messages) = object.get("gm_messages") {
         let messages = messages.as_object().ok_or_else(|| {
-            AppError::Validation("Frame GM messages must be a JSON object".to_owned())
+            AppError::Validation(
+                "Frame GM messages must be a JSON object".to_owned(),
+            )
         })?;
         if messages.values().any(|message| !message.is_string()) {
             return Err(AppError::Validation(
@@ -344,7 +369,9 @@ pub fn validate_frame_content(content: &Value) -> Result<(), AppError> {
                             && item
                                 .get("description")
                                 .and_then(Value::as_str)
-                                .is_some_and(|description| !description.is_empty()))
+                                .is_some_and(|description| {
+                                    !description.is_empty()
+                                }))
                 })
             }))
     {
@@ -383,9 +410,9 @@ fn validate_entry(
     map_key: Option<&str>,
     ids: &mut std::collections::HashSet<String>,
 ) -> Result<(), AppError> {
-    let object = entry
-        .as_object()
-        .ok_or_else(|| AppError::Validation(format!("Each {field} entry must be an object")))?;
+    let object = entry.as_object().ok_or_else(|| {
+        AppError::Validation(format!("Each {field} entry must be an object"))
+    })?;
     for required in ["title", "description"] {
         if object
             .get(required)
@@ -461,14 +488,24 @@ pub fn filter_content(content: &Value, selections: &Value) -> Value {
             continue;
         }
         if key == "modifications" {
-            if selection_object.get(key).and_then(Value::as_bool) == Some(false) {
+            if selection_object.get(key).and_then(Value::as_bool) == Some(false)
+            {
                 continue;
             }
-            filtered.insert(key.clone(), filter_modifications(value, selection_object));
-        } else if let Some(entry_selections) = selection_object.get(key).and_then(Value::as_object)
+            filtered.insert(
+                key.clone(),
+                filter_modifications(value, selection_object),
+            );
+        } else if let Some(entry_selections) =
+            selection_object.get(key).and_then(Value::as_object)
         {
-            filtered.insert(key.clone(), filter_entries(value, entry_selections, key));
-        } else if selection_object.get(key).and_then(Value::as_bool) != Some(false) {
+            filtered.insert(
+                key.clone(),
+                filter_entries(value, entry_selections, key),
+            );
+        } else if selection_object.get(key).and_then(Value::as_bool)
+            != Some(false)
+        {
             filtered.insert(key.clone(), value.clone());
         }
     }
@@ -477,7 +514,11 @@ pub fn filter_content(content: &Value, selections: &Value) -> Value {
     filtered
 }
 
-fn filter_entries(value: &Value, selections: &Map<String, Value>, field: &str) -> Value {
+fn filter_entries(
+    value: &Value,
+    selections: &Map<String, Value>,
+    field: &str,
+) -> Value {
     if let Some(entries) = value.as_array() {
         return Value::Array(
             entries
@@ -486,7 +527,12 @@ fn filter_entries(value: &Value, selections: &Map<String, Value>, field: &str) -
                 .filter(|(index, entry)| {
                     let explicit_id = entry.get("id").and_then(Value::as_str);
                     let generated_id = generated_entry_id(field, *index);
-                    !entry_is_disabled(selections, explicit_id, generated_id.as_deref(), *index)
+                    !entry_is_disabled(
+                        selections,
+                        explicit_id,
+                        generated_id.as_deref(),
+                        *index,
+                    )
                 })
                 .map(|(_, entry)| entry.clone())
                 .collect(),
@@ -497,9 +543,14 @@ fn filter_entries(value: &Value, selections: &Map<String, Value>, field: &str) -
             entries
                 .iter()
                 .filter(|(map_key, entry)| {
-                    let entry_id = entry.get("id").and_then(Value::as_str).unwrap_or(map_key);
-                    selections.get(*map_key).and_then(Value::as_bool) != Some(false)
-                        && selections.get(entry_id).and_then(Value::as_bool) != Some(false)
+                    let entry_id = entry
+                        .get("id")
+                        .and_then(Value::as_str)
+                        .unwrap_or(map_key);
+                    selections.get(*map_key).and_then(Value::as_bool)
+                        != Some(false)
+                        && selections.get(entry_id).and_then(Value::as_bool)
+                            != Some(false)
                 })
                 .map(|(key, entry)| (key.clone(), entry.clone()))
                 .collect(),
@@ -529,7 +580,9 @@ fn entry_is_disabled(
     [explicit_id, generated_id, Some(numeric_id.as_str())]
         .into_iter()
         .flatten()
-        .any(|entry_id| selections.get(entry_id).and_then(Value::as_bool) == Some(false))
+        .any(|entry_id| {
+            selections.get(entry_id).and_then(Value::as_bool) == Some(false)
+        })
 }
 
 pub fn player_character_context(content: &Value) -> Value {
@@ -569,13 +622,17 @@ fn strip_gm_only(value: &mut Value) {
     }
 }
 
-fn filter_modifications(value: &Value, selections: &Map<String, Value>) -> Value {
+fn filter_modifications(
+    value: &Value,
+    selections: &Map<String, Value>,
+) -> Value {
     let Some(modifications) = value.as_object() else {
         return value.clone();
     };
     let mut filtered = Map::new();
     for (kind, entries) in modifications {
-        let Some(selected) = selections.get(kind).and_then(Value::as_object) else {
+        let Some(selected) = selections.get(kind).and_then(Value::as_object)
+        else {
             filtered.insert(kind.clone(), entries.clone());
             continue;
         };
@@ -586,11 +643,16 @@ fn filter_modifications(value: &Value, selections: &Map<String, Value>) -> Value
             };
             let mut filtered_entries = Map::new();
             for (entry_key, entry) in entries_object {
-                let entry_id = entry.get("id").and_then(Value::as_str).unwrap_or(entry_key);
+                let entry_id = entry
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .unwrap_or(entry_key);
                 let map_key_disabled =
-                    selected.get(entry_key).and_then(Value::as_bool) == Some(false);
+                    selected.get(entry_key).and_then(Value::as_bool)
+                        == Some(false);
                 let entry_id_disabled =
-                    selected.get(entry_id).and_then(Value::as_bool) == Some(false);
+                    selected.get(entry_id).and_then(Value::as_bool)
+                        == Some(false);
                 if !map_key_disabled && !entry_id_disabled {
                     filtered_entries.insert(entry_key.clone(), entry.clone());
                 }
@@ -627,7 +689,9 @@ mod tests {
     };
     use serde_json::json;
 
-    fn valid_frame_with_modifications(modifications: serde_json::Value) -> serde_json::Value {
+    fn valid_frame_with_modifications(
+        modifications: serde_json::Value,
+    ) -> serde_json::Value {
         json!({
             "id": "test-frame",
             "name": "Test frame",
@@ -648,7 +712,8 @@ mod tests {
             "classes": {}
         }));
 
-        validate_frame_content(&content).expect("object-map modifications should validate");
+        validate_frame_content(&content)
+            .expect("object-map modifications should validate");
     }
 
     #[test]
@@ -657,10 +722,13 @@ mod tests {
             "classes": {"class-a": "not an entry object"}
         }));
 
-        let error = validate_frame_content(&content).expect_err("invalid map value should fail");
+        let error = validate_frame_content(&content)
+            .expect_err("invalid map value should fail");
         match error {
             crate::error::AppError::Validation(message) => {
-                assert!(message.contains("Each modifications.classes entry must be an object"));
+                assert!(message.contains(
+                    "Each modifications.classes entry must be an object"
+                ));
             }
             other => panic!("expected validation error, got {other:?}"),
         }
@@ -675,10 +743,15 @@ mod tests {
             }
         }));
 
-        let error = validate_frame_content(&content).expect_err("duplicate IDs should fail");
+        let error = validate_frame_content(&content)
+            .expect_err("duplicate IDs should fail");
         match error {
             crate::error::AppError::Validation(message) => {
-                assert!(message.contains("Duplicate id class-a in modifications.classes"));
+                assert!(
+                    message.contains(
+                        "Duplicate id class-a in modifications.classes"
+                    )
+                );
             }
             other => panic!("expected validation error, got {other:?}"),
         }
@@ -726,7 +799,8 @@ mod tests {
                 "classes": [{"id": "class-a", "title": "A", "description": "A guidance"}]
             }
         });
-        let filtered = filter_content(&content, &json!({"modifications": false}));
+        let filtered =
+            filter_content(&content, &json!({"modifications": false}));
 
         assert!(filtered.get("modifications").is_none());
     }

@@ -44,7 +44,16 @@ pub async fn create(
     title: &str,
     body: &str,
 ) -> Result<AdventureNote, AppError> {
-    create_adventure_note(pool, adventure_id, creator_id, title, body, None, None).await
+    create_adventure_note(
+        pool,
+        adventure_id,
+        creator_id,
+        title,
+        body,
+        None,
+        None,
+    )
+    .await
 }
 
 pub async fn update(
@@ -85,9 +94,14 @@ pub async fn ensure_adventure_default_section(
     creator_id: Uuid,
 ) -> Result<(), AppError> {
     let mut transaction = pool.begin().await?;
-    lock_note_resource(&mut transaction, ADVENTURE_NOTE_RESOURCE, adventure_id).await?;
-    ensure_adventure_default_section_in_transaction(&mut transaction, adventure_id, creator_id)
+    lock_note_resource(&mut transaction, ADVENTURE_NOTE_RESOURCE, adventure_id)
         .await?;
+    ensure_adventure_default_section_in_transaction(
+        &mut transaction,
+        adventure_id,
+        creator_id,
+    )
+    .await?;
     transaction.commit().await?;
     Ok(())
 }
@@ -138,9 +152,14 @@ pub async fn create_adventure_section(
     requested_position: Option<i32>,
 ) -> Result<crate::models::AdventureNoteSection, AppError> {
     let mut transaction = pool.begin().await?;
-    lock_note_resource(&mut transaction, ADVENTURE_NOTE_RESOURCE, adventure_id).await?;
-    ensure_adventure_default_section_in_transaction(&mut transaction, adventure_id, creator_id)
+    lock_note_resource(&mut transaction, ADVENTURE_NOTE_RESOURCE, adventure_id)
         .await?;
+    ensure_adventure_default_section_in_transaction(
+        &mut transaction,
+        adventure_id,
+        creator_id,
+    )
+    .await?;
     let count = section_count(&mut transaction, adventure_id).await?;
     let position = requested_position.unwrap_or(count);
     validate_position(position, count)?;
@@ -156,7 +175,13 @@ pub async fn create_adventure_section(
     .bind(count + 1)
     .fetch_one(&mut *transaction)
     .await?;
-    reorder_adventure_section(&mut transaction, adventure_id, section.id, position).await?;
+    reorder_adventure_section(
+        &mut transaction,
+        adventure_id,
+        section.id,
+        position,
+    )
+    .await?;
     let section = fetch_adventure_section(&mut transaction, section.id).await?;
     transaction.commit().await?;
     Ok(section)
@@ -171,7 +196,8 @@ pub async fn update_adventure_section(
     requested_position: Option<i32>,
 ) -> Result<Option<crate::models::AdventureNoteSection>, AppError> {
     let mut transaction = pool.begin().await?;
-    lock_note_resource(&mut transaction, ADVENTURE_NOTE_RESOURCE, adventure_id).await?;
+    lock_note_resource(&mut transaction, ADVENTURE_NOTE_RESOURCE, adventure_id)
+        .await?;
     let current = sqlx::query_as::<_, crate::models::AdventureNoteSection>(
         "SELECT id, adventure_id, creator_id, name, position, created_at, updated_at
          FROM adventure_note_sections WHERE id = $1 AND adventure_id = $2 AND creator_id = $3 FOR UPDATE",
@@ -192,7 +218,13 @@ pub async fn update_adventure_section(
         .bind(section_id)
         .execute(&mut *transaction)
         .await?;
-    reorder_adventure_section(&mut transaction, adventure_id, section_id, position).await?;
+    reorder_adventure_section(
+        &mut transaction,
+        adventure_id,
+        section_id,
+        position,
+    )
+    .await?;
     let section = fetch_adventure_section(&mut transaction, section_id).await?;
     transaction.commit().await?;
     Ok(Some(section))
@@ -205,7 +237,8 @@ pub async fn delete_adventure_section(
     creator_id: Uuid,
 ) -> Result<bool, AppError> {
     let mut transaction = pool.begin().await?;
-    lock_note_resource(&mut transaction, ADVENTURE_NOTE_RESOURCE, adventure_id).await?;
+    lock_note_resource(&mut transaction, ADVENTURE_NOTE_RESOURCE, adventure_id)
+        .await?;
     let exists = sqlx::query_scalar::<_, bool>(
         "SELECT EXISTS(SELECT 1 FROM adventure_note_sections WHERE id = $1 AND adventure_id = $2 AND creator_id = $3)",
     )
@@ -217,14 +250,16 @@ pub async fn delete_adventure_section(
     if !exists {
         return Ok(false);
     }
-    let note_count =
-        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM adventure_notes WHERE section_id = $1")
-            .bind(section_id)
-            .fetch_one(&mut *transaction)
-            .await?;
+    let note_count = sqlx::query_scalar::<_, i64>(
+        "SELECT count(*) FROM adventure_notes WHERE section_id = $1",
+    )
+    .bind(section_id)
+    .fetch_one(&mut *transaction)
+    .await?;
     if note_count > 0 {
         return Err(AppError::Conflict(
-            "Move or delete the notes in this section before deleting it".to_owned(),
+            "Move or delete the notes in this section before deleting it"
+                .to_owned(),
         ));
     }
     if section_count(&mut transaction, adventure_id).await? <= 1 {
@@ -251,9 +286,14 @@ pub async fn create_adventure_note(
     requested_position: Option<i32>,
 ) -> Result<AdventureNote, AppError> {
     let mut transaction = pool.begin().await?;
-    lock_note_resource(&mut transaction, ADVENTURE_NOTE_RESOURCE, adventure_id).await?;
-    ensure_adventure_default_section_in_transaction(&mut transaction, adventure_id, creator_id)
+    lock_note_resource(&mut transaction, ADVENTURE_NOTE_RESOURCE, adventure_id)
         .await?;
+    ensure_adventure_default_section_in_transaction(
+        &mut transaction,
+        adventure_id,
+        creator_id,
+    )
+    .await?;
     let section_id = find_adventure_section(
         &mut transaction,
         adventure_id,
@@ -297,7 +337,8 @@ pub async fn update_adventure_note(
     requested_position: Option<i32>,
 ) -> Result<Option<AdventureNote>, AppError> {
     let mut transaction = pool.begin().await?;
-    lock_note_resource(&mut transaction, ADVENTURE_NOTE_RESOURCE, adventure_id).await?;
+    lock_note_resource(&mut transaction, ADVENTURE_NOTE_RESOURCE, adventure_id)
+        .await?;
     let current = sqlx::query_as::<_, AdventureNote>(
         "SELECT id, adventure_id, creator_id, section_id, title, body, position, created_at, updated_at
          FROM adventure_notes WHERE id = $1 AND adventure_id = $2 AND creator_id = $3 FOR UPDATE",
@@ -313,13 +354,15 @@ pub async fn update_adventure_note(
         requested_section.or(Some(current.section_id)),
     )
     .await?;
-    let target_count = note_count(&mut transaction, target_section).await? as i32
+    let target_count = note_count(&mut transaction, target_section).await?
+        as i32
         - i32::from(target_section == current.section_id);
-    let position = requested_position.unwrap_or(if target_section == current.section_id {
-        current.position
-    } else {
-        target_count
-    });
+    let position =
+        requested_position.unwrap_or(if target_section == current.section_id {
+            current.position
+        } else {
+            target_count
+        });
     validate_position(position, target_count)?;
     sqlx::query(
         "UPDATE adventure_notes SET title = $1, body = $2, updated_at = now() WHERE id = $3",
@@ -350,7 +393,8 @@ pub async fn delete_adventure_note(
     creator_id: Uuid,
 ) -> Result<bool, AppError> {
     let mut transaction = pool.begin().await?;
-    lock_note_resource(&mut transaction, ADVENTURE_NOTE_RESOURCE, adventure_id).await?;
+    lock_note_resource(&mut transaction, ADVENTURE_NOTE_RESOURCE, adventure_id)
+        .await?;
     let section_id = sqlx::query_scalar::<_, Uuid>(
         "DELETE FROM adventure_notes WHERE id = $1 AND adventure_id = $2 AND creator_id = $3 RETURNING section_id",
     )
@@ -373,9 +417,14 @@ pub async fn ensure_character_default_section(
     owner_id: Uuid,
 ) -> Result<(), AppError> {
     let mut transaction = pool.begin().await?;
-    lock_note_resource(&mut transaction, CHARACTER_NOTE_RESOURCE, character_id).await?;
-    ensure_character_default_section_in_transaction(&mut transaction, character_id, owner_id)
+    lock_note_resource(&mut transaction, CHARACTER_NOTE_RESOURCE, character_id)
         .await?;
+    ensure_character_default_section_in_transaction(
+        &mut transaction,
+        character_id,
+        owner_id,
+    )
+    .await?;
     transaction.commit().await?;
     Ok(())
 }
@@ -415,9 +464,14 @@ pub async fn create_character_section(
     requested_position: Option<i32>,
 ) -> Result<crate::models::CharacterNoteSection, AppError> {
     let mut transaction = pool.begin().await?;
-    lock_note_resource(&mut transaction, CHARACTER_NOTE_RESOURCE, character_id).await?;
-    ensure_character_default_section_in_transaction(&mut transaction, character_id, owner_id)
+    lock_note_resource(&mut transaction, CHARACTER_NOTE_RESOURCE, character_id)
         .await?;
+    ensure_character_default_section_in_transaction(
+        &mut transaction,
+        character_id,
+        owner_id,
+    )
+    .await?;
     let count = character_section_count(&mut transaction, character_id).await?;
     let position = requested_position.unwrap_or(count);
     validate_position(position, count)?;
@@ -433,7 +487,13 @@ pub async fn create_character_section(
     .bind(count + 1)
     .fetch_one(&mut *transaction)
     .await?;
-    reorder_character_section(&mut transaction, character_id, section.id, position).await?;
+    reorder_character_section(
+        &mut transaction,
+        character_id,
+        section.id,
+        position,
+    )
+    .await?;
     let section = fetch_character_section(&mut transaction, section.id).await?;
     transaction.commit().await?;
     Ok(section)
@@ -448,7 +508,8 @@ pub async fn update_character_section(
     requested_position: Option<i32>,
 ) -> Result<Option<crate::models::CharacterNoteSection>, AppError> {
     let mut transaction = pool.begin().await?;
-    lock_note_resource(&mut transaction, CHARACTER_NOTE_RESOURCE, character_id).await?;
+    lock_note_resource(&mut transaction, CHARACTER_NOTE_RESOURCE, character_id)
+        .await?;
     let current = sqlx::query_as::<_, crate::models::CharacterNoteSection>(
         "SELECT id, character_id, owner_id, name, position, created_at, updated_at
          FROM character_note_sections WHERE id = $1 AND character_id = $2 AND owner_id = $3 FOR UPDATE",
@@ -464,7 +525,13 @@ pub async fn update_character_section(
         .bind(section_id)
         .execute(&mut *transaction)
         .await?;
-    reorder_character_section(&mut transaction, character_id, section_id, position).await?;
+    reorder_character_section(
+        &mut transaction,
+        character_id,
+        section_id,
+        position,
+    )
+    .await?;
     let section = fetch_character_section(&mut transaction, section_id).await?;
     transaction.commit().await?;
     Ok(Some(section))
@@ -477,21 +544,24 @@ pub async fn delete_character_section(
     owner_id: Uuid,
 ) -> Result<bool, AppError> {
     let mut transaction = pool.begin().await?;
-    lock_note_resource(&mut transaction, CHARACTER_NOTE_RESOURCE, character_id).await?;
+    lock_note_resource(&mut transaction, CHARACTER_NOTE_RESOURCE, character_id)
+        .await?;
     let exists = sqlx::query_scalar::<_, bool>(
         "SELECT EXISTS(SELECT 1 FROM character_note_sections WHERE id = $1 AND character_id = $2 AND owner_id = $3)",
     ).bind(section_id).bind(character_id).bind(owner_id).fetch_one(&mut *transaction).await?;
     if !exists {
         return Ok(false);
     }
-    let note_count =
-        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM character_notes WHERE section_id = $1")
-            .bind(section_id)
-            .fetch_one(&mut *transaction)
-            .await?;
+    let note_count = sqlx::query_scalar::<_, i64>(
+        "SELECT count(*) FROM character_notes WHERE section_id = $1",
+    )
+    .bind(section_id)
+    .fetch_one(&mut *transaction)
+    .await?;
     if note_count > 0 {
         return Err(AppError::Conflict(
-            "Move or delete the notes in this section before deleting it".to_owned(),
+            "Move or delete the notes in this section before deleting it"
+                .to_owned(),
         ));
     }
     if character_section_count(&mut transaction, character_id).await? <= 1 {
@@ -518,12 +588,23 @@ pub async fn create_character_note(
     requested_position: Option<i32>,
 ) -> Result<crate::models::CharacterNote, AppError> {
     let mut transaction = pool.begin().await?;
-    lock_note_resource(&mut transaction, CHARACTER_NOTE_RESOURCE, character_id).await?;
-    ensure_character_default_section_in_transaction(&mut transaction, character_id, owner_id)
+    lock_note_resource(&mut transaction, CHARACTER_NOTE_RESOURCE, character_id)
         .await?;
-    let section_id =
-        find_character_section(&mut transaction, character_id, owner_id, requested_section).await?;
-    let count = character_note_count(&mut transaction, section_id).await? as i32;
+    ensure_character_default_section_in_transaction(
+        &mut transaction,
+        character_id,
+        owner_id,
+    )
+    .await?;
+    let section_id = find_character_section(
+        &mut transaction,
+        character_id,
+        owner_id,
+        requested_section,
+    )
+    .await?;
+    let count =
+        character_note_count(&mut transaction, section_id).await? as i32;
     let position = requested_position.unwrap_or(count);
     validate_position(position, count)?;
     let note = sqlx::query_as::<_, crate::models::CharacterNote>(
@@ -556,7 +637,8 @@ pub async fn update_character_note(
     requested_position: Option<i32>,
 ) -> Result<Option<crate::models::CharacterNote>, AppError> {
     let mut transaction = pool.begin().await?;
-    lock_note_resource(&mut transaction, CHARACTER_NOTE_RESOURCE, character_id).await?;
+    lock_note_resource(&mut transaction, CHARACTER_NOTE_RESOURCE, character_id)
+        .await?;
     let current = sqlx::query_as::<_, crate::models::CharacterNote>(
         "SELECT id, character_id, owner_id, section_id, title, body, position, created_at, updated_at
          FROM character_notes WHERE id = $1 AND character_id = $2 AND owner_id = $3 FOR UPDATE",
@@ -571,13 +653,15 @@ pub async fn update_character_note(
         requested_section.or(Some(current.section_id)),
     )
     .await?;
-    let target_count = character_note_count(&mut transaction, target_section).await? as i32
+    let target_count = character_note_count(&mut transaction, target_section)
+        .await? as i32
         - i32::from(target_section == current.section_id);
-    let position = requested_position.unwrap_or(if target_section == current.section_id {
-        current.position
-    } else {
-        target_count
-    });
+    let position =
+        requested_position.unwrap_or(if target_section == current.section_id {
+            current.position
+        } else {
+            target_count
+        });
     validate_position(position, target_count)?;
     sqlx::query(
         "UPDATE character_notes SET title = $1, body = $2, updated_at = now() WHERE id = $3",
@@ -608,7 +692,8 @@ pub async fn delete_character_note(
     owner_id: Uuid,
 ) -> Result<bool, AppError> {
     let mut transaction = pool.begin().await?;
-    lock_note_resource(&mut transaction, CHARACTER_NOTE_RESOURCE, character_id).await?;
+    lock_note_resource(&mut transaction, CHARACTER_NOTE_RESOURCE, character_id)
+        .await?;
     let section_id = sqlx::query_scalar::<_, Uuid>(
         "DELETE FROM character_notes WHERE id = $1 AND character_id = $2 AND owner_id = $3 RETURNING section_id",
     ).bind(note_id).bind(character_id).bind(owner_id).fetch_optional(&mut *transaction).await?;
@@ -671,11 +756,13 @@ async fn reorder_adventure_section(
     let count = section_count(transaction, adventure_id).await?;
     validate_position(target_position, count - 1)?;
 
-    sqlx::query("UPDATE adventure_note_sections SET position = $1 WHERE id = $2")
-        .bind(count + 1)
-        .bind(section_id)
-        .execute(&mut **transaction)
-        .await?;
+    sqlx::query(
+        "UPDATE adventure_note_sections SET position = $1 WHERE id = $2",
+    )
+    .bind(count + 1)
+    .bind(section_id)
+    .execute(&mut **transaction)
+    .await?;
     if target_position < current_position {
         sqlx::query(
             "UPDATE adventure_note_sections
@@ -701,11 +788,13 @@ async fn reorder_adventure_section(
         .execute(&mut **transaction)
         .await?;
     }
-    sqlx::query("UPDATE adventure_note_sections SET position = $1 WHERE id = $2")
-        .bind(target_position)
-        .bind(section_id)
-        .execute(&mut **transaction)
-        .await?;
+    sqlx::query(
+        "UPDATE adventure_note_sections SET position = $1 WHERE id = $2",
+    )
+    .bind(target_position)
+    .bind(section_id)
+    .execute(&mut **transaction)
+    .await?;
     normalize_adventure_sections(transaction, adventure_id).await?;
     Ok(())
 }
@@ -837,11 +926,13 @@ async fn reorder_character_section(
     let count = character_section_count(transaction, character_id).await?;
     validate_position(target_position, count - 1)?;
 
-    sqlx::query("UPDATE character_note_sections SET position = $1 WHERE id = $2")
-        .bind(count + 1)
-        .bind(section_id)
-        .execute(&mut **transaction)
-        .await?;
+    sqlx::query(
+        "UPDATE character_note_sections SET position = $1 WHERE id = $2",
+    )
+    .bind(count + 1)
+    .bind(section_id)
+    .execute(&mut **transaction)
+    .await?;
     if target_position < current_position {
         sqlx::query(
             "UPDATE character_note_sections
@@ -867,11 +958,13 @@ async fn reorder_character_section(
         .execute(&mut **transaction)
         .await?;
     }
-    sqlx::query("UPDATE character_note_sections SET position = $1 WHERE id = $2")
-        .bind(target_position)
-        .bind(section_id)
-        .execute(&mut **transaction)
-        .await?;
+    sqlx::query(
+        "UPDATE character_note_sections SET position = $1 WHERE id = $2",
+    )
+    .bind(target_position)
+    .bind(section_id)
+    .execute(&mut **transaction)
+    .await?;
     normalize_character_sections(transaction, character_id).await?;
     Ok(())
 }
@@ -891,7 +984,8 @@ async fn reorder_character_note(
     .bind(character_id)
     .fetch_one(&mut **transaction)
     .await?;
-    let target_count = character_note_count(transaction, target_section).await? as i32
+    let target_count = character_note_count(transaction, target_section).await?
+        as i32
         - i32::from(source_section == target_section);
     validate_position(target_position, target_count)?;
 
@@ -1020,19 +1114,23 @@ async fn note_count(
     transaction: &mut Transaction<'_, Postgres>,
     section_id: Uuid,
 ) -> Result<i64, sqlx::Error> {
-    sqlx::query_scalar("SELECT count(*) FROM adventure_notes WHERE section_id = $1")
-        .bind(section_id)
-        .fetch_one(&mut **transaction)
-        .await
+    sqlx::query_scalar(
+        "SELECT count(*) FROM adventure_notes WHERE section_id = $1",
+    )
+    .bind(section_id)
+    .fetch_one(&mut **transaction)
+    .await
 }
 async fn character_note_count(
     transaction: &mut Transaction<'_, Postgres>,
     section_id: Uuid,
 ) -> Result<i64, sqlx::Error> {
-    sqlx::query_scalar("SELECT count(*) FROM character_notes WHERE section_id = $1")
-        .bind(section_id)
-        .fetch_one(&mut **transaction)
-        .await
+    sqlx::query_scalar(
+        "SELECT count(*) FROM character_notes WHERE section_id = $1",
+    )
+    .bind(section_id)
+    .fetch_one(&mut **transaction)
+    .await
 }
 async fn find_adventure_section(
     transaction: &mut Transaction<'_, Postgres>,

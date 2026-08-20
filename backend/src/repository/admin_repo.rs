@@ -4,7 +4,10 @@ use uuid::Uuid;
 
 use crate::{
     error::AppError,
-    models::{AccessAuditEvent, AccessLevel, AdminUser, AiPromptTemplate, User, UserListQuery},
+    models::{
+        AccessAuditEvent, AccessLevel, AdminUser, AiPromptTemplate, User,
+        UserListQuery,
+    },
     repository::ai_repo,
 };
 
@@ -72,11 +75,14 @@ pub async fn update_access_level(
     .await?
     .ok_or_else(|| AppError::NotFound("User not found".to_owned()))?;
 
-    if target.access_level == AccessLevel::Admin.as_str() && access_level != AccessLevel::Admin {
-        let admin_count =
-            sqlx::query_scalar::<_, i64>("SELECT count(*) FROM users WHERE access_level = 'admin'")
-                .fetch_one(&mut *transaction)
-                .await?;
+    if target.access_level == AccessLevel::Admin.as_str()
+        && access_level != AccessLevel::Admin
+    {
+        let admin_count = sqlx::query_scalar::<_, i64>(
+            "SELECT count(*) FROM users WHERE access_level = 'admin'",
+        )
+        .fetch_one(&mut *transaction)
+        .await?;
         if admin_count <= 1 {
             return Err(AppError::Conflict(
                 "The last admin cannot be demoted".to_owned(),
@@ -181,11 +187,13 @@ pub async fn update_ai_generation_access(
     target_id: Uuid,
     enabled: bool,
 ) -> Result<AdminUser, AppError> {
-    let result = sqlx::query("UPDATE users SET ai_generation_enabled = $1 WHERE id = $2")
-        .bind(enabled)
-        .bind(target_id)
-        .execute(pool)
-        .await?;
+    let result = sqlx::query(
+        "UPDATE users SET ai_generation_enabled = $1 WHERE id = $2",
+    )
+    .bind(enabled)
+    .bind(target_id)
+    .execute(pool)
+    .await?;
 
     if result.rows_affected() != 1 {
         return Err(AppError::NotFound("User not found".to_owned()));
@@ -221,7 +229,9 @@ pub async fn list_audit_events(
     .await
 }
 
-pub async fn list_ai_prompt_templates(pool: &PgPool) -> Result<Vec<AiPromptTemplate>, AppError> {
+pub async fn list_ai_prompt_templates(
+    pool: &PgPool,
+) -> Result<Vec<AiPromptTemplate>, AppError> {
     let mut templates = Vec::with_capacity(ai_repo::PROMPT_TEMPLATE_KEYS.len());
     for generation_type in ai_repo::PROMPT_TEMPLATE_KEYS {
         let row = sqlx::query_as::<_, AiPromptTemplate>(
@@ -233,7 +243,8 @@ pub async fn list_ai_prompt_templates(pool: &PgPool) -> Result<Vec<AiPromptTempl
         .await?;
         templates.push(row.unwrap_or_else(|| AiPromptTemplate {
             generation_type: (*generation_type).to_owned(),
-            template: ai_repo::default_prompt_template(generation_type).to_owned(),
+            template:
+                ai_repo::default_prompt_template(generation_type).to_owned(),
             updated_at: Utc::now(),
         }));
     }

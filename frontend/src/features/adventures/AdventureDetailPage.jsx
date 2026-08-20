@@ -1,582 +1,1674 @@
-import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useAuth } from '../../hooks/useAuth';
-import Button from '../../components/Button/Button';
-import { useAdventureStore } from './adventureStore';
-import * as adventureApi from './adventureApi';
-import { createLibraryFrame, getAdventureFrame, updateAdventureFrame } from '../frames/frameApi';
-import { contentToForm, draftToContent, frameEditorSections } from '../frames/frameDraft';
-import { getSoundBoard, listSoundBoards, soundMediaUrl } from '../soundboards/soundboardApi';
-import { useSoundPlayerStore } from '../soundboards/soundboardStore';
-import { FrameDraftForm } from './CreateAdventurePage';
-import NoteManager from '../notes/NoteManager';
-import styles from './AdventureDetailPage.module.css';
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "../../hooks/useAuth";
+import Button from "../../components/Button/Button";
+import { useAdventureStore } from "./adventureStore";
+import * as adventureApi from "./adventureApi";
+import {
+	createLibraryFrame,
+	getAdventureFrame,
+	updateAdventureFrame,
+} from "../frames/frameApi";
+import {
+	contentToForm,
+	draftToContent,
+	frameEditorSections,
+} from "../frames/frameDraft";
+import {
+	getSoundBoard,
+	listSoundBoards,
+	soundMediaUrl,
+} from "../soundboards/soundboardApi";
+import { useSoundPlayerStore } from "../soundboards/soundboardStore";
+import { FrameDraftForm } from "./CreateAdventurePage";
+import NoteManager from "../notes/NoteManager";
+import styles from "./AdventureDetailPage.module.css";
 
 const tabs = [
-  { id: 'campaign', label: 'Campaign' },
-  { id: 'story', label: 'Story' },
-  { id: 'players', label: 'Players' },
-  { id: 'sounds', label: 'Sounds', creatorOnly: true },
-  { id: 'notes', label: 'Notes', creatorOnly: true },
-  { id: 'settings', label: 'Settings', creatorOnly: true },
+	{ id: "campaign", label: "Campaign" },
+	{ id: "story", label: "Story" },
+	{ id: "players", label: "Players" },
+	{ id: "sounds", label: "Sounds", creatorOnly: true },
+	{ id: "notes", label: "Notes", creatorOnly: true },
+	{ id: "settings", label: "Settings", creatorOnly: true },
 ];
 
 // Detail page displays a private adventure and lets its creator manage invites
 export default function AdventureDetailPage() {
-  const { adventureId } = useParams();
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const { current, invites, loading, error, clearInvites, fetchAdventure, fetchInvites, invite, setFear, deleteAdventure } = useAdventureStore();
-  const playSound = useSoundPlayerStore((state) => state.play);
-  const addSoundToQueue = useSoundPlayerStore((state) => state.addToQueue);
-  const [activeTab, setActiveTab] = useState('campaign');
-  const [email, setEmail] = useState('');
-  const [message, setMessage] = useState('');
-  const [frame, setFrame] = useState(null);
-  const [frameForm, setFrameForm] = useState(null);
-  const [frameEditMode, setFrameEditMode] = useState(false);
-  const [activeFrameSection, setActiveFrameSection] = useState('details');
-  const [frameState, setFrameState] = useState({ loading: true, saving: false, error: '', message: '' });
-  const [deleteState, setDeleteState] = useState({ saving: false, error: '' });
-  const [players, setPlayers] = useState([]);
-  const [playersState, setPlayersState] = useState({ loading: true, error: '' });
-  const [notes, setNotes] = useState([]);
-  const [noteSections, setNoteSections] = useState([]);
-  const [notesState, setNotesState] = useState({ loading: true, saving: false, error: '', message: '' });
-  const [soundBoards, setSoundBoards] = useState([]);
-  const [selectedSoundBoardId, setSelectedSoundBoardId] = useState('');
-  const [soundDetailRefreshKey, setSoundDetailRefreshKey] = useState(0);
-  const [soundDetail, setSoundDetail] = useState(null);
-  const [soundsState, setSoundsState] = useState({ loading: false, detailLoading: false, error: '' });
-  const routeRequestRef = useRef(0);
-  const frameRevision = useRef(0);
-  const notesRequestRef = useRef(0);
-  const soundBoardsRequestRef = useRef(0);
-  const soundDetailRequestRef = useRef(0);
+	const { adventureId } = useParams();
+	const navigate = useNavigate();
+	const { user } = useAuth();
+	const {
+		current,
+		invites,
+		loading,
+		error,
+		clearInvites,
+		fetchAdventure,
+		fetchInvites,
+		invite,
+		setFear,
+		deleteAdventure,
+	} = useAdventureStore();
+	const playSound = useSoundPlayerStore((state) => state.play);
+	const addSoundToQueue = useSoundPlayerStore((state) => state.addToQueue);
+	const [activeTab, setActiveTab] = useState("campaign");
+	const [email, setEmail] = useState("");
+	const [message, setMessage] = useState("");
+	const [frame, setFrame] = useState(null);
+	const [frameForm, setFrameForm] = useState(null);
+	const [frameEditMode, setFrameEditMode] = useState(false);
+	const [activeFrameSection, setActiveFrameSection] = useState("details");
+	const [frameState, setFrameState] = useState({
+		loading: true,
+		saving: false,
+		error: "",
+		message: "",
+	});
+	const [deleteState, setDeleteState] = useState({ saving: false, error: "" });
+	const [players, setPlayers] = useState([]);
+	const [playersState, setPlayersState] = useState({
+		loading: true,
+		error: "",
+	});
+	const [notes, setNotes] = useState([]);
+	const [noteSections, setNoteSections] = useState([]);
+	const [notesState, setNotesState] = useState({
+		loading: true,
+		saving: false,
+		error: "",
+		message: "",
+	});
+	const [soundBoards, setSoundBoards] = useState([]);
+	const [selectedSoundBoardId, setSelectedSoundBoardId] = useState("");
+	const [soundDetailRefreshKey, setSoundDetailRefreshKey] = useState(0);
+	const [soundDetail, setSoundDetail] = useState(null);
+	const [soundsState, setSoundsState] = useState({
+		loading: false,
+		detailLoading: false,
+		error: "",
+	});
+	const routeRequestRef = useRef(0);
+	const frameRevision = useRef(0);
+	const notesRequestRef = useRef(0);
+	const soundBoardsRequestRef = useRef(0);
+	const soundDetailRequestRef = useRef(0);
 
-  useEffect(() => {
-    const requestGeneration = ++routeRequestRef.current;
-    return () => {
-      if (routeRequestRef.current === requestGeneration) routeRequestRef.current += 1;
-    };
-  }, [adventureId]);
+	useEffect(() => {
+		const requestGeneration = ++routeRequestRef.current;
+		return () => {
+			if (routeRequestRef.current === requestGeneration)
+				routeRequestRef.current += 1;
+		};
+	}, [adventureId]);
 
-  useEffect(() => {
-    clearInvites();
-    setActiveTab('campaign');
-    setEmail('');
-    setMessage('');
-    setFrame(null);
-    setFrameForm(null);
-    setFrameEditMode(false);
-    setActiveFrameSection('details');
-    frameRevision.current = 0;
-    setFrameState({ loading: true, saving: false, error: '', message: '' });
-    setDeleteState({ saving: false, error: '' });
-    setPlayers([]);
-    setPlayersState({ loading: true, error: '' });
-    setNotes([]);
-    setNoteSections([]);
-    setNotesState({ loading: true, saving: false, error: '', message: '' });
-    setSoundBoards([]);
-    setSelectedSoundBoardId('');
-    setSoundDetail(null);
-    setSoundsState({ loading: false, detailLoading: false, error: '' });
-  }, [adventureId, clearInvites]);
+	useEffect(() => {
+		clearInvites();
+		setActiveTab("campaign");
+		setEmail("");
+		setMessage("");
+		setFrame(null);
+		setFrameForm(null);
+		setFrameEditMode(false);
+		setActiveFrameSection("details");
+		frameRevision.current = 0;
+		setFrameState({ loading: true, saving: false, error: "", message: "" });
+		setDeleteState({ saving: false, error: "" });
+		setPlayers([]);
+		setPlayersState({ loading: true, error: "" });
+		setNotes([]);
+		setNoteSections([]);
+		setNotesState({ loading: true, saving: false, error: "", message: "" });
+		setSoundBoards([]);
+		setSelectedSoundBoardId("");
+		setSoundDetail(null);
+		setSoundsState({ loading: false, detailLoading: false, error: "" });
+	}, [adventureId, clearInvites]);
 
-  const isCurrentRoute = (requestGeneration) => routeRequestRef.current === requestGeneration;
+	const isCurrentRoute = (requestGeneration) =>
+		routeRequestRef.current === requestGeneration;
 
-  useEffect(() => { fetchAdventure(adventureId); }, [adventureId, fetchAdventure]);
-  useEffect(() => {
-    let active = true;
-    const requestGeneration = routeRequestRef.current;
-    if (current?.id === adventureId && current.creator_id === user?.id) {
-      clearInvites();
-      fetchInvites(adventureId, () => active && isCurrentRoute(requestGeneration));
-    }
-    return () => { active = false; };
-  }, [adventureId, current, user, clearInvites, fetchInvites]);
-  useEffect(() => {
-    let active = true;
-    const requestGeneration = routeRequestRef.current;
-    if (!current || current.id !== adventureId) return () => { active = false; };
-    adventureApi.listAdventurePlayers(adventureId)
-      .then((value) => {
-        if (active && isCurrentRoute(requestGeneration)) {
-          setPlayers(value);
-          setPlayersState({ loading: false, error: '' });
-        }
-      })
-      .catch((requestError) => {
-        if (active && isCurrentRoute(requestGeneration)) setPlayersState({ loading: false, error: requestError.message });
-      });
-    return () => { active = false; };
-  }, [adventureId, current]);
-  useEffect(() => {
-    let active = true;
-    const requestGeneration = routeRequestRef.current;
-    setFrame(null);
-    frameRevision.current = 0;
-    setFrameState({ loading: true, saving: false, error: '', message: '' });
-    if (!current || current.id !== adventureId) return () => { active = false; };
-    getAdventureFrame(adventureId)
-      .then((value) => {
-        if (!active || !isCurrentRoute(requestGeneration)) return;
-        setFrame(value);
-        setFrameForm(contentToForm(value.content));
-        setFrameEditMode(false);
-        setActiveFrameSection('details');
-        frameRevision.current = 0;
-        setFrameState({ loading: false, saving: false, error: '', message: '' });
-      })
-      .catch((frameError) => {
-        if (active && isCurrentRoute(requestGeneration)) setFrameState({ loading: false, saving: false, error: frameError.message, message: '' });
-      });
-    return () => { active = false; };
-  }, [adventureId, current]);
+	useEffect(() => {
+		fetchAdventure(adventureId);
+	}, [adventureId, fetchAdventure]);
+	useEffect(() => {
+		let active = true;
+		const requestGeneration = routeRequestRef.current;
+		if (current?.id === adventureId && current.creator_id === user?.id) {
+			clearInvites();
+			fetchInvites(
+				adventureId,
+				() => active && isCurrentRoute(requestGeneration),
+			);
+		}
+		return () => {
+			active = false;
+		};
+	}, [adventureId, current, user, clearInvites, fetchInvites]);
+	useEffect(() => {
+		let active = true;
+		const requestGeneration = routeRequestRef.current;
+		if (!current || current.id !== adventureId)
+			return () => {
+				active = false;
+			};
+		adventureApi
+			.listAdventurePlayers(adventureId)
+			.then((value) => {
+				if (active && isCurrentRoute(requestGeneration)) {
+					setPlayers(value);
+					setPlayersState({ loading: false, error: "" });
+				}
+			})
+			.catch((requestError) => {
+				if (active && isCurrentRoute(requestGeneration))
+					setPlayersState({ loading: false, error: requestError.message });
+			});
+		return () => {
+			active = false;
+		};
+	}, [adventureId, current]);
+	useEffect(() => {
+		let active = true;
+		const requestGeneration = routeRequestRef.current;
+		setFrame(null);
+		frameRevision.current = 0;
+		setFrameState({ loading: true, saving: false, error: "", message: "" });
+		if (!current || current.id !== adventureId)
+			return () => {
+				active = false;
+			};
+		getAdventureFrame(adventureId)
+			.then((value) => {
+				if (!active || !isCurrentRoute(requestGeneration)) return;
+				setFrame(value);
+				setFrameForm(contentToForm(value.content));
+				setFrameEditMode(false);
+				setActiveFrameSection("details");
+				frameRevision.current = 0;
+				setFrameState({
+					loading: false,
+					saving: false,
+					error: "",
+					message: "",
+				});
+			})
+			.catch((frameError) => {
+				if (active && isCurrentRoute(requestGeneration))
+					setFrameState({
+						loading: false,
+						saving: false,
+						error: frameError.message,
+						message: "",
+					});
+			});
+		return () => {
+			active = false;
+		};
+	}, [adventureId, current]);
 
-  useEffect(() => {
-    let active = true;
-    const requestGeneration = routeRequestRef.current;
-    const notesRequest = ++notesRequestRef.current;
-    if (!current || current.id !== adventureId || current.creator_id !== user?.id) return () => { active = false; };
-    Promise.all([adventureApi.listAdventureNotes(adventureId), adventureApi.listAdventureNoteSections(adventureId)])
-      .then(([nextNotes, nextSections]) => {
-        if (!active || !isCurrentRoute(requestGeneration) || notesRequestRef.current !== notesRequest) return;
-        setNotes(nextNotes);
-        setNoteSections(nextSections);
-        setNotesState({ loading: false, saving: false, error: '', message: '' });
-      })
-      .catch((requestError) => {
-        if (active && isCurrentRoute(requestGeneration) && notesRequestRef.current === notesRequest) setNotesState({ loading: false, saving: false, error: requestError.message, message: '' });
-      });
-    return () => { active = false; };
-  }, [adventureId, current, user]);
+	useEffect(() => {
+		let active = true;
+		const requestGeneration = routeRequestRef.current;
+		const notesRequest = ++notesRequestRef.current;
+		if (
+			!current ||
+			current.id !== adventureId ||
+			current.creator_id !== user?.id
+		)
+			return () => {
+				active = false;
+			};
+		Promise.all([
+			adventureApi.listAdventureNotes(adventureId),
+			adventureApi.listAdventureNoteSections(adventureId),
+		])
+			.then(([nextNotes, nextSections]) => {
+				if (
+					!active ||
+					!isCurrentRoute(requestGeneration) ||
+					notesRequestRef.current !== notesRequest
+				)
+					return;
+				setNotes(nextNotes);
+				setNoteSections(nextSections);
+				setNotesState({
+					loading: false,
+					saving: false,
+					error: "",
+					message: "",
+				});
+			})
+			.catch((requestError) => {
+				if (
+					active &&
+					isCurrentRoute(requestGeneration) &&
+					notesRequestRef.current === notesRequest
+				)
+					setNotesState({
+						loading: false,
+						saving: false,
+						error: requestError.message,
+						message: "",
+					});
+			});
+		return () => {
+			active = false;
+		};
+	}, [adventureId, current, user]);
 
-  useEffect(() => {
-    let active = true;
-    const requestGeneration = routeRequestRef.current;
-    const soundsRequest = ++soundBoardsRequestRef.current;
-    if (!current || current.id !== adventureId || current.creator_id !== user?.id || activeTab !== 'sounds') return () => { active = false; };
-    setSoundsState({ loading: true, detailLoading: false, error: '' });
-    setSoundDetail(null);
-    listSoundBoards()
-      .then((nextBoards) => {
-        if (!active || !isCurrentRoute(requestGeneration) || soundBoardsRequestRef.current !== soundsRequest) return;
-        setSoundBoards(nextBoards);
-        setSelectedSoundBoardId((selectedId) => nextBoards.some((board) => board.id === selectedId) ? selectedId : '');
-        setSoundsState({ loading: false, detailLoading: false, error: '' });
-      })
-      .catch((requestError) => {
-        if (active && isCurrentRoute(requestGeneration) && soundBoardsRequestRef.current === soundsRequest) setSoundsState({ loading: false, detailLoading: false, error: requestError.message });
-      });
-    return () => { active = false; };
-  }, [activeTab, adventureId, current, user]);
+	useEffect(() => {
+		let active = true;
+		const requestGeneration = routeRequestRef.current;
+		const soundsRequest = ++soundBoardsRequestRef.current;
+		if (
+			!current ||
+			current.id !== adventureId ||
+			current.creator_id !== user?.id ||
+			activeTab !== "sounds"
+		)
+			return () => {
+				active = false;
+			};
+		setSoundsState({ loading: true, detailLoading: false, error: "" });
+		setSoundDetail(null);
+		listSoundBoards()
+			.then((nextBoards) => {
+				if (
+					!active ||
+					!isCurrentRoute(requestGeneration) ||
+					soundBoardsRequestRef.current !== soundsRequest
+				)
+					return;
+				setSoundBoards(nextBoards);
+				setSelectedSoundBoardId((selectedId) =>
+					nextBoards.some((board) => board.id === selectedId) ? selectedId : "",
+				);
+				setSoundsState({ loading: false, detailLoading: false, error: "" });
+			})
+			.catch((requestError) => {
+				if (
+					active &&
+					isCurrentRoute(requestGeneration) &&
+					soundBoardsRequestRef.current === soundsRequest
+				)
+					setSoundsState({
+						loading: false,
+						detailLoading: false,
+						error: requestError.message,
+					});
+			});
+		return () => {
+			active = false;
+		};
+	}, [activeTab, adventureId, current, user]);
 
-  useEffect(() => {
-    let active = true;
-    const requestGeneration = routeRequestRef.current;
-    const soundsRequest = ++soundDetailRequestRef.current;
-    if (!current || current.id !== adventureId || current.creator_id !== user?.id || activeTab !== 'sounds' || !selectedSoundBoardId) return () => { active = false; };
-    setSoundDetail((currentDetail) => currentDetail?.board?.id === selectedSoundBoardId ? currentDetail : null);
-    setSoundsState((state) => ({ ...state, detailLoading: true, error: '' }));
-    getSoundBoard(selectedSoundBoardId)
-      .then((detail) => {
-        if (active && isCurrentRoute(requestGeneration) && soundDetailRequestRef.current === soundsRequest && detail.board?.id === selectedSoundBoardId) {
-          setSoundDetail(detail);
-          setSoundsState((state) => ({ ...state, detailLoading: false }));
-        }
-      })
-      .catch((requestError) => {
-        if (active && isCurrentRoute(requestGeneration) && soundDetailRequestRef.current === soundsRequest) setSoundsState((state) => ({ ...state, detailLoading: false, error: requestError.message }));
-      });
-    return () => { active = false; };
-  }, [activeTab, adventureId, current, selectedSoundBoardId, soundDetailRefreshKey, user]);
+	useEffect(() => {
+		let active = true;
+		const requestGeneration = routeRequestRef.current;
+		const soundsRequest = ++soundDetailRequestRef.current;
+		if (
+			!current ||
+			current.id !== adventureId ||
+			current.creator_id !== user?.id ||
+			activeTab !== "sounds" ||
+			!selectedSoundBoardId
+		)
+			return () => {
+				active = false;
+			};
+		setSoundDetail((currentDetail) =>
+			currentDetail?.board?.id === selectedSoundBoardId ? currentDetail : null,
+		);
+		setSoundsState((state) => ({ ...state, detailLoading: true, error: "" }));
+		getSoundBoard(selectedSoundBoardId)
+			.then((detail) => {
+				if (
+					active &&
+					isCurrentRoute(requestGeneration) &&
+					soundDetailRequestRef.current === soundsRequest &&
+					detail.board?.id === selectedSoundBoardId
+				) {
+					setSoundDetail(detail);
+					setSoundsState((state) => ({ ...state, detailLoading: false }));
+				}
+			})
+			.catch((requestError) => {
+				if (
+					active &&
+					isCurrentRoute(requestGeneration) &&
+					soundDetailRequestRef.current === soundsRequest
+				)
+					setSoundsState((state) => ({
+						...state,
+						detailLoading: false,
+						error: requestError.message,
+					}));
+			});
+		return () => {
+			active = false;
+		};
+	}, [
+		activeTab,
+		adventureId,
+		current,
+		selectedSoundBoardId,
+		soundDetailRefreshKey,
+		user,
+	]);
 
-  const submitInvite = async (event) => {
-    event.preventDefault();
-    const requestGeneration = routeRequestRef.current;
-    const isActive = () => isCurrentRoute(requestGeneration);
-    try {
-      await invite(adventureId, email, isActive);
-      if (!isActive()) return;
-      setEmail('');
-      setMessage('Invitation created.');
-    } catch {
-      if (isActive()) setMessage('The invitation could not be created.');
-    }
-  };
+	const submitInvite = async (event) => {
+		event.preventDefault();
+		const requestGeneration = routeRequestRef.current;
+		const isActive = () => isCurrentRoute(requestGeneration);
+		try {
+			await invite(adventureId, email, isActive);
+			if (!isActive()) return;
+			setEmail("");
+			setMessage("Invitation created.");
+		} catch {
+			if (isActive()) setMessage("The invitation could not be created.");
+		}
+	};
 
-  if (loading || (current && current.id !== adventureId)) return <p className="muted">Loading adventure...</p>;
-  if (!current) return <p className={styles.error}>{error || 'Adventure not found.'}</p>;
-  const isCreator = current.creator_id === user?.id;
-  const canCreateCharacter = Boolean(frame) && !isCreator;
+	if (loading || (current && current.id !== adventureId))
+		return <p className="muted">Loading adventure...</p>;
+	if (!current)
+		return <p className={styles.error}>{error || "Adventure not found."}</p>;
+	const isCreator = current.creator_id === user?.id;
+	const canCreateCharacter = Boolean(frame) && !isCreator;
 
-  const updateSelection = (key, value) => {
-    frameRevision.current += 1;
-    setFrame((currentFrame) => ({
-      ...currentFrame,
-      selections: { ...currentFrame.selections, [key]: value },
-    }));
-  };
-  const updateEntrySelection = (kind, entryId, value) => {
-    frameRevision.current += 1;
-    setFrame((currentFrame) => ({
-      ...currentFrame,
-      selections: {
-        ...currentFrame.selections,
-        [kind]: {
-          ...(currentFrame.selections?.[kind] || {}),
-          [entryId]: value,
-        },
-      },
-    }));
-  };
-  const updateFrameField = (field, value) => {
-    frameRevision.current += 1;
-    setFrameForm((form) => ({ ...form, [field]: value }));
-  };
-  const saveFrame = async () => {
-    const requestGeneration = routeRequestRef.current;
-    const saveRevision = frameRevision.current;
-    const content = draftToContent(frameForm);
-    setFrameState((state) => ({ ...state, saving: true, error: '', message: '' }));
-    try {
-      const saved = await updateAdventureFrame(adventureId, { content, selections: frame.selections });
-      if (!isCurrentRoute(requestGeneration)) return;
-      const hasNewerEdits = frameRevision.current !== saveRevision;
-      if (!hasNewerEdits) {
-        setFrame(saved);
-        setFrameForm(contentToForm(saved.content));
-      }
-      setFrameState({ loading: false, saving: false, error: '', message: hasNewerEdits ? 'Campaign snapshot saved. Newer edits remain unsaved.' : 'Campaign saved.' });
-    } catch (saveError) {
-      if (isCurrentRoute(requestGeneration)) setFrameState((state) => ({ ...state, saving: false, error: saveError.message }));
-    }
-  };
-  const saveFrameToLibrary = async () => {
-    const requestGeneration = routeRequestRef.current;
-    const content = draftToContent(frameForm);
-    try {
-      await createLibraryFrame({ name: content.name, description: content.description || '', complexity_rating: content.complexity_rating || 3, content });
-      if (isCurrentRoute(requestGeneration)) setFrameState((state) => ({ ...state, error: '', message: 'Saved to your frame library.' }));
-    } catch (saveError) {
-      if (isCurrentRoute(requestGeneration)) setFrameState((state) => ({ ...state, error: saveError.message }));
-    }
-  };
+	const updateSelection = (key, value) => {
+		frameRevision.current += 1;
+		setFrame((currentFrame) => ({
+			...currentFrame,
+			selections: { ...currentFrame.selections, [key]: value },
+		}));
+	};
+	const updateEntrySelection = (kind, entryId, value) => {
+		frameRevision.current += 1;
+		setFrame((currentFrame) => ({
+			...currentFrame,
+			selections: {
+				...currentFrame.selections,
+				[kind]: {
+					...(currentFrame.selections?.[kind] || {}),
+					[entryId]: value,
+				},
+			},
+		}));
+	};
+	const updateFrameField = (field, value) => {
+		frameRevision.current += 1;
+		setFrameForm((form) => ({ ...form, [field]: value }));
+	};
+	const saveFrame = async () => {
+		const requestGeneration = routeRequestRef.current;
+		const saveRevision = frameRevision.current;
+		const content = draftToContent(frameForm);
+		setFrameState((state) => ({
+			...state,
+			saving: true,
+			error: "",
+			message: "",
+		}));
+		try {
+			const saved = await updateAdventureFrame(adventureId, {
+				content,
+				selections: frame.selections,
+			});
+			if (!isCurrentRoute(requestGeneration)) return;
+			const hasNewerEdits = frameRevision.current !== saveRevision;
+			if (!hasNewerEdits) {
+				setFrame(saved);
+				setFrameForm(contentToForm(saved.content));
+			}
+			setFrameState({
+				loading: false,
+				saving: false,
+				error: "",
+				message: hasNewerEdits
+					? "Campaign snapshot saved. Newer edits remain unsaved."
+					: "Campaign saved.",
+			});
+		} catch (saveError) {
+			if (isCurrentRoute(requestGeneration))
+				setFrameState((state) => ({
+					...state,
+					saving: false,
+					error: saveError.message,
+				}));
+		}
+	};
+	const saveFrameToLibrary = async () => {
+		const requestGeneration = routeRequestRef.current;
+		const content = draftToContent(frameForm);
+		try {
+			await createLibraryFrame({
+				name: content.name,
+				description: content.description || "",
+				complexity_rating: content.complexity_rating || 3,
+				content,
+			});
+			if (isCurrentRoute(requestGeneration))
+				setFrameState((state) => ({
+					...state,
+					error: "",
+					message: "Saved to your frame library.",
+				}));
+		} catch (saveError) {
+			if (isCurrentRoute(requestGeneration))
+				setFrameState((state) => ({ ...state, error: saveError.message }));
+		}
+	};
 
-  const saveNote = async (draft) => {
-    const requestGeneration = routeRequestRef.current;
-    const isActive = () => isCurrentRoute(requestGeneration);
-    setNotesState((state) => ({ ...state, saving: true, error: '', message: '' }));
-    try {
-      const payload = { title: draft.title, body: draft.body, section_id: draft.section_id, position: draft.position };
-      const saved = draft.id ? await adventureApi.updateAdventureNote(adventureId, draft.id, payload) : await adventureApi.createAdventureNote(adventureId, payload);
-      if (!isActive()) return null;
-      setNotes((currentNotes) => draft.id ? currentNotes.map((note) => note.id === saved.id ? saved : note) : [...currentNotes, saved]);
-      const notesRequest = ++notesRequestRef.current;
-      try {
-        const [nextNotes, nextSections] = await Promise.all([adventureApi.listAdventureNotes(adventureId), adventureApi.listAdventureNoteSections(adventureId)]);
-        if (!isActive() || notesRequestRef.current !== notesRequest) return saved;
-        setNotes(nextNotes);
-        setNoteSections(nextSections);
-      } catch (refreshError) {
-        if (isActive() && notesRequestRef.current === notesRequest) setNotesState({ loading: false, saving: false, error: `Note saved, but the list could not be refreshed: ${refreshError.message}`, message: '' });
-        return saved;
-      }
-      setNotesState({ loading: false, saving: false, error: '', message: 'Note saved.' });
-      return saved;
-    } catch (saveError) {
-      if (isActive()) setNotesState((state) => ({ ...state, saving: false, error: saveError.message, message: '' }));
-      return null;
-    }
-  };
-  const removeNote = async (noteId) => {
-    const requestGeneration = routeRequestRef.current;
-    const isActive = () => isCurrentRoute(requestGeneration);
-    setNotesState((state) => ({ ...state, saving: true, error: '', message: '' }));
-    try {
-      await adventureApi.deleteAdventureNote(adventureId, noteId);
-      if (!isActive()) return false;
-      setNotes((currentNotes) => currentNotes.filter((note) => note.id !== noteId));
-      const notesRequest = ++notesRequestRef.current;
-      try {
-        const [nextNotes, nextSections] = await Promise.all([adventureApi.listAdventureNotes(adventureId), adventureApi.listAdventureNoteSections(adventureId)]);
-        if (!isActive() || notesRequestRef.current !== notesRequest) return true;
-        setNotes(nextNotes);
-        setNoteSections(nextSections);
-      } catch (refreshError) {
-        if (isActive() && notesRequestRef.current === notesRequest) setNotesState({ loading: false, saving: false, error: `Note deleted, but the list could not be refreshed: ${refreshError.message}`, message: '' });
-        return true;
-      }
-      setNotesState({ loading: false, saving: false, error: '', message: 'Note deleted.' });
-      return true;
-    } catch (deleteError) {
-      if (isActive()) setNotesState((state) => ({ ...state, saving: false, error: deleteError.message }));
-      return false;
-    }
-  };
-  const refreshNotesCollection = async (requestGeneration, successMessage, refreshErrorPrefix) => {
-    const isActive = () => isCurrentRoute(requestGeneration);
-    const notesRequest = ++notesRequestRef.current;
-    try {
-      const [nextNotes, nextSections] = await Promise.all([adventureApi.listAdventureNotes(adventureId), adventureApi.listAdventureNoteSections(adventureId)]);
-      if (!isActive() || notesRequestRef.current !== notesRequest) return false;
-      setNotes(nextNotes);
-      setNoteSections(nextSections);
-      setNotesState({ loading: false, saving: false, error: '', message: successMessage });
-      return true;
-    } catch (refreshError) {
-      if (isActive() && notesRequestRef.current === notesRequest) setNotesState({ loading: false, saving: false, error: `${refreshErrorPrefix}, but the list could not be refreshed: ${refreshError.message}`, message: '' });
-      return false;
-    }
-  };
-  const createNoteSection = async (name) => {
-    const requestGeneration = routeRequestRef.current;
-    const isActive = () => isCurrentRoute(requestGeneration);
-    setNotesState((state) => ({ ...state, saving: true, error: '', message: '' }));
-    try {
-      const created = await adventureApi.createAdventureNoteSection(adventureId, { name });
-      if (!isActive()) return null;
-      setNoteSections((currentSections) => [...currentSections, created]);
-      await refreshNotesCollection(requestGeneration, 'Section created.', 'Section created');
-      return isActive() ? created : null;
-    } catch (sectionError) {
-      if (isActive()) setNotesState((state) => ({ ...state, saving: false, error: sectionError.message, message: '' }));
-      return null;
-    }
-  };
-  const renameNoteSection = async (sectionId, name) => {
-    const requestGeneration = routeRequestRef.current;
-    const isActive = () => isCurrentRoute(requestGeneration);
-    setNotesState((state) => ({ ...state, saving: true, error: '', message: '' }));
-    try {
-      const updated = await adventureApi.updateAdventureNoteSection(adventureId, sectionId, { name });
-      if (!isActive()) return;
-      setNoteSections((currentSections) => currentSections.map((section) => section.id === updated.id ? updated : section));
-      await refreshNotesCollection(requestGeneration, 'Section renamed.', 'Section renamed');
-    } catch (sectionError) {
-      if (isActive()) setNotesState((state) => ({ ...state, saving: false, error: sectionError.message, message: '' }));
-    }
-  };
-  const deleteNoteSection = async (sectionId) => {
-    const requestGeneration = routeRequestRef.current;
-    const isActive = () => isCurrentRoute(requestGeneration);
-    setNotesState((state) => ({ ...state, saving: true, error: '', message: '' }));
-    try {
-      await adventureApi.deleteAdventureNoteSection(adventureId, sectionId);
-      if (!isActive()) return null;
-      const notesRequest = ++notesRequestRef.current;
-      try {
-        const [nextNotes, nextSections] = await Promise.all([adventureApi.listAdventureNotes(adventureId), adventureApi.listAdventureNoteSections(adventureId)]);
-        if (!isActive() || notesRequestRef.current !== notesRequest) return null;
-        if (!Array.isArray(nextSections) || nextSections.some((section) => section?.id === sectionId) || !nextSections.some((section) => section?.id && section.id !== sectionId)) throw new Error('The refreshed section list was not canonical after deletion.');
-        setNotes(nextNotes);
-        setNoteSections(nextSections);
-        setNotesState({ loading: false, saving: false, error: '', message: 'Section deleted.' });
-        return { deleted: true, sections: nextSections };
-      } catch (refreshError) {
-        if (isActive() && notesRequestRef.current === notesRequest) setNotesState({ loading: false, saving: false, error: `Section deleted, but the list could not be refreshed: ${refreshError.message}`, message: '' });
-        return isActive() && notesRequestRef.current === notesRequest ? { deleted: true, deletedSectionId: sectionId, sections: null } : null;
-      }
-    } catch (sectionError) {
-      if (isActive()) setNotesState((state) => ({ ...state, saving: false, error: sectionError.message, message: '' }));
-      return false;
-    }
-  };
-  const retryNotes = async () => {
-    const requestGeneration = routeRequestRef.current;
-    setNotesState((state) => ({ ...state, loading: true, error: '', message: '' }));
-    return refreshNotesCollection(requestGeneration, 'Notes refreshed.', 'Notes refresh');
-  };
-  const moveNote = async (note, sectionId, position) => saveNote({ ...note, section_id: sectionId, position });
+	const saveNote = async (draft) => {
+		const requestGeneration = routeRequestRef.current;
+		const isActive = () => isCurrentRoute(requestGeneration);
+		setNotesState((state) => ({
+			...state,
+			saving: true,
+			error: "",
+			message: "",
+		}));
+		try {
+			const payload = {
+				title: draft.title,
+				body: draft.body,
+				section_id: draft.section_id,
+				position: draft.position,
+			};
+			const saved = draft.id
+				? await adventureApi.updateAdventureNote(adventureId, draft.id, payload)
+				: await adventureApi.createAdventureNote(adventureId, payload);
+			if (!isActive()) return null;
+			setNotes((currentNotes) =>
+				draft.id
+					? currentNotes.map((note) => (note.id === saved.id ? saved : note))
+					: [...currentNotes, saved],
+			);
+			const notesRequest = ++notesRequestRef.current;
+			try {
+				const [nextNotes, nextSections] = await Promise.all([
+					adventureApi.listAdventureNotes(adventureId),
+					adventureApi.listAdventureNoteSections(adventureId),
+				]);
+				if (!isActive() || notesRequestRef.current !== notesRequest)
+					return saved;
+				setNotes(nextNotes);
+				setNoteSections(nextSections);
+			} catch (refreshError) {
+				if (isActive() && notesRequestRef.current === notesRequest)
+					setNotesState({
+						loading: false,
+						saving: false,
+						error: `Note saved, but the list could not be refreshed: ${refreshError.message}`,
+						message: "",
+					});
+				return saved;
+			}
+			setNotesState({
+				loading: false,
+				saving: false,
+				error: "",
+				message: "Note saved.",
+			});
+			return saved;
+		} catch (saveError) {
+			if (isActive())
+				setNotesState((state) => ({
+					...state,
+					saving: false,
+					error: saveError.message,
+					message: "",
+				}));
+			return null;
+		}
+	};
+	const removeNote = async (noteId) => {
+		const requestGeneration = routeRequestRef.current;
+		const isActive = () => isCurrentRoute(requestGeneration);
+		setNotesState((state) => ({
+			...state,
+			saving: true,
+			error: "",
+			message: "",
+		}));
+		try {
+			await adventureApi.deleteAdventureNote(adventureId, noteId);
+			if (!isActive()) return false;
+			setNotes((currentNotes) =>
+				currentNotes.filter((note) => note.id !== noteId),
+			);
+			const notesRequest = ++notesRequestRef.current;
+			try {
+				const [nextNotes, nextSections] = await Promise.all([
+					adventureApi.listAdventureNotes(adventureId),
+					adventureApi.listAdventureNoteSections(adventureId),
+				]);
+				if (!isActive() || notesRequestRef.current !== notesRequest)
+					return true;
+				setNotes(nextNotes);
+				setNoteSections(nextSections);
+			} catch (refreshError) {
+				if (isActive() && notesRequestRef.current === notesRequest)
+					setNotesState({
+						loading: false,
+						saving: false,
+						error: `Note deleted, but the list could not be refreshed: ${refreshError.message}`,
+						message: "",
+					});
+				return true;
+			}
+			setNotesState({
+				loading: false,
+				saving: false,
+				error: "",
+				message: "Note deleted.",
+			});
+			return true;
+		} catch (deleteError) {
+			if (isActive())
+				setNotesState((state) => ({
+					...state,
+					saving: false,
+					error: deleteError.message,
+				}));
+			return false;
+		}
+	};
+	const refreshNotesCollection = async (
+		requestGeneration,
+		successMessage,
+		refreshErrorPrefix,
+	) => {
+		const isActive = () => isCurrentRoute(requestGeneration);
+		const notesRequest = ++notesRequestRef.current;
+		try {
+			const [nextNotes, nextSections] = await Promise.all([
+				adventureApi.listAdventureNotes(adventureId),
+				adventureApi.listAdventureNoteSections(adventureId),
+			]);
+			if (!isActive() || notesRequestRef.current !== notesRequest) return false;
+			setNotes(nextNotes);
+			setNoteSections(nextSections);
+			setNotesState({
+				loading: false,
+				saving: false,
+				error: "",
+				message: successMessage,
+			});
+			return true;
+		} catch (refreshError) {
+			if (isActive() && notesRequestRef.current === notesRequest)
+				setNotesState({
+					loading: false,
+					saving: false,
+					error: `${refreshErrorPrefix}, but the list could not be refreshed: ${refreshError.message}`,
+					message: "",
+				});
+			return false;
+		}
+	};
+	const createNoteSection = async (name) => {
+		const requestGeneration = routeRequestRef.current;
+		const isActive = () => isCurrentRoute(requestGeneration);
+		setNotesState((state) => ({
+			...state,
+			saving: true,
+			error: "",
+			message: "",
+		}));
+		try {
+			const created = await adventureApi.createAdventureNoteSection(
+				adventureId,
+				{ name },
+			);
+			if (!isActive()) return null;
+			setNoteSections((currentSections) => [...currentSections, created]);
+			await refreshNotesCollection(
+				requestGeneration,
+				"Section created.",
+				"Section created",
+			);
+			return isActive() ? created : null;
+		} catch (sectionError) {
+			if (isActive())
+				setNotesState((state) => ({
+					...state,
+					saving: false,
+					error: sectionError.message,
+					message: "",
+				}));
+			return null;
+		}
+	};
+	const renameNoteSection = async (sectionId, name) => {
+		const requestGeneration = routeRequestRef.current;
+		const isActive = () => isCurrentRoute(requestGeneration);
+		setNotesState((state) => ({
+			...state,
+			saving: true,
+			error: "",
+			message: "",
+		}));
+		try {
+			const updated = await adventureApi.updateAdventureNoteSection(
+				adventureId,
+				sectionId,
+				{ name },
+			);
+			if (!isActive()) return;
+			setNoteSections((currentSections) =>
+				currentSections.map((section) =>
+					section.id === updated.id ? updated : section,
+				),
+			);
+			await refreshNotesCollection(
+				requestGeneration,
+				"Section renamed.",
+				"Section renamed",
+			);
+		} catch (sectionError) {
+			if (isActive())
+				setNotesState((state) => ({
+					...state,
+					saving: false,
+					error: sectionError.message,
+					message: "",
+				}));
+		}
+	};
+	const deleteNoteSection = async (sectionId) => {
+		const requestGeneration = routeRequestRef.current;
+		const isActive = () => isCurrentRoute(requestGeneration);
+		setNotesState((state) => ({
+			...state,
+			saving: true,
+			error: "",
+			message: "",
+		}));
+		try {
+			await adventureApi.deleteAdventureNoteSection(adventureId, sectionId);
+			if (!isActive()) return null;
+			const notesRequest = ++notesRequestRef.current;
+			try {
+				const [nextNotes, nextSections] = await Promise.all([
+					adventureApi.listAdventureNotes(adventureId),
+					adventureApi.listAdventureNoteSections(adventureId),
+				]);
+				if (!isActive() || notesRequestRef.current !== notesRequest)
+					return null;
+				if (
+					!Array.isArray(nextSections) ||
+					nextSections.some((section) => section?.id === sectionId) ||
+					!nextSections.some(
+						(section) => section?.id && section.id !== sectionId,
+					)
+				)
+					throw new Error(
+						"The refreshed section list was not canonical after deletion.",
+					);
+				setNotes(nextNotes);
+				setNoteSections(nextSections);
+				setNotesState({
+					loading: false,
+					saving: false,
+					error: "",
+					message: "Section deleted.",
+				});
+				return { deleted: true, sections: nextSections };
+			} catch (refreshError) {
+				if (isActive() && notesRequestRef.current === notesRequest)
+					setNotesState({
+						loading: false,
+						saving: false,
+						error: `Section deleted, but the list could not be refreshed: ${refreshError.message}`,
+						message: "",
+					});
+				return isActive() && notesRequestRef.current === notesRequest
+					? { deleted: true, deletedSectionId: sectionId, sections: null }
+					: null;
+			}
+		} catch (sectionError) {
+			if (isActive())
+				setNotesState((state) => ({
+					...state,
+					saving: false,
+					error: sectionError.message,
+					message: "",
+				}));
+			return false;
+		}
+	};
+	const retryNotes = async () => {
+		const requestGeneration = routeRequestRef.current;
+		setNotesState((state) => ({
+			...state,
+			loading: true,
+			error: "",
+			message: "",
+		}));
+		return refreshNotesCollection(
+			requestGeneration,
+			"Notes refreshed.",
+			"Notes refresh",
+		);
+	};
+	const moveNote = async (note, sectionId, position) =>
+		saveNote({ ...note, section_id: sectionId, position });
 
-  const selectSoundBoard = (boardId) => {
-    if (boardId === selectedSoundBoardId) {
-      setSoundDetailRefreshKey((key) => key + 1);
-      return;
-    }
-    setSelectedSoundBoardId(boardId);
-  };
+	const selectSoundBoard = (boardId) => {
+		if (boardId === selectedSoundBoardId) {
+			setSoundDetailRefreshKey((key) => key + 1);
+			return;
+		}
+		setSelectedSoundBoardId(boardId);
+	};
 
-  const removeAdventure = async () => {
-    if (!window.confirm(`Delete ${current.name}? This removes its members, invitations, and frame. Player characters are unlinked from the adventure but preserved.`)) return;
-    const requestGeneration = routeRequestRef.current;
-    const isActive = () => isCurrentRoute(requestGeneration);
-    setDeleteState({ saving: true, error: '' });
-    try {
-      await deleteAdventure(adventureId, isActive);
-      if (!isActive()) return;
-      navigate('/adventures');
-    } catch (deleteError) {
-      if (isActive()) setDeleteState({ saving: false, error: deleteError.message });
-    }
-  };
+	const removeAdventure = async () => {
+		if (
+			!window.confirm(
+				`Delete ${current.name}? This removes its members, invitations, and frame. Player characters are unlinked from the adventure but preserved.`,
+			)
+		)
+			return;
+		const requestGeneration = routeRequestRef.current;
+		const isActive = () => isCurrentRoute(requestGeneration);
+		setDeleteState({ saving: true, error: "" });
+		try {
+			await deleteAdventure(adventureId, isActive);
+			if (!isActive()) return;
+			navigate("/adventures");
+		} catch (deleteError) {
+			if (isActive())
+				setDeleteState({ saving: false, error: deleteError.message });
+		}
+	};
 
-  return <section>
-    <h2>{current.name}</h2>{error && <p className={styles.error}>{error}</p>}
-    <nav className={styles.workspaceTabs} aria-label="Adventure workspace">{tabs.filter((tab) => !tab.creatorOnly || isCreator).map((tab) => <button type="button" key={tab.id} className={activeTab === tab.id ? styles.activeTab : ''} onClick={() => setActiveTab(tab.id)} aria-current={activeTab === tab.id ? 'page' : undefined}>{tab.label}</button>)}</nav>
-    {activeTab === 'campaign' && <CampaignPanel frame={frame} frameForm={frameForm} frameState={frameState} isCreator={isCreator} frameEditMode={frameEditMode} setFrameEditMode={setFrameEditMode} activeFrameSection={activeFrameSection} setActiveFrameSection={setActiveFrameSection} canCreateCharacter={canCreateCharacter} adventureId={adventureId} updateFrameField={updateFrameField} updateSelection={updateSelection} updateEntrySelection={updateEntrySelection} saveFrame={saveFrame} saveFrameToLibrary={saveFrameToLibrary} />}
-    {activeTab === 'story' && <StoryPanel description={current.description} />}
-    {activeTab === 'players' && <PlayersPanel players={players} playersState={playersState} currentUserId={user?.id} isCreator={isCreator} current={current} invites={invites} email={email} setEmail={setEmail} message={message} submitInvite={submitInvite} setFear={setFear} adventureId={adventureId} />}
-    {activeTab === 'sounds' && isCreator && <AdventureSoundsPanel boards={soundBoards} selectedBoardId={selectedSoundBoardId} selectBoard={selectSoundBoard} detail={soundDetail} state={soundsState} onPlay={playSound} onQueue={addSoundToQueue} />}
-    {activeTab === 'notes' && isCreator && <NoteManager title="Notes" eyebrow="GM NOTEBOOK" sections={noteSections} notes={notes} loading={notesState.loading} saving={notesState.saving} error={notesState.error} message={notesState.message} onSaveNote={saveNote} onDeleteNote={removeNote} onCreateSection={createNoteSection} onRenameSection={renameNoteSection} onDeleteSection={deleteNoteSection} onMoveNote={moveNote} onRetry={retryNotes} />}
-    {activeTab === 'settings' && isCreator && <SettingsPanel deleteState={deleteState} removeAdventure={removeAdventure} />}
-  </section>;
+	return (
+		<section>
+			<h2>{current.name}</h2>
+			{error && <p className={styles.error}>{error}</p>}
+			<nav className={styles.workspaceTabs} aria-label="Adventure workspace">
+				{tabs
+					.filter((tab) => !tab.creatorOnly || isCreator)
+					.map((tab) => (
+						<button
+							type="button"
+							key={tab.id}
+							className={activeTab === tab.id ? styles.activeTab : ""}
+							onClick={() => setActiveTab(tab.id)}
+							aria-current={activeTab === tab.id ? "page" : undefined}
+						>
+							{tab.label}
+						</button>
+					))}
+			</nav>
+			{activeTab === "campaign" && (
+				<CampaignPanel
+					frame={frame}
+					frameForm={frameForm}
+					frameState={frameState}
+					isCreator={isCreator}
+					frameEditMode={frameEditMode}
+					setFrameEditMode={setFrameEditMode}
+					activeFrameSection={activeFrameSection}
+					setActiveFrameSection={setActiveFrameSection}
+					canCreateCharacter={canCreateCharacter}
+					adventureId={adventureId}
+					updateFrameField={updateFrameField}
+					updateSelection={updateSelection}
+					updateEntrySelection={updateEntrySelection}
+					saveFrame={saveFrame}
+					saveFrameToLibrary={saveFrameToLibrary}
+				/>
+			)}
+			{activeTab === "story" && (
+				<StoryPanel description={current.description} />
+			)}
+			{activeTab === "players" && (
+				<PlayersPanel
+					players={players}
+					playersState={playersState}
+					currentUserId={user?.id}
+					isCreator={isCreator}
+					current={current}
+					invites={invites}
+					email={email}
+					setEmail={setEmail}
+					message={message}
+					submitInvite={submitInvite}
+					setFear={setFear}
+					adventureId={adventureId}
+				/>
+			)}
+			{activeTab === "sounds" && isCreator && (
+				<AdventureSoundsPanel
+					boards={soundBoards}
+					selectedBoardId={selectedSoundBoardId}
+					selectBoard={selectSoundBoard}
+					detail={soundDetail}
+					state={soundsState}
+					onPlay={playSound}
+					onQueue={addSoundToQueue}
+				/>
+			)}
+			{activeTab === "notes" && isCreator && (
+				<NoteManager
+					title="Notes"
+					eyebrow="GM NOTEBOOK"
+					sections={noteSections}
+					notes={notes}
+					loading={notesState.loading}
+					saving={notesState.saving}
+					error={notesState.error}
+					message={notesState.message}
+					onSaveNote={saveNote}
+					onDeleteNote={removeNote}
+					onCreateSection={createNoteSection}
+					onRenameSection={renameNoteSection}
+					onDeleteSection={deleteNoteSection}
+					onMoveNote={moveNote}
+					onRetry={retryNotes}
+				/>
+			)}
+			{activeTab === "settings" && isCreator && (
+				<SettingsPanel
+					deleteState={deleteState}
+					removeAdventure={removeAdventure}
+				/>
+			)}
+		</section>
+	);
 }
 
-function CampaignPanel({ frame, frameForm, frameState, isCreator, frameEditMode, setFrameEditMode, activeFrameSection, setActiveFrameSection, canCreateCharacter, adventureId, updateFrameField, updateSelection, updateEntrySelection, saveFrame, saveFrameToLibrary }) {
-  if (frameState.loading) return <p className="muted">Loading campaign frame...</p>;
-  if (!frame) return <p className={styles.mutedPanel}>{isCreator ? 'Attach a campaign frame to begin shaping this game.' : 'The GM has not attached a campaign frame yet.'}</p>;
-  const onSelectionChange = (key, value) => {
-    if (['communities', 'ancestries', 'classes'].includes(key)) {
-      const changedId = Object.keys(value).find((entryId) => value[entryId] !== frame.selections?.[key]?.[entryId]);
-      if (changedId) updateEntrySelection(key, changedId, value[changedId]);
-    } else updateSelection(key, value);
-  };
-  return <section className={styles.frameSection}>
-    <div className={styles.frameHeading}><div><p className="eyebrow">ACTIVE CAMPAIGN FRAME</p><h3>{frame.content.name}</h3></div><span>Complexity {frame.content.complexity_rating}/5</span></div>
-    {isCreator && !frameEditMode && <div className={styles.campaignViewerActions}><Button type="button" onClick={() => setFrameEditMode(true)}>Edit campaign</Button></div>}
-    {isCreator && frameEditMode ? <div className={styles.campaignEditor}><div className={styles.editorIntro}><strong>Edit campaign section</strong><p className="muted">Choose one section at a time. Source content stays marked, and anything you add is labeled for the table.</p></div><div className={styles.campaignEditorLayout}><aside className={styles.frameSectionNav} aria-label="Campaign frame sections"><p>Sections</p>{frameEditorSections.map((section) => <button type="button" key={section.id} className={activeFrameSection === section.id ? styles.activeFrameSection : ''} onClick={() => setActiveFrameSection(section.id)} aria-current={activeFrameSection === section.id ? 'step' : undefined}>{section.label}</button>)}</aside><div className={styles.campaignEditorForm}><FrameDraftForm form={frameForm} update={updateFrameField} selections={frame.selections || {}} onSelectionChange={onSelectionChange} activeSection={activeFrameSection} /><div className={styles.managerActions}><Button type="button" variant="text" onClick={saveFrameToLibrary} disabled={frameState.saving}>Save as library frame</Button><Button type="button" onClick={saveFrame} disabled={frameState.saving}>{frameState.saving ? 'Saving...' : 'Save campaign'}</Button><Button type="button" variant="text" onClick={() => setFrameEditMode(false)} disabled={frameState.saving}>Done editing</Button></div></div></div></div> : <FrameViewer content={filterFrame(frame.content, frame.selections, isCreator)} showGmNotes={isCreator} />}
-    {canCreateCharacter && <Link className={styles.characterLink} to={`/characters/create?adventure=${adventureId}`}>Create a character for this adventure</Link>}
-    {frameState.message && <p className="muted" role="status">{frameState.message}</p>}{frameState.error && <p className={styles.error} role="alert">{frameState.error}</p>}
-  </section>;
+function CampaignPanel({
+	frame,
+	frameForm,
+	frameState,
+	isCreator,
+	frameEditMode,
+	setFrameEditMode,
+	activeFrameSection,
+	setActiveFrameSection,
+	canCreateCharacter,
+	adventureId,
+	updateFrameField,
+	updateSelection,
+	updateEntrySelection,
+	saveFrame,
+	saveFrameToLibrary,
+}) {
+	if (frameState.loading)
+		return <p className="muted">Loading campaign frame...</p>;
+	if (!frame)
+		return (
+			<p className={styles.mutedPanel}>
+				{isCreator
+					? "Attach a campaign frame to begin shaping this game."
+					: "The GM has not attached a campaign frame yet."}
+			</p>
+		);
+	const onSelectionChange = (key, value) => {
+		if (["communities", "ancestries", "classes"].includes(key)) {
+			const changedId = Object.keys(value).find(
+				(entryId) => value[entryId] !== frame.selections?.[key]?.[entryId],
+			);
+			if (changedId) updateEntrySelection(key, changedId, value[changedId]);
+		} else updateSelection(key, value);
+	};
+	return (
+		<section className={styles.frameSection}>
+			<div className={styles.frameHeading}>
+				<div>
+					<p className="eyebrow">ACTIVE CAMPAIGN FRAME</p>
+					<h3>{frame.content.name}</h3>
+				</div>
+				<span>Complexity {frame.content.complexity_rating}/5</span>
+			</div>
+			{isCreator && !frameEditMode && (
+				<div className={styles.campaignViewerActions}>
+					<Button type="button" onClick={() => setFrameEditMode(true)}>
+						Edit campaign
+					</Button>
+				</div>
+			)}
+			{isCreator && frameEditMode ? (
+				<div className={styles.campaignEditor}>
+					<div className={styles.editorIntro}>
+						<strong>Edit campaign section</strong>
+						<p className="muted">
+							Choose one section at a time. Source content stays marked, and
+							anything you add is labeled for the table.
+						</p>
+					</div>
+					<div className={styles.campaignEditorLayout}>
+						<aside
+							className={styles.frameSectionNav}
+							aria-label="Campaign frame sections"
+						>
+							<p>Sections</p>
+							{frameEditorSections.map((section) => (
+								<button
+									type="button"
+									key={section.id}
+									className={
+										activeFrameSection === section.id
+											? styles.activeFrameSection
+											: ""
+									}
+									onClick={() => setActiveFrameSection(section.id)}
+									aria-current={
+										activeFrameSection === section.id ? "step" : undefined
+									}
+								>
+									{section.label}
+								</button>
+							))}
+						</aside>
+						<div className={styles.campaignEditorForm}>
+							<FrameDraftForm
+								form={frameForm}
+								update={updateFrameField}
+								selections={frame.selections || {}}
+								onSelectionChange={onSelectionChange}
+								activeSection={activeFrameSection}
+							/>
+							<div className={styles.managerActions}>
+								<Button
+									type="button"
+									variant="text"
+									onClick={saveFrameToLibrary}
+									disabled={frameState.saving}
+								>
+									Save as library frame
+								</Button>
+								<Button
+									type="button"
+									onClick={saveFrame}
+									disabled={frameState.saving}
+								>
+									{frameState.saving ? "Saving..." : "Save campaign"}
+								</Button>
+								<Button
+									type="button"
+									variant="text"
+									onClick={() => setFrameEditMode(false)}
+									disabled={frameState.saving}
+								>
+									Done editing
+								</Button>
+							</div>
+						</div>
+					</div>
+				</div>
+			) : (
+				<FrameViewer
+					content={filterFrame(frame.content, frame.selections, isCreator)}
+					showGmNotes={isCreator}
+				/>
+			)}
+			{canCreateCharacter && (
+				<Link
+					className={styles.characterLink}
+					to={`/characters/create?adventure=${adventureId}`}
+				>
+					Create a character for this adventure
+				</Link>
+			)}
+			{frameState.message && (
+				<p className="muted" role="status">
+					{frameState.message}
+				</p>
+			)}
+			{frameState.error && (
+				<p className={styles.error} role="alert">
+					{frameState.error}
+				</p>
+			)}
+		</section>
+	);
 }
 
-function PlayersPanel({ players, playersState, currentUserId, isCreator, current, invites, email, setEmail, message, submitInvite, setFear, adventureId }) {
-  return <section className={styles.workspacePanel}><div className={styles.panelHeading}><div><p className="eyebrow">ADVENTURE ROSTER</p><h3>Players</h3></div><span className="muted">Accepted members only</span></div>{playersState.loading && <p className="muted">Loading players...</p>}{playersState.error && <p className={styles.error} role="alert">{playersState.error}</p>}{!playersState.loading && !playersState.error && players.length === 0 && <p className="muted">No accepted players yet.</p>}
-    <div className={styles.roster}>{players.map((player) => <article className={styles.rosterCard} key={player.user_id}><div><strong>{player.user_name}</strong>{player.user_id === current.creator_id && <span className={styles.roleLabel}>GM</span>}</div>{player.character ? ((isCreator || player.user_id === currentUserId) ? <Link to={`/characters/${player.character.id}`}><strong>{player.character.name}</strong><span>Level {player.character.level} · {player.character.class_id} · {player.character.ancestry_id} · {player.character.community_id}</span></Link> : <span className="muted">Character assigned</span>) : <span className="muted">No character yet</span>}</article>)}</div>
-    {isCreator && <div className={styles.playerManagement}><h3>Fear pool</h3><div className={styles.fear}>{Array.from({ length: 12 }, (_, index) => <button type="button" key={index} className={index < (current.fear || 0) ? styles.fearFilled : styles.fearSlot} aria-label={`Set Fear to ${index + 1}`} onClick={() => setFear(adventureId, index + 1 === current.fear ? index : index + 1)} />)}<span className={styles.fearValue}>{current.fear || 0} / 12</span></div><h3>Invite a player</h3><form onSubmit={submitInvite} className={styles.inviteForm}><input required type="email" placeholder="player@example.com" value={email} onChange={(event) => setEmail(event.target.value)} /><Button type="submit">Invite</Button></form>{message && <p className="muted">{message}</p>}<h3>Invitations</h3>{invites.length === 0 ? <p className="muted">No invitations yet.</p> : <ul className={styles.invites}>{invites.map((invite) => <li key={invite.id}><span>{invite.recipient_email}</span><span>{invite.status}</span></li>)}</ul>}</div>}
-  </section>;
+function PlayersPanel({
+	players,
+	playersState,
+	currentUserId,
+	isCreator,
+	current,
+	invites,
+	email,
+	setEmail,
+	message,
+	submitInvite,
+	setFear,
+	adventureId,
+}) {
+	return (
+		<section className={styles.workspacePanel}>
+			<div className={styles.panelHeading}>
+				<div>
+					<p className="eyebrow">ADVENTURE ROSTER</p>
+					<h3>Players</h3>
+				</div>
+				<span className="muted">Accepted members only</span>
+			</div>
+			{playersState.loading && <p className="muted">Loading players...</p>}
+			{playersState.error && (
+				<p className={styles.error} role="alert">
+					{playersState.error}
+				</p>
+			)}
+			{!playersState.loading && !playersState.error && players.length === 0 && (
+				<p className="muted">No accepted players yet.</p>
+			)}
+			<div className={styles.roster}>
+				{players.map((player) => (
+					<article className={styles.rosterCard} key={player.user_id}>
+						<div>
+							<strong>{player.user_name}</strong>
+							{player.user_id === current.creator_id && (
+								<span className={styles.roleLabel}>GM</span>
+							)}
+						</div>
+						{player.character ? (
+							isCreator || player.user_id === currentUserId ? (
+								<Link to={`/characters/${player.character.id}`}>
+									<strong>{player.character.name}</strong>
+									<span>
+										Level {player.character.level} · {player.character.class_id}{" "}
+										· {player.character.ancestry_id} ·{" "}
+										{player.character.community_id}
+									</span>
+								</Link>
+							) : (
+								<span className="muted">Character assigned</span>
+							)
+						) : (
+							<span className="muted">No character yet</span>
+						)}
+					</article>
+				))}
+			</div>
+			{isCreator && (
+				<div className={styles.playerManagement}>
+					<h3>Fear pool</h3>
+					<div className={styles.fear}>
+						{Array.from({ length: 12 }, (_, index) => (
+							<button
+								type="button"
+								key={index}
+								className={
+									index < (current.fear || 0)
+										? styles.fearFilled
+										: styles.fearSlot
+								}
+								aria-label={`Set Fear to ${index + 1}`}
+								onClick={() =>
+									setFear(
+										adventureId,
+										index + 1 === current.fear ? index : index + 1,
+									)
+								}
+							/>
+						))}
+						<span className={styles.fearValue}>{current.fear || 0} / 12</span>
+					</div>
+					<h3>Invite a player</h3>
+					<form onSubmit={submitInvite} className={styles.inviteForm}>
+						<input
+							required
+							type="email"
+							placeholder="player@example.com"
+							value={email}
+							onChange={(event) => setEmail(event.target.value)}
+						/>
+						<Button type="submit">Invite</Button>
+					</form>
+					{message && <p className="muted">{message}</p>}
+					<h3>Invitations</h3>
+					{invites.length === 0 ? (
+						<p className="muted">No invitations yet.</p>
+					) : (
+						<ul className={styles.invites}>
+							{invites.map((invite) => (
+								<li key={invite.id}>
+									<span>{invite.recipient_email}</span>
+									<span>{invite.status}</span>
+								</li>
+							))}
+						</ul>
+					)}
+				</div>
+			)}
+		</section>
+	);
 }
 
 function StoryPanel({ description }) {
-  return <section className={styles.workspacePanel}><div className={styles.panelHeading}><div><p className="eyebrow">CAMPAIGN STORY</p><h3>Story</h3></div></div>{description ? <p className={styles.storyText}>{description}</p> : <p className="muted">The GM has not added a story description yet.</p>}</section>;
+	return (
+		<section className={styles.workspacePanel}>
+			<div className={styles.panelHeading}>
+				<div>
+					<p className="eyebrow">CAMPAIGN STORY</p>
+					<h3>Story</h3>
+				</div>
+			</div>
+			{description ? (
+				<p className={styles.storyText}>{description}</p>
+			) : (
+				<p className="muted">The GM has not added a story description yet.</p>
+			)}
+		</section>
+	);
 }
 
-function AdventureSoundsPanel({ boards, selectedBoardId, selectBoard, detail, state, onPlay, onQueue }) {
-  const board = detail?.board?.id === selectedBoardId ? detail.board : null;
-  return <section className={styles.workspacePanel}><div className={styles.panelHeading}><div><p className="eyebrow">GM SOUND LIBRARY</p><h3>Sounds</h3></div><span className="muted">Choose a board, then shape the atmosphere.</span></div>{state.error && <p className={styles.error} role="alert">{state.error}</p>}{state.loading ? <p className="muted">Loading soundboards...</p> : <div className={styles.soundWorkspace}><aside className={styles.soundBoardPicker}><strong>Soundboards</strong>{boards.length === 0 ? <p className="muted">No soundboards available yet.</p> : <div className={styles.soundBoardList}>{boards.map((item) => <button type="button" key={item.id} className={selectedBoardId === item.id ? styles.selectedSoundBoard : ''} onClick={() => selectBoard(item.id)} aria-pressed={selectedBoardId === item.id}><strong>{item.name}</strong><span>{item.sound_count} tracks</span></button>)}</div>}</aside><div className={styles.soundTracks}>{!selectedBoardId && <p className="muted">Select a soundboard to view its tracks.</p>}{selectedBoardId && state.detailLoading && !board && <p className="muted">Loading tracks...</p>}{selectedBoardId && board && <><div className={styles.soundTrackHeading}><div><p className="eyebrow">{board.shared ? 'SHARED GM BOARD' : 'PRIVATE GM BOARD'}</p><h4>{board.name}</h4></div><span>{detail.sounds.length} tracks</span></div>{detail.sounds.length === 0 ? <p className="muted">This board is quiet.</p> : <div className={styles.adventureSoundGrid}>{detail.sounds.map((sound) => <AdventureSoundCard key={`${sound.library_track_id || 'direct'}-${sound.id}`} sound={sound} board={board} onPlay={onPlay} onQueue={onQueue} />)}</div>}</>}</div></div>}</section>;
+function AdventureSoundsPanel({
+	boards,
+	selectedBoardId,
+	selectBoard,
+	detail,
+	state,
+	onPlay,
+	onQueue,
+}) {
+	const board = detail?.board?.id === selectedBoardId ? detail.board : null;
+	return (
+		<section className={styles.workspacePanel}>
+			<div className={styles.panelHeading}>
+				<div>
+					<p className="eyebrow">GM SOUND LIBRARY</p>
+					<h3>Sounds</h3>
+				</div>
+				<span className="muted">
+					Choose a board, then shape the atmosphere.
+				</span>
+			</div>
+			{state.error && (
+				<p className={styles.error} role="alert">
+					{state.error}
+				</p>
+			)}
+			{state.loading ? (
+				<p className="muted">Loading soundboards...</p>
+			) : (
+				<div className={styles.soundWorkspace}>
+					<aside className={styles.soundBoardPicker}>
+						<strong>Soundboards</strong>
+						{boards.length === 0 ? (
+							<p className="muted">No soundboards available yet.</p>
+						) : (
+							<div className={styles.soundBoardList}>
+								{boards.map((item) => (
+									<button
+										type="button"
+										key={item.id}
+										className={
+											selectedBoardId === item.id
+												? styles.selectedSoundBoard
+												: ""
+										}
+										onClick={() => selectBoard(item.id)}
+										aria-pressed={selectedBoardId === item.id}
+									>
+										<strong>{item.name}</strong>
+										<span>{item.sound_count} tracks</span>
+									</button>
+								))}
+							</div>
+						)}
+					</aside>
+					<div className={styles.soundTracks}>
+						{!selectedBoardId && (
+							<p className="muted">Select a soundboard to view its tracks.</p>
+						)}
+						{selectedBoardId && state.detailLoading && !board && (
+							<p className="muted">Loading tracks...</p>
+						)}
+						{selectedBoardId && board && (
+							<>
+								<div className={styles.soundTrackHeading}>
+									<div>
+										<p className="eyebrow">
+											{board.shared ? "SHARED GM BOARD" : "PRIVATE GM BOARD"}
+										</p>
+										<h4>{board.name}</h4>
+									</div>
+									<span>{detail.sounds.length} tracks</span>
+								</div>
+								{detail.sounds.length === 0 ? (
+									<p className="muted">This board is quiet.</p>
+								) : (
+									<div className={styles.adventureSoundGrid}>
+										{detail.sounds.map((sound) => (
+											<AdventureSoundCard
+												key={`${sound.library_track_id || "direct"}-${sound.id}`}
+												sound={sound}
+												board={board}
+												onPlay={onPlay}
+												onQueue={onQueue}
+											/>
+										))}
+									</div>
+								)}
+							</>
+						)}
+					</div>
+				</div>
+			)}
+		</section>
+	);
 }
 
 function AdventureSoundCard({ sound, board, onPlay, onQueue }) {
-  const audioSource = sound.audio_url || (sound.has_audio_upload ? soundMediaUrl(board.id, sound.id, 'audio') : '');
-  const imageSource = sound.image_url || (sound.has_image_upload ? soundMediaUrl(board.id, sound.id, 'image') : '');
-  const playerSound = { ...sound, audioSource, imageSource, boardName: board.name };
-  return <article className={styles.adventureSoundCard}>{imageSource ? <img src={imageSource} alt="" /> : <div className={styles.adventureSoundPlaceholder}>SOUND</div>}<div className={styles.adventureSoundBody}><div className={styles.soundTrackHeader}><h4>{sound.name}</h4></div><div className={styles.soundTags}>{(sound.labels || []).map((label) => <span key={label.id}>{label.name}</span>)}</div><div className={styles.soundTrackActions}><button type="button" onClick={() => onPlay(playerSound)} disabled={!audioSource}>Play now</button><button type="button" onClick={() => onQueue(playerSound)} disabled={!audioSource}>Add to queue</button></div>{sound.source_name && <small>{sound.source_name}</small>}</div></article>;
+	const audioSource =
+		sound.audio_url ||
+		(sound.has_audio_upload ? soundMediaUrl(board.id, sound.id, "audio") : "");
+	const imageSource =
+		sound.image_url ||
+		(sound.has_image_upload ? soundMediaUrl(board.id, sound.id, "image") : "");
+	const playerSound = {
+		...sound,
+		audioSource,
+		imageSource,
+		boardName: board.name,
+	};
+	return (
+		<article className={styles.adventureSoundCard}>
+			{imageSource ? (
+				<img src={imageSource} alt="" />
+			) : (
+				<div className={styles.adventureSoundPlaceholder}>SOUND</div>
+			)}
+			<div className={styles.adventureSoundBody}>
+				<div className={styles.soundTrackHeader}>
+					<h4>{sound.name}</h4>
+				</div>
+				<div className={styles.soundTags}>
+					{(sound.labels || []).map((label) => (
+						<span key={label.id}>{label.name}</span>
+					))}
+				</div>
+				<div className={styles.soundTrackActions}>
+					<button
+						type="button"
+						onClick={() => onPlay(playerSound)}
+						disabled={!audioSource}
+					>
+						Play now
+					</button>
+					<button
+						type="button"
+						onClick={() => onQueue(playerSound)}
+						disabled={!audioSource}
+					>
+						Add to queue
+					</button>
+				</div>
+				{sound.source_name && <small>{sound.source_name}</small>}
+			</div>
+		</article>
+	);
 }
 
 function SettingsPanel({ deleteState, removeAdventure }) {
-  return <section className={styles.workspacePanel}><div className={styles.panelHeading}><div><p className="eyebrow">GAME CONTROL</p><h3>Settings</h3></div></div><div className={styles.dangerZone}><h3>Delete adventure</h3><p className="muted">This permanently removes the table, invitations, and frame. Player characters are unlinked but preserved.</p><Button type="button" variant="text" onClick={removeAdventure} disabled={deleteState.saving}>{deleteState.saving ? 'Deleting...' : 'Delete adventure'}</Button>{deleteState.error && <p className={styles.error} role="alert">{deleteState.error}</p>}</div></section>;
+	return (
+		<section className={styles.workspacePanel}>
+			<div className={styles.panelHeading}>
+				<div>
+					<p className="eyebrow">GAME CONTROL</p>
+					<h3>Settings</h3>
+				</div>
+			</div>
+			<div className={styles.dangerZone}>
+				<h3>Delete adventure</h3>
+				<p className="muted">
+					This permanently removes the table, invitations, and frame. Player
+					characters are unlinked but preserved.
+				</p>
+				<Button
+					type="button"
+					variant="text"
+					onClick={removeAdventure}
+					disabled={deleteState.saving}
+				>
+					{deleteState.saving ? "Deleting..." : "Delete adventure"}
+				</Button>
+				{deleteState.error && (
+					<p className={styles.error} role="alert">
+						{deleteState.error}
+					</p>
+				)}
+			</div>
+		</section>
+	);
 }
 
-const frameSectionLabels = { pitch: 'Pitch', tone_and_feel: 'Tone & feel', themes: 'Themes', touchstones: 'Touchstones', overview: 'Overview', modifications: 'Character guidance', player_principles: 'Player principles', gm_principles: 'GM principles', distinctions: 'Distinctions', inciting_incident: 'The inciting incident', campaign_mechanics: 'Campaign mechanics', session_zero_questions: 'Session-zero questions' };
-const modificationLabels = { communities: 'Communities', ancestries: 'Ancestries', classes: 'Classes' };
+const frameSectionLabels = {
+	pitch: "Pitch",
+	tone_and_feel: "Tone & feel",
+	themes: "Themes",
+	touchstones: "Touchstones",
+	overview: "Overview",
+	modifications: "Character guidance",
+	player_principles: "Player principles",
+	gm_principles: "GM principles",
+	distinctions: "Distinctions",
+	inciting_incident: "The inciting incident",
+	campaign_mechanics: "Campaign mechanics",
+	session_zero_questions: "Session-zero questions",
+};
+const modificationLabels = {
+	communities: "Communities",
+	ancestries: "Ancestries",
+	classes: "Classes",
+};
 
 function FrameViewer({ content, showGmNotes = false }) {
-  const toneValues = normalizeDisplayValues(content.tone_and_feel, 'tone');
-  const themeValues = normalizeDisplayValues(content.themes, 'theme');
-  const touchstoneValues = normalizeDisplayValues(content.touchstones, 'touchstone');
-  const sessionQuestions = normalizeDisplayValues(content.session_zero_questions, 'session-question');
-  return <div className={styles.frameViewer}>
-    {content.pitch && <TextBlock title={frameSectionLabels.pitch} text={content.pitch} gmMessage={content.gm_messages?.pitch} showGmNotes={showGmNotes} />}
-    {toneValues.length > 0 && <TagBlock title={frameSectionLabels.tone_and_feel} values={toneValues} gmMessage={content.gm_messages?.tone_and_feel} showGmNotes={showGmNotes} />}
-    {themeValues.length > 0 && <TagBlock title={frameSectionLabels.themes} values={themeValues} gmMessage={content.gm_messages?.themes} showGmNotes={showGmNotes} />}
-    {touchstoneValues.length > 0 && <TagBlock title={frameSectionLabels.touchstones} values={touchstoneValues} gmMessage={content.gm_messages?.touchstones} showGmNotes={showGmNotes} />}
-    {content.overview && <TextBlock title={frameSectionLabels.overview} text={content.overview} gmMessage={content.gm_messages?.overview} showGmNotes={showGmNotes} />}
-    {Object.entries(modificationLabels).map(([kind, label]) => <EntryBlock title={label} entries={content.modifications?.[kind]} gmMessage={content.gm_messages?.[kind] || content.gm_messages?.modifications} key={kind} showGmNotes={showGmNotes} />)}
-    <EntryBlock title={frameSectionLabels.player_principles} entries={content.player_principles} gmMessage={content.gm_messages?.player_principles} showGmNotes={showGmNotes} />
-    <EntryBlock title={frameSectionLabels.gm_principles} entries={content.gm_principles} gmMessage={content.gm_messages?.gm_principles} showGmNotes={showGmNotes} />
-    <EntryBlock title={frameSectionLabels.distinctions} entries={content.distinctions} gmMessage={content.gm_messages?.distinctions} showGmNotes={showGmNotes} />
-    {content.inciting_incident && <TextBlock title={frameSectionLabels.inciting_incident} text={content.inciting_incident} gmMessage={content.gm_messages?.inciting_incident} showGmNotes={showGmNotes} />}
-    <EntryBlock title={frameSectionLabels.campaign_mechanics} entries={content.campaign_mechanics} gmMessage={content.gm_messages?.campaign_mechanics} showGmNotes={showGmNotes} />
-    {sessionQuestions.length > 0 && <div className={styles.textBlock}><h4>{frameSectionLabels.session_zero_questions}</h4><ul className={styles.questions}>{sessionQuestions.map((question) => <li key={question.key}>{question.text}</li>)}</ul><GmNote message={content.gm_messages?.session_zero_questions} show={showGmNotes} /></div>}
-  </div>;
+	const toneValues = normalizeDisplayValues(content.tone_and_feel, "tone");
+	const themeValues = normalizeDisplayValues(content.themes, "theme");
+	const touchstoneValues = normalizeDisplayValues(
+		content.touchstones,
+		"touchstone",
+	);
+	const sessionQuestions = normalizeDisplayValues(
+		content.session_zero_questions,
+		"session-question",
+	);
+	return (
+		<div className={styles.frameViewer}>
+			{content.pitch && (
+				<TextBlock
+					title={frameSectionLabels.pitch}
+					text={content.pitch}
+					gmMessage={content.gm_messages?.pitch}
+					showGmNotes={showGmNotes}
+				/>
+			)}
+			{toneValues.length > 0 && (
+				<TagBlock
+					title={frameSectionLabels.tone_and_feel}
+					values={toneValues}
+					gmMessage={content.gm_messages?.tone_and_feel}
+					showGmNotes={showGmNotes}
+				/>
+			)}
+			{themeValues.length > 0 && (
+				<TagBlock
+					title={frameSectionLabels.themes}
+					values={themeValues}
+					gmMessage={content.gm_messages?.themes}
+					showGmNotes={showGmNotes}
+				/>
+			)}
+			{touchstoneValues.length > 0 && (
+				<TagBlock
+					title={frameSectionLabels.touchstones}
+					values={touchstoneValues}
+					gmMessage={content.gm_messages?.touchstones}
+					showGmNotes={showGmNotes}
+				/>
+			)}
+			{content.overview && (
+				<TextBlock
+					title={frameSectionLabels.overview}
+					text={content.overview}
+					gmMessage={content.gm_messages?.overview}
+					showGmNotes={showGmNotes}
+				/>
+			)}
+			{Object.entries(modificationLabels).map(([kind, label]) => (
+				<EntryBlock
+					title={label}
+					entries={content.modifications?.[kind]}
+					gmMessage={
+						content.gm_messages?.[kind] || content.gm_messages?.modifications
+					}
+					key={kind}
+					showGmNotes={showGmNotes}
+				/>
+			))}
+			<EntryBlock
+				title={frameSectionLabels.player_principles}
+				entries={content.player_principles}
+				gmMessage={content.gm_messages?.player_principles}
+				showGmNotes={showGmNotes}
+			/>
+			<EntryBlock
+				title={frameSectionLabels.gm_principles}
+				entries={content.gm_principles}
+				gmMessage={content.gm_messages?.gm_principles}
+				showGmNotes={showGmNotes}
+			/>
+			<EntryBlock
+				title={frameSectionLabels.distinctions}
+				entries={content.distinctions}
+				gmMessage={content.gm_messages?.distinctions}
+				showGmNotes={showGmNotes}
+			/>
+			{content.inciting_incident && (
+				<TextBlock
+					title={frameSectionLabels.inciting_incident}
+					text={content.inciting_incident}
+					gmMessage={content.gm_messages?.inciting_incident}
+					showGmNotes={showGmNotes}
+				/>
+			)}
+			<EntryBlock
+				title={frameSectionLabels.campaign_mechanics}
+				entries={content.campaign_mechanics}
+				gmMessage={content.gm_messages?.campaign_mechanics}
+				showGmNotes={showGmNotes}
+			/>
+			{sessionQuestions.length > 0 && (
+				<div className={styles.textBlock}>
+					<h4>{frameSectionLabels.session_zero_questions}</h4>
+					<ul className={styles.questions}>
+						{sessionQuestions.map((question) => (
+							<li key={question.key}>{question.text}</li>
+						))}
+					</ul>
+					<GmNote
+						message={content.gm_messages?.session_zero_questions}
+						show={showGmNotes}
+					/>
+				</div>
+			)}
+		</div>
+	);
 }
 
-function TextBlock({ title, text, gmMessage, showGmNotes }) { return <div className={styles.textBlock}><h4>{title}</h4><p>{text}</p><GmNote message={gmMessage} show={showGmNotes} /></div>; }
-function TagBlock({ title, values, gmMessage, showGmNotes }) { const normalizedValues = normalizeDisplayValues(values, title); return <div className={styles.textBlock}><h4>{title}</h4><div className={styles.tags}>{normalizedValues.map((value) => <span key={value.key}>{value.text}</span>)}</div><GmNote message={gmMessage} show={showGmNotes} /></div>; }
-function EntryBlock({ title, entries = [], gmMessage, showGmNotes = false }) { const normalizedEntries = entryList(entries, title); return normalizedEntries.length > 0 ? <div className={styles.textBlock}><h4>{title}</h4>{normalizedEntries.map((entry) => <article className={styles.entry} key={entry.id}><strong>{entry.title}</strong><p>{entry.description}</p>{entry.questions?.map((question) => <small key={question.key}>{question.text}</small>)}</article>)}<GmNote message={gmMessage} show={showGmNotes} /></div> : null; }
-function GmNote({ message, show }) { return show && message ? <aside className={styles.gmNote}><strong>GM-only note</strong><p>{message}</p></aside> : null; }
+function TextBlock({ title, text, gmMessage, showGmNotes }) {
+	return (
+		<div className={styles.textBlock}>
+			<h4>{title}</h4>
+			<p>{text}</p>
+			<GmNote message={gmMessage} show={showGmNotes} />
+		</div>
+	);
+}
+function TagBlock({ title, values, gmMessage, showGmNotes }) {
+	const normalizedValues = normalizeDisplayValues(values, title);
+	return (
+		<div className={styles.textBlock}>
+			<h4>{title}</h4>
+			<div className={styles.tags}>
+				{normalizedValues.map((value) => (
+					<span key={value.key}>{value.text}</span>
+				))}
+			</div>
+			<GmNote message={gmMessage} show={showGmNotes} />
+		</div>
+	);
+}
+function EntryBlock({ title, entries = [], gmMessage, showGmNotes = false }) {
+	const normalizedEntries = entryList(entries, title);
+	return normalizedEntries.length > 0 ? (
+		<div className={styles.textBlock}>
+			<h4>{title}</h4>
+			{normalizedEntries.map((entry) => (
+				<article className={styles.entry} key={entry.id}>
+					<strong>{entry.title}</strong>
+					<p>{entry.description}</p>
+					{entry.questions?.map((question) => (
+						<small key={question.key}>{question.text}</small>
+					))}
+				</article>
+			))}
+			<GmNote message={gmMessage} show={showGmNotes} />
+		</div>
+	) : null;
+}
+function GmNote({ message, show }) {
+	return show && message ? (
+		<aside className={styles.gmNote}>
+			<strong>GM-only note</strong>
+			<p>{message}</p>
+		</aside>
+	) : null;
+}
 
 function displayText(value) {
-  if (value === null || value === undefined) return '';
-  if (typeof value !== 'object') return String(value);
-  return displayText(value.description ?? value.text ?? value.value ?? value.title ?? value.name);
+	if (value === null || value === undefined) return "";
+	if (typeof value !== "object") return String(value);
+	return displayText(
+		value.description ?? value.text ?? value.value ?? value.title ?? value.name,
+	);
 }
 
 function normalizeDisplayValues(values, prefix) {
-  const entries = Array.isArray(values)
-    ? values.map((value, index) => ({ value, mapKey: undefined, index }))
-    : values && typeof values === 'object'
-      ? Object.entries(values).map(([mapKey, value], index) => ({ value, mapKey, index }))
-      : typeof values === 'string'
-        ? [{ value: values, mapKey: undefined, index: 0 }]
-        : [];
-  return entries.map(({ value, mapKey, index }) => ({
-    key: String(value?.id || mapKey || `${prefix}-${index + 1}`),
-    text: displayText(value),
-  })).filter((entry) => entry.text);
+	const entries = Array.isArray(values)
+		? values.map((value, index) => ({ value, mapKey: undefined, index }))
+		: values && typeof values === "object"
+			? Object.entries(values).map(([mapKey, value], index) => ({
+					value,
+					mapKey,
+					index,
+				}))
+			: typeof values === "string"
+				? [{ value: values, mapKey: undefined, index: 0 }]
+				: [];
+	return entries
+		.map(({ value, mapKey, index }) => ({
+			key: String(value?.id || mapKey || `${prefix}-${index + 1}`),
+			text: displayText(value),
+		}))
+		.filter((entry) => entry.text);
 }
 
-function entryList(entries, prefix = 'entry') {
-  const sourceEntries = Array.isArray(entries)
-    ? entries.map((entry, index) => ({ entry, mapKey: undefined, index }))
-    : entries && typeof entries === 'object'
-      ? Object.entries(entries).map(([mapKey, entry], index) => ({ entry, mapKey, index }))
-      : typeof entries === 'string'
-        ? [{ entry: entries, mapKey: undefined, index: 0 }]
-        : [];
-  return sourceEntries.map(({ entry, mapKey, index }) => {
-    const objectEntry = entry && typeof entry === 'object' && !Array.isArray(entry) ? entry : {};
-    const id = String(objectEntry.id || mapKey || `${prefix}-${index + 1}`);
-    const questions = Array.isArray(objectEntry.questions)
-      ? objectEntry.questions.map((question, questionIndex) => ({
-        key: String(question?.id || `${id}-question-${questionIndex + 1}`),
-        text: displayText(question),
-      })).filter((question) => question.text)
-      : [];
-    return {
-      ...objectEntry,
-      id,
-      title: displayText(objectEntry.title ?? objectEntry.name),
-      description: displayText(objectEntry.description ?? objectEntry.text ?? objectEntry.value ?? entry),
-      questions,
-    };
-  }).filter((entry) => entry.description || entry.title || entry.questions.length > 0);
+function entryList(entries, prefix = "entry") {
+	const sourceEntries = Array.isArray(entries)
+		? entries.map((entry, index) => ({ entry, mapKey: undefined, index }))
+		: entries && typeof entries === "object"
+			? Object.entries(entries).map(([mapKey, entry], index) => ({
+					entry,
+					mapKey,
+					index,
+				}))
+			: typeof entries === "string"
+				? [{ entry: entries, mapKey: undefined, index: 0 }]
+				: [];
+	return sourceEntries
+		.map(({ entry, mapKey, index }) => {
+			const objectEntry =
+				entry && typeof entry === "object" && !Array.isArray(entry)
+					? entry
+					: {};
+			const id = String(objectEntry.id || mapKey || `${prefix}-${index + 1}`);
+			const questions = Array.isArray(objectEntry.questions)
+				? objectEntry.questions
+						.map((question, questionIndex) => ({
+							key: String(
+								question?.id || `${id}-question-${questionIndex + 1}`,
+							),
+							text: displayText(question),
+						}))
+						.filter((question) => question.text)
+				: [];
+			return {
+				...objectEntry,
+				id,
+				title: displayText(objectEntry.title ?? objectEntry.name),
+				description: displayText(
+					objectEntry.description ??
+						objectEntry.text ??
+						objectEntry.value ??
+						entry,
+				),
+				questions,
+			};
+		})
+		.filter(
+			(entry) => entry.description || entry.title || entry.questions.length > 0,
+		);
 }
 
 function entryListWithKeys(entries) {
-  if (Array.isArray(entries)) return entries.map((entry) => ({ entry, mapKey: undefined }));
-  if (!entries || typeof entries !== 'object') return [];
-  return Object.entries(entries).map(([mapKey, entry]) => ({ entry: entry || {}, mapKey }));
+	if (Array.isArray(entries))
+		return entries.map((entry) => ({ entry, mapKey: undefined }));
+	if (!entries || typeof entries !== "object") return [];
+	return Object.entries(entries).map(([mapKey, entry]) => ({
+		entry: entry || {},
+		mapKey,
+	}));
 }
 
 function entryIsSelected(selection, mapKey, entry) {
-  const entryId = entry?.id || mapKey;
-  return (mapKey === undefined || selection?.[mapKey] !== false) && selection?.[entryId] !== false;
+	const entryId = entry?.id || mapKey;
+	return (
+		(mapKey === undefined || selection?.[mapKey] !== false) &&
+		selection?.[entryId] !== false
+	);
 }
 
 function filterFrame(content, selections, showGmNotes = false) {
-  const filtered = Object.fromEntries(Object.entries(content).filter(([key]) => key === 'id' || key === 'name' || key === 'description' || key === 'complexity_rating' || (key === 'gm_messages' ? showGmNotes : key === 'modifications' ? selections?.modifications !== false : selections?.[key] !== false)));
-  if (content.modifications && selections?.modifications !== false) {
-    filtered.modifications = Object.fromEntries(Object.entries(content.modifications).map(([kind, entries]) => {
-      const isObjectMap = entries && typeof entries === 'object' && !Array.isArray(entries);
-      const selectedEntries = entryListWithKeys(entries).filter(({ entry, mapKey }) => entryIsSelected(selections?.[kind], mapKey, entry));
-      if (!isObjectMap) return [kind, selectedEntries.map(({ entry }) => entry)];
-      const selectedKeys = new Set(selectedEntries.map(({ mapKey }) => mapKey));
-      return [kind, Object.fromEntries(Object.entries(entries).filter(([key]) => selectedKeys.has(key)))];
-    }));
-  }
-  return showGmNotes ? filtered : stripGmOnly(filtered);
+	const filtered = Object.fromEntries(
+		Object.entries(content).filter(
+			([key]) =>
+				key === "id" ||
+				key === "name" ||
+				key === "description" ||
+				key === "complexity_rating" ||
+				(key === "gm_messages"
+					? showGmNotes
+					: key === "modifications"
+						? selections?.modifications !== false
+						: selections?.[key] !== false),
+		),
+	);
+	if (content.modifications && selections?.modifications !== false) {
+		filtered.modifications = Object.fromEntries(
+			Object.entries(content.modifications).map(([kind, entries]) => {
+				const isObjectMap =
+					entries && typeof entries === "object" && !Array.isArray(entries);
+				const selectedEntries = entryListWithKeys(entries).filter(
+					({ entry, mapKey }) =>
+						entryIsSelected(selections?.[kind], mapKey, entry),
+				);
+				if (!isObjectMap)
+					return [kind, selectedEntries.map(({ entry }) => entry)];
+				const selectedKeys = new Set(
+					selectedEntries.map(({ mapKey }) => mapKey),
+				);
+				return [
+					kind,
+					Object.fromEntries(
+						Object.entries(entries).filter(([key]) => selectedKeys.has(key)),
+					),
+				];
+			}),
+		);
+	}
+	return showGmNotes ? filtered : stripGmOnly(filtered);
 }
 
 function stripGmOnly(value) {
-  if (Array.isArray(value)) return value.map(stripGmOnly);
-  if (!value || typeof value !== 'object') return value;
-  return Object.fromEntries(
-    Object.entries(value)
-      .filter(([key]) => key !== 'gm_message' && key !== 'gm_messages')
-      .map(([key, child]) => [key, stripGmOnly(child)]),
-  );
+	if (Array.isArray(value)) return value.map(stripGmOnly);
+	if (!value || typeof value !== "object") return value;
+	return Object.fromEntries(
+		Object.entries(value)
+			.filter(([key]) => key !== "gm_message" && key !== "gm_messages")
+			.map(([key, child]) => [key, stripGmOnly(child)]),
+	);
 }

@@ -79,15 +79,15 @@ pub async fn delete_library(
     owner_id: Uuid,
     frame_id: Uuid,
 ) -> Result<bool, sqlx::Error> {
-    Ok(
-        sqlx::query("DELETE FROM campaign_frames WHERE id = $1 AND owner_id = $2")
-            .bind(frame_id)
-            .bind(owner_id)
-            .execute(pool)
-            .await?
-            .rows_affected()
-            > 0,
+    Ok(sqlx::query(
+        "DELETE FROM campaign_frames WHERE id = $1 AND owner_id = $2",
     )
+    .bind(frame_id)
+    .bind(owner_id)
+    .execute(pool)
+    .await?
+    .rows_affected()
+        > 0)
 }
 
 pub async fn find_library(
@@ -106,7 +106,9 @@ pub async fn find_library(
     .await
 }
 
-pub async fn list_builtins(pool: &PgPool) -> Result<Vec<serde_json::Value>, sqlx::Error> {
+pub async fn list_builtins(
+    pool: &PgPool,
+) -> Result<Vec<serde_json::Value>, sqlx::Error> {
     let books = sqlx::query_scalar::<_, serde_json::Value>(
         "SELECT content->'frames'
          FROM source_books
@@ -126,9 +128,9 @@ pub async fn find_builtin(
     frame_id: &str,
 ) -> Result<Option<serde_json::Value>, sqlx::Error> {
     let frames = list_builtins(pool).await?;
-    Ok(frames
-        .into_iter()
-        .find(|frame| frame.get("id").and_then(serde_json::Value::as_str) == Some(frame_id)))
+    Ok(frames.into_iter().find(|frame| {
+        frame.get("id").and_then(serde_json::Value::as_str) == Some(frame_id)
+    }))
 }
 
 pub async fn attach(
@@ -234,12 +236,18 @@ pub async fn update_for_owner(
     .map_err(AppError::from)
 }
 
-async fn ensure_owner(pool: &PgPool, user_id: Uuid, adventure_id: Uuid) -> Result<(), AppError> {
-    let owner = sqlx::query_scalar::<_, Uuid>("SELECT creator_id FROM adventures WHERE id = $1")
-        .bind(adventure_id)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Adventure not found".to_owned()))?;
+async fn ensure_owner(
+    pool: &PgPool,
+    user_id: Uuid,
+    adventure_id: Uuid,
+) -> Result<(), AppError> {
+    let owner = sqlx::query_scalar::<_, Uuid>(
+        "SELECT creator_id FROM adventures WHERE id = $1",
+    )
+    .bind(adventure_id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| AppError::NotFound("Adventure not found".to_owned()))?;
     if owner != user_id {
         return Err(AppError::Forbidden(
             "Only the adventure creator can manage its frame".to_owned(),
@@ -283,7 +291,9 @@ fn default_selections(content: &serde_json::Value) -> serde_json::Value {
                             values
                                 .iter()
                                 .filter_map(|value| {
-                                    value.get("id").and_then(serde_json::Value::as_str)
+                                    value
+                                        .get("id")
+                                        .and_then(serde_json::Value::as_str)
                                 })
                                 .map(str::to_owned)
                                 .collect::<Vec<_>>()
@@ -294,7 +304,8 @@ fn default_selections(content: &serde_json::Value) -> serde_json::Value {
                     .into_iter()
                     .map(|id| (id, serde_json::json!(true)))
                     .collect::<serde_json::Map<_, _>>();
-                selections.insert(kind.to_owned(), serde_json::Value::Object(values));
+                selections
+                    .insert(kind.to_owned(), serde_json::Value::Object(values));
             }
         }
     }

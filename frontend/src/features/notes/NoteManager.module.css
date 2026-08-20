@@ -1,56 +1,316 @@
-.manager { display: grid; gap: var(--space-5); max-width: 980px; margin-top: var(--space-6); }
-.heading, .sectionTools, .actions { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-3); }
-.heading h3 { margin: 0; }
-.keyboardHelp { margin: calc(var(--space-4) * -1) 0 0; color: var(--color-muted-inverse); font-size: 12px; }
-.layout { display: grid; grid-template-columns: minmax(180px, .3fr) minmax(0, 1fr); gap: var(--space-5); }
-.sidebar, .content { min-width: 0; }
-.sectionList { display: grid; gap: 4px; }
-.sectionList button { display: flex; justify-content: space-between; gap: var(--space-2); padding: var(--space-3); border: 1px solid transparent; background: rgba(244, 238, 228, .06); color: var(--color-muted-inverse); cursor: pointer; font: inherit; text-align: left; }
-.sectionList button:hover, .sectionList .selectedSection { border-color: var(--color-accent); background: rgba(201, 157, 99, .12); color: var(--color-text-inverse); }
-.sectionList span { color: var(--color-accent); }
-.inlineForm, .sectionTools form, .editor { display: grid; gap: var(--space-2); }
-.inlineForm { margin-top: var(--space-4); }
-.inlineForm label, .sectionTools label, .editor label { color: var(--color-muted-inverse); font-size: 12px; }
-.inlineForm > div, .sectionTools form > div { display: flex; gap: var(--space-2); }
-.inlineForm input, .sectionTools input, .editor input, .editor textarea, .editor select { width: 100%; padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text); font: inherit; }
-.sectionTools { align-items: flex-end; padding-bottom: var(--space-4); border-bottom: 1px solid rgba(244, 238, 228, .14); }
-.sectionTools form { flex: 1; }
-.noteList { display: grid; gap: var(--space-3); min-height: 80px; padding-top: var(--space-4); }
-.noteCard { display: grid; gap: var(--space-2); padding: var(--space-4); border: 1px solid rgba(244, 238, 228, .14); background: rgba(244, 238, 228, .06); cursor: grab; }
-.noteCard:focus-visible, .noteCard:hover, .selectedNote { border-color: var(--color-accent); }
-.noteCard:active { cursor: grabbing; }
-.noteCard > div:first-child { display: flex; justify-content: space-between; gap: var(--space-3); }
-.noteCard strong { color: var(--color-text-inverse); }
-.noteCard span { color: var(--color-muted-inverse); font-size: 12px; }
-.noteCard p { margin: 0; color: var(--color-muted-inverse); line-height: 1.55; white-space: pre-wrap; }
-.moveActions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
-.moveActions select { min-width: 150px; padding: 7px; border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); }
-.editor { margin-top: var(--space-5); padding-top: var(--space-5); border-top: 1px solid rgba(244, 238, 228, .14); }
-.editor textarea { min-height: 220px; resize: vertical; line-height: 1.6; }
-.actions { justify-content: flex-start; align-items: center; }
-.readOnly { padding: var(--space-3); border-left: 2px solid var(--color-accent); background: rgba(201, 157, 99, .1); }
-.error { color: #ffb4ac; }
-.sectionCreation { padding-bottom: var(--space-4); border-bottom: 1px solid rgba(244, 238, 228, .14); }
-.sectionGroup { border-bottom: 1px solid rgba(244, 238, 228, .12); }
-.activeGroup { border-color: var(--color-accent); }
-.sectionHeader { display: flex; align-items: stretch; gap: var(--space-2); min-height: 44px; }
-.sectionButton { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; flex: 1; gap: var(--space-2); padding: var(--space-3); border: 1px solid transparent; background: rgba(244, 238, 228, .06); color: var(--color-muted-inverse); cursor: pointer; font: inherit; text-align: left; }
-.sectionButton:hover, .sectionButton:focus-visible, .activeGroup .sectionButton { border-color: var(--color-accent); background: rgba(201, 157, 99, .12); color: var(--color-text-inverse); }
-.sectionButton strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sectionTitle { cursor: text; }
-.count { color: var(--color-accent); font-size: 12px; }
-.noteLinks { display: grid; gap: 2px; padding: 2px 0 6px 24px; }
-.noteLinks button { min-width: 0; padding: 8px var(--space-2); border: 1px solid transparent; background: transparent; color: var(--color-muted-inverse); cursor: grab; font: inherit; text-align: left; }
-.noteLinks button:hover, .noteLinks button:focus-visible, .noteLinks .selectedNoteLink { border-color: rgba(201, 157, 99, .65); background: rgba(201, 157, 99, .1); color: var(--color-text-inverse); }
-.noteLinks .keyboardDropTarget { border-color: var(--color-accent); box-shadow: inset 3px 0 0 var(--color-accent); }
-.noteLinks button:active { cursor: grabbing; }
-.inlineForm { margin-top: 0; }
-.inlineForm > div { flex-wrap: wrap; }
-.renameInput { flex: 1; min-width: 0; padding: var(--space-2); border: 1px solid var(--color-accent); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text); font: inherit; }
-.content { min-width: 0; min-height: 360px; }
-.contentHeading { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); min-height: 64px; padding-bottom: var(--space-4); border-bottom: 1px solid rgba(244, 238, 228, .14); }
-.contentHeading h4 { margin-top: var(--space-2); color: var(--color-text-inverse); font-size: 20px; }
-.readOnlyNote { min-height: 260px; padding: var(--space-4) 0; }
-.readOnlyNote h4 { margin-bottom: var(--space-3); color: var(--color-text-inverse); font-size: 22px; }
-.readOnlyNote p { margin: 0; color: var(--color-muted-inverse); line-height: 1.65; white-space: pre-wrap; }
-@media (max-width: 700px) { .layout { grid-template-columns: 1fr; } .heading, .sectionTools { align-items: flex-start; flex-direction: column; } .sectionTools form { width: 100%; } .content { min-height: 280px; } }
+.manager {
+	display: grid;
+	gap: var(--space-5);
+	max-width: 980px;
+	margin-top: var(--space-6);
+}
+.heading,
+.sectionTools,
+.actions {
+	display: flex;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: var(--space-3);
+}
+.heading h3 {
+	margin: 0;
+}
+.keyboardHelp {
+	margin: calc(var(--space-4) * -1) 0 0;
+	color: var(--color-muted-inverse);
+	font-size: 12px;
+}
+.layout {
+	display: grid;
+	grid-template-columns: minmax(180px, 0.3fr) minmax(0, 1fr);
+	gap: var(--space-5);
+}
+.sidebar,
+.content {
+	min-width: 0;
+}
+.sectionList {
+	display: grid;
+	gap: 4px;
+}
+.sectionList button {
+	display: flex;
+	justify-content: space-between;
+	gap: var(--space-2);
+	padding: var(--space-3);
+	border: 1px solid transparent;
+	background: rgba(244, 238, 228, 0.06);
+	color: var(--color-muted-inverse);
+	cursor: pointer;
+	font: inherit;
+	text-align: left;
+}
+.sectionList button:hover,
+.sectionList .selectedSection {
+	border-color: var(--color-accent);
+	background: rgba(201, 157, 99, 0.12);
+	color: var(--color-text-inverse);
+}
+.sectionList span {
+	color: var(--color-accent);
+}
+.inlineForm,
+.sectionTools form,
+.editor {
+	display: grid;
+	gap: var(--space-2);
+}
+.inlineForm {
+	margin-top: var(--space-4);
+}
+.inlineForm label,
+.sectionTools label,
+.editor label {
+	color: var(--color-muted-inverse);
+	font-size: 12px;
+}
+.inlineForm > div,
+.sectionTools form > div {
+	display: flex;
+	gap: var(--space-2);
+}
+.inlineForm input,
+.sectionTools input,
+.editor input,
+.editor textarea,
+.editor select {
+	width: 100%;
+	padding: var(--space-3);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-sm);
+	background: var(--color-surface);
+	color: var(--color-text);
+	font: inherit;
+}
+.sectionTools {
+	align-items: flex-end;
+	padding-bottom: var(--space-4);
+	border-bottom: 1px solid rgba(244, 238, 228, 0.14);
+}
+.sectionTools form {
+	flex: 1;
+}
+.noteList {
+	display: grid;
+	gap: var(--space-3);
+	min-height: 80px;
+	padding-top: var(--space-4);
+}
+.noteCard {
+	display: grid;
+	gap: var(--space-2);
+	padding: var(--space-4);
+	border: 1px solid rgba(244, 238, 228, 0.14);
+	background: rgba(244, 238, 228, 0.06);
+	cursor: grab;
+}
+.noteCard:focus-visible,
+.noteCard:hover,
+.selectedNote {
+	border-color: var(--color-accent);
+}
+.noteCard:active {
+	cursor: grabbing;
+}
+.noteCard > div:first-child {
+	display: flex;
+	justify-content: space-between;
+	gap: var(--space-3);
+}
+.noteCard strong {
+	color: var(--color-text-inverse);
+}
+.noteCard span {
+	color: var(--color-muted-inverse);
+	font-size: 12px;
+}
+.noteCard p {
+	margin: 0;
+	color: var(--color-muted-inverse);
+	line-height: 1.55;
+	white-space: pre-wrap;
+}
+.moveActions {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--space-2);
+}
+.moveActions select {
+	min-width: 150px;
+	padding: 7px;
+	border: 1px solid var(--color-border);
+	background: var(--color-surface);
+	color: var(--color-text);
+}
+.editor {
+	margin-top: var(--space-5);
+	padding-top: var(--space-5);
+	border-top: 1px solid rgba(244, 238, 228, 0.14);
+}
+.editor textarea {
+	min-height: 220px;
+	resize: vertical;
+	line-height: 1.6;
+}
+.actions {
+	justify-content: flex-start;
+	align-items: center;
+}
+.readOnly {
+	padding: var(--space-3);
+	border-left: 2px solid var(--color-accent);
+	background: rgba(201, 157, 99, 0.1);
+}
+.error {
+	color: #ffb4ac;
+}
+.sectionCreation {
+	padding-bottom: var(--space-4);
+	border-bottom: 1px solid rgba(244, 238, 228, 0.14);
+}
+.sectionGroup {
+	border-bottom: 1px solid rgba(244, 238, 228, 0.12);
+}
+.activeGroup {
+	border-color: var(--color-accent);
+}
+.sectionHeader {
+	display: flex;
+	align-items: stretch;
+	gap: var(--space-2);
+	min-height: 44px;
+}
+.sectionButton {
+	display: grid;
+	grid-template-columns: 16px minmax(0, 1fr) auto;
+	align-items: center;
+	flex: 1;
+	gap: var(--space-2);
+	padding: var(--space-3);
+	border: 1px solid transparent;
+	background: rgba(244, 238, 228, 0.06);
+	color: var(--color-muted-inverse);
+	cursor: pointer;
+	font: inherit;
+	text-align: left;
+}
+.sectionButton:hover,
+.sectionButton:focus-visible,
+.activeGroup .sectionButton {
+	border-color: var(--color-accent);
+	background: rgba(201, 157, 99, 0.12);
+	color: var(--color-text-inverse);
+}
+.sectionButton strong {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.sectionTitle {
+	cursor: text;
+}
+.count {
+	color: var(--color-accent);
+	font-size: 12px;
+}
+.noteLinks {
+	display: grid;
+	gap: 2px;
+	padding: 2px 0 6px 24px;
+}
+.noteLinks button {
+	min-width: 0;
+	padding: 8px var(--space-2);
+	border: 1px solid transparent;
+	background: transparent;
+	color: var(--color-muted-inverse);
+	cursor: grab;
+	font: inherit;
+	text-align: left;
+}
+.noteLinks button:hover,
+.noteLinks button:focus-visible,
+.noteLinks .selectedNoteLink {
+	border-color: rgba(201, 157, 99, 0.65);
+	background: rgba(201, 157, 99, 0.1);
+	color: var(--color-text-inverse);
+}
+.noteLinks .keyboardDropTarget {
+	border-color: var(--color-accent);
+	box-shadow: inset 3px 0 0 var(--color-accent);
+}
+.noteLinks button:active {
+	cursor: grabbing;
+}
+.inlineForm {
+	margin-top: 0;
+}
+.inlineForm > div {
+	flex-wrap: wrap;
+}
+.renameInput {
+	flex: 1;
+	min-width: 0;
+	padding: var(--space-2);
+	border: 1px solid var(--color-accent);
+	border-radius: var(--radius-sm);
+	background: var(--color-surface);
+	color: var(--color-text);
+	font: inherit;
+}
+.content {
+	min-width: 0;
+	min-height: 360px;
+}
+.contentHeading {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: var(--space-3);
+	min-height: 64px;
+	padding-bottom: var(--space-4);
+	border-bottom: 1px solid rgba(244, 238, 228, 0.14);
+}
+.contentHeading h4 {
+	margin-top: var(--space-2);
+	color: var(--color-text-inverse);
+	font-size: 20px;
+}
+.readOnlyNote {
+	min-height: 260px;
+	padding: var(--space-4) 0;
+}
+.readOnlyNote h4 {
+	margin-bottom: var(--space-3);
+	color: var(--color-text-inverse);
+	font-size: 22px;
+}
+.readOnlyNote p {
+	margin: 0;
+	color: var(--color-muted-inverse);
+	line-height: 1.65;
+	white-space: pre-wrap;
+}
+@media (max-width: 700px) {
+	.layout {
+		grid-template-columns: 1fr;
+	}
+	.heading,
+	.sectionTools {
+		align-items: flex-start;
+		flex-direction: column;
+	}
+	.sectionTools form {
+		width: 100%;
+	}
+	.content {
+		min-height: 280px;
+	}
+}

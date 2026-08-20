@@ -1,41 +1,199 @@
-.page { max-width: 1180px; }
-.header, .toolbar, .editorHeading, .sectionHeading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
-.header { align-items: flex-end; margin-bottom: var(--space-5); }
-.header h2 { margin-top: var(--space-2); }
-.toolbar { padding: var(--space-4); border: 1px solid rgba(244, 238, 228, .14); background: rgba(244, 238, 228, .06); }
-.toolbar label, .formGrid label { display: flex; flex-direction: column; gap: var(--space-2); color: var(--color-muted-inverse); font-size: 13px; }
-.toolbar select, .formGrid input, .formGrid textarea { width: 100%; padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text); font: inherit; }
-.toolbar select { min-width: min(420px, 60vw); margin-top: var(--space-1); }
-.links { display: flex; align-items: center; gap: var(--space-4); }
-.links a { color: var(--color-accent-strong-hover); }
-.meta { color: var(--color-muted-inverse); font-size: 12px; overflow-wrap: anywhere; }
-.layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: var(--space-5); margin-top: var(--space-5); }
-.sidebar { align-self: start; padding: var(--space-4); background: rgba(244, 238, 228, .06); }
-.sidebar h3 { margin: 0; color: var(--color-text-inverse); }
-.featureButton { display: flex; flex-direction: column; width: 100%; margin-top: var(--space-2); padding: var(--space-3); border: 0; border-left: 2px solid transparent; background: transparent; color: var(--color-text-inverse); text-align: left; cursor: pointer; }
-.featureButton:hover, .featureButton.selected { border-left-color: var(--color-accent); background: rgba(201, 157, 99, .14); }
-.featureButton span { margin-top: var(--space-1); color: var(--color-muted-inverse); font-size: 12px; }
-.editor { display: grid; gap: var(--space-5); min-width: 0; padding: var(--space-5); background: var(--color-surface); color: var(--color-text); }
-.editorHeading h3 { margin: 0; }
-.formGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
-.wide { grid-column: 1 / -1; }
-.formGrid textarea { min-height: 180px; resize: vertical; }
-.featureChoices { display: grid; grid-column: 1 / -1; gap: var(--space-2); margin: 0; padding: var(--space-3); border: 1px solid var(--color-border); }
-.featureChoices legend { padding: 0 var(--space-2); color: var(--color-muted-inverse); font-size: 13px; }
-.featureChoice { display: flex !important; flex-direction: row !important; align-items: center; gap: var(--space-2); padding: var(--space-2); color: var(--color-text) !important; cursor: pointer; }
-.featureChoice input { width: auto; }
-.smallButton, .removeButton { padding: var(--space-2) var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: transparent; color: inherit; cursor: pointer; font: inherit; }
-.smallButton { color: var(--color-accent-strong-hover); font-size: 12px; font-weight: 700; }
-.removeButton { color: var(--color-danger); font-size: 12px; }
-.hint { color: var(--color-muted); line-height: 1.6; }
-.error { color: var(--color-danger); }
-.message { color: var(--color-success); }
-.notice { max-width: 620px; }
+.page {
+	max-width: 1180px;
+}
+.header,
+.toolbar,
+.editorHeading,
+.sectionHeading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-4);
+}
+.header {
+	align-items: flex-end;
+	margin-bottom: var(--space-5);
+}
+.header h2 {
+	margin-top: var(--space-2);
+}
+.toolbar {
+	padding: var(--space-4);
+	border: 1px solid rgba(244, 238, 228, 0.14);
+	background: rgba(244, 238, 228, 0.06);
+}
+.toolbar label,
+.formGrid label {
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-2);
+	color: var(--color-muted-inverse);
+	font-size: 13px;
+}
+.toolbar select,
+.formGrid input,
+.formGrid textarea {
+	width: 100%;
+	padding: var(--space-3);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-sm);
+	background: var(--color-surface);
+	color: var(--color-text);
+	font: inherit;
+}
+.toolbar select {
+	min-width: min(420px, 60vw);
+	margin-top: var(--space-1);
+}
+.links {
+	display: flex;
+	align-items: center;
+	gap: var(--space-4);
+}
+.links a {
+	color: var(--color-accent-strong-hover);
+}
+.meta {
+	color: var(--color-muted-inverse);
+	font-size: 12px;
+	overflow-wrap: anywhere;
+}
+.layout {
+	display: grid;
+	grid-template-columns: 250px minmax(0, 1fr);
+	gap: var(--space-5);
+	margin-top: var(--space-5);
+}
+.sidebar {
+	align-self: start;
+	padding: var(--space-4);
+	background: rgba(244, 238, 228, 0.06);
+}
+.sidebar h3 {
+	margin: 0;
+	color: var(--color-text-inverse);
+}
+.featureButton {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	margin-top: var(--space-2);
+	padding: var(--space-3);
+	border: 0;
+	border-left: 2px solid transparent;
+	background: transparent;
+	color: var(--color-text-inverse);
+	text-align: left;
+	cursor: pointer;
+}
+.featureButton:hover,
+.featureButton.selected {
+	border-left-color: var(--color-accent);
+	background: rgba(201, 157, 99, 0.14);
+}
+.featureButton span {
+	margin-top: var(--space-1);
+	color: var(--color-muted-inverse);
+	font-size: 12px;
+}
+.editor {
+	display: grid;
+	gap: var(--space-5);
+	min-width: 0;
+	padding: var(--space-5);
+	background: var(--color-surface);
+	color: var(--color-text);
+}
+.editorHeading h3 {
+	margin: 0;
+}
+.formGrid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--space-4);
+}
+.wide {
+	grid-column: 1 / -1;
+}
+.formGrid textarea {
+	min-height: 180px;
+	resize: vertical;
+}
+.featureChoices {
+	display: grid;
+	grid-column: 1 / -1;
+	gap: var(--space-2);
+	margin: 0;
+	padding: var(--space-3);
+	border: 1px solid var(--color-border);
+}
+.featureChoices legend {
+	padding: 0 var(--space-2);
+	color: var(--color-muted-inverse);
+	font-size: 13px;
+}
+.featureChoice {
+	display: flex !important;
+	flex-direction: row !important;
+	align-items: center;
+	gap: var(--space-2);
+	padding: var(--space-2);
+	color: var(--color-text) !important;
+	cursor: pointer;
+}
+.featureChoice input {
+	width: auto;
+}
+.smallButton,
+.removeButton {
+	padding: var(--space-2) var(--space-3);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-sm);
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+	font: inherit;
+}
+.smallButton {
+	color: var(--color-accent-strong-hover);
+	font-size: 12px;
+	font-weight: 700;
+}
+.removeButton {
+	color: var(--color-danger);
+	font-size: 12px;
+}
+.hint {
+	color: var(--color-muted);
+	line-height: 1.6;
+}
+.error {
+	color: var(--color-danger);
+}
+.message {
+	color: var(--color-success);
+}
+.notice {
+	max-width: 620px;
+}
 
 @media (max-width: 800px) {
-  .header, .toolbar, .links { align-items: stretch; flex-direction: column; }
-  .toolbar select { min-width: 0; }
-  .layout { grid-template-columns: 1fr; }
-  .formGrid { grid-template-columns: 1fr; }
-  .wide { grid-column: auto; }
+	.header,
+	.toolbar,
+	.links {
+		align-items: stretch;
+		flex-direction: column;
+	}
+	.toolbar select {
+		min-width: 0;
+	}
+	.layout {
+		grid-template-columns: 1fr;
+	}
+	.formGrid {
+		grid-template-columns: 1fr;
+	}
+	.wide {
+		grid-column: auto;
+	}
 }

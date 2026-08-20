@@ -3,7 +3,10 @@ use uuid::Uuid;
 
 use crate::{error::AppError, models::Notification};
 
-pub async fn list_for_user(pool: &PgPool, user_id: Uuid) -> Result<Vec<Notification>, sqlx::Error> {
+pub async fn list_for_user(
+    pool: &PgPool,
+    user_id: Uuid,
+) -> Result<Vec<Notification>, sqlx::Error> {
     sqlx::query_as::<_, Notification>(
         "SELECT id, recipient_user_id, actor_user_id, adventure_id, invite_id,
                 notification_type, title, body, read_at, created_at

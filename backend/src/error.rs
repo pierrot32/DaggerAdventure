@@ -26,10 +26,14 @@ impl IntoResponse for AppError {
         let (status, message) = match self {
             AppError::Validation(message) => (StatusCode::BAD_REQUEST, message),
             AppError::Conflict(message) => (StatusCode::CONFLICT, message),
-            AppError::Unauthorized(message) => (StatusCode::UNAUTHORIZED, message),
+            AppError::Unauthorized(message) => {
+                (StatusCode::UNAUTHORIZED, message)
+            }
             AppError::Forbidden(message) => (StatusCode::FORBIDDEN, message),
             AppError::NotFound(message) => (StatusCode::NOT_FOUND, message),
-            AppError::ServiceUnavailable(message) => (StatusCode::SERVICE_UNAVAILABLE, message),
+            AppError::ServiceUnavailable(message) => {
+                (StatusCode::SERVICE_UNAVAILABLE, message)
+            }
             AppError::Internal(message) => {
                 // Never leak internal error details to the client.
                 eprintln!("internal error: {message}");
