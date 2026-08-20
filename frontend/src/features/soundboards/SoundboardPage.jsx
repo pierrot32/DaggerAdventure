@@ -120,13 +120,20 @@ export default function SoundboardPage() {
     loadWorkspace();
   }, []);
   useEffect(() => {
-    if (
-      trackForm.sourceId &&
-      !sources.some((source) => source.id === trackForm.sourceId)
-    ) {
+    const availableLabels = new Set(
+      library.flatMap((track) => (track.labels || []).map((label) => label.name)),
+    );
+    if (labelFilter && !availableLabels.has(labelFilter)) setLabelFilter("");
+    if (sourceFilter && !sources.some((source) => source.id === sourceFilter)) setSourceFilter("");
+    if (boardFilter && !boards.some((item) => item.id === boardFilter)) setBoardFilter("");
+    if (trackForm.sourceId && !sources.some((source) => source.id === trackForm.sourceId)) {
       setTrackForm((current) => ({ ...current, sourceId: "" }));
     }
-  }, [sources, trackForm.sourceId]);
+    if (editingSourceId && !sources.some((source) => source.id === editingSourceId)) {
+      setEditingSourceId("");
+      setSourceForm({ name: "", website_url: "", description: "" });
+    }
+  }, [boards, boardFilter, editingSourceId, labelFilter, library, sourceFilter, sources, trackForm.sourceId]);
   useEffect(() => {
     selectedIdRef.current = selectedId;
     const requestGeneration = ++detailRequestGeneration.current;
@@ -188,9 +195,7 @@ export default function SoundboardPage() {
     );
     const searchable = [
       track.name,
-      track.creator_name,
       track.source_name,
-      track.source_credit,
       ...labels,
     ]
       .filter(Boolean)
@@ -459,6 +464,7 @@ export default function SoundboardPage() {
                   if (item.id === selectedId) refreshBoard(item.id).catch(() => {});
                   else selectBoard(item.id);
                 }}
+                aria-pressed={item.id === selectedId}
               >
                 <strong>{item.name}</strong>
                 <span>
@@ -885,7 +891,7 @@ function LibraryFilters({
           type="search"
           value={searchTerm}
           onChange={(event) => setSearchTerm(event.target.value)}
-          placeholder="Search by name, creator, credit, or label"
+          placeholder="Search by name, label, or named source"
         />
       </label>
       <label>
@@ -998,9 +1004,7 @@ function LibraryCard({
           </button>
         )}
         <small className={styles.cardCredit}>
-          {track.creator_name || "Creator not listed"}
-          {track.source_name ? ` · ${track.source_name}` : ""}
-          {track.source_credit ? ` · ${track.source_credit}` : ""}
+          {track.source_name || "No named source"}
         </small>
       </div>
     </article>
@@ -1016,13 +1020,7 @@ function BoardDetail({
   onDelete,
   onDeleteBoard,
 }) {
-  const credits = detail.sounds.filter(
-    (sound) =>
-      sound.creator_name ||
-      sound.source_name ||
-      sound.source_credit ||
-      sound.source_url,
-  );
+  const credits = detail.sounds.filter((sound) => sound.source_name);
   return (
     <>
       <div className={styles.boardHeading}>
@@ -1071,22 +1069,16 @@ function BoardDetail({
       {credits.length > 0 && (
         <section className={styles.credits}>
           <p className="eyebrow">CREDITS</p>
-          <h3>Track sources and creators</h3>
+          <h3>Track sources</h3>
           {credits.map((sound) => (
             <p key={`${sound.id}-credit`}>
-              {sound.creator_name && <strong>{sound.creator_name}</strong>}
-              {sound.creator_name &&
-              (sound.source_name || sound.source_credit || sound.source_url)
-                ? " · "
-                : ""}
-              {sound.source_url ? (
+              {sound.source_name && sound.source_url ? (
                 <a href={sound.source_url} target="_blank" rel="noreferrer">
-                  {sound.source_name || sound.source_url}
+                  {sound.source_name}
                 </a>
               ) : (
                 sound.source_name
               )}
-              {sound.source_credit ? ` · ${sound.source_credit}` : ""}
             </p>
           ))}
         </section>
@@ -1161,11 +1153,9 @@ function BoardSoundCard({ sound, board, canEdit, onPlay, onQueue, onDelete }) {
             Add to queue
           </button>
         </div>
-        {(sound.source_name || sound.creator_name || sound.source_credit) && (
+        {sound.source_name && (
           <small className={styles.cardCredit}>
-            {sound.creator_name || "Creator not listed"}
-            {sound.source_name ? ` · ${sound.source_name}` : ""}
-            {sound.source_credit ? ` · ${sound.source_credit}` : ""}
+            {sound.source_name}
           </small>
         )}
       </div>
