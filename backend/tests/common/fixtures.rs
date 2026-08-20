@@ -1,5 +1,6 @@
 use backend::{
     models::{AccessLevel, ImportBookRequest, RegisterRequest},
+    repository::adventure_repo,
     services::auth_service::{self, AuthResult},
 };
 use serde_json::{Value, json};
@@ -58,6 +59,14 @@ pub async fn register_verified(
         .execute(pool)
         .await
         .expect("fixture verification should succeed");
+    let user =
+        backend::repository::user_repo::find_by_id(pool, response.user.id)
+            .await
+            .expect("verified fixture user lookup should succeed")
+            .expect("verified fixture user should exist");
+    adventure_repo::link_pending_invites(pool, &user)
+        .await
+        .expect("verified fixture invite linking should succeed");
     response.user.email_verified = true;
     response
 }
