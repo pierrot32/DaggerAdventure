@@ -45,6 +45,7 @@ export default function AdventureDetailPage() {
   const [notesState, setNotesState] = useState({ loading: true, saving: false, error: '', message: '' });
   const [soundBoards, setSoundBoards] = useState([]);
   const [selectedSoundBoardId, setSelectedSoundBoardId] = useState('');
+  const [soundDetailRefreshKey, setSoundDetailRefreshKey] = useState(0);
   const [soundDetail, setSoundDetail] = useState(null);
   const [soundsState, setSoundsState] = useState({ loading: false, detailLoading: false, error: '' });
   const routeRequestRef = useRef(0);
@@ -177,7 +178,7 @@ export default function AdventureDetailPage() {
     const requestGeneration = routeRequestRef.current;
     const soundsRequest = ++soundDetailRequestRef.current;
     if (!current || current.id !== adventureId || current.creator_id !== user?.id || activeTab !== 'sounds' || !selectedSoundBoardId) return () => { active = false; };
-    setSoundDetail(null);
+    setSoundDetail((currentDetail) => currentDetail?.board?.id === selectedSoundBoardId ? currentDetail : null);
     setSoundsState((state) => ({ ...state, detailLoading: true, error: '' }));
     getSoundBoard(selectedSoundBoardId)
       .then((detail) => {
@@ -190,7 +191,7 @@ export default function AdventureDetailPage() {
         if (active && isCurrentRoute(requestGeneration) && soundDetailRequestRef.current === soundsRequest) setSoundsState((state) => ({ ...state, detailLoading: false, error: requestError.message }));
       });
     return () => { active = false; };
-  }, [activeTab, adventureId, current, selectedSoundBoardId, user]);
+  }, [activeTab, adventureId, current, selectedSoundBoardId, soundDetailRefreshKey, user]);
 
   const submitInvite = async (event) => {
     event.preventDefault();
@@ -391,8 +392,11 @@ export default function AdventureDetailPage() {
   const moveNote = async (note, sectionId, position) => saveNote({ ...note, section_id: sectionId, position });
 
   const selectSoundBoard = (boardId) => {
+    if (boardId === selectedSoundBoardId) {
+      setSoundDetailRefreshKey((key) => key + 1);
+      return;
+    }
     setSelectedSoundBoardId(boardId);
-    setSoundDetail(null);
   };
 
   const removeAdventure = async () => {
@@ -452,7 +456,7 @@ function StoryPanel({ description }) {
 
 function AdventureSoundsPanel({ boards, selectedBoardId, selectBoard, detail, state, onPlay, onQueue }) {
   const board = detail?.board?.id === selectedBoardId ? detail.board : null;
-  return <section className={styles.workspacePanel}><div className={styles.panelHeading}><div><p className="eyebrow">GM SOUND LIBRARY</p><h3>Sounds</h3></div><span className="muted">Choose a board, then shape the atmosphere.</span></div>{state.error && <p className={styles.error} role="alert">{state.error}</p>}{state.loading ? <p className="muted">Loading soundboards...</p> : <div className={styles.soundWorkspace}><aside className={styles.soundBoardPicker}><strong>Soundboards</strong>{boards.length === 0 ? <p className="muted">No soundboards available yet.</p> : <div className={styles.soundBoardList}>{boards.map((item) => <button type="button" key={item.id} className={selectedBoardId === item.id ? styles.selectedSoundBoard : ''} onClick={() => selectBoard(item.id)}><strong>{item.name}</strong><span>{item.sound_count} tracks</span></button>)}</div>}</aside><div className={styles.soundTracks}>{!selectedBoardId && <p className="muted">Select a soundboard to view its tracks.</p>}{selectedBoardId && state.detailLoading && <p className="muted">Loading tracks...</p>}{selectedBoardId && !state.detailLoading && board && <><div className={styles.soundTrackHeading}><div><p className="eyebrow">{board.shared ? 'SHARED GM BOARD' : 'PRIVATE GM BOARD'}</p><h4>{board.name}</h4></div><span>{detail.sounds.length} tracks</span></div>{detail.sounds.length === 0 ? <p className="muted">This board is quiet.</p> : <div className={styles.adventureSoundGrid}>{detail.sounds.map((sound) => <AdventureSoundCard key={`${sound.library_track_id || 'direct'}-${sound.id}`} sound={sound} board={board} onPlay={onPlay} onQueue={onQueue} />)}</div>}</>}</div></div>}</section>;
+  return <section className={styles.workspacePanel}><div className={styles.panelHeading}><div><p className="eyebrow">GM SOUND LIBRARY</p><h3>Sounds</h3></div><span className="muted">Choose a board, then shape the atmosphere.</span></div>{state.error && <p className={styles.error} role="alert">{state.error}</p>}{state.loading ? <p className="muted">Loading soundboards...</p> : <div className={styles.soundWorkspace}><aside className={styles.soundBoardPicker}><strong>Soundboards</strong>{boards.length === 0 ? <p className="muted">No soundboards available yet.</p> : <div className={styles.soundBoardList}>{boards.map((item) => <button type="button" key={item.id} className={selectedBoardId === item.id ? styles.selectedSoundBoard : ''} onClick={() => selectBoard(item.id)}><strong>{item.name}</strong><span>{item.sound_count} tracks</span></button>)}</div>}</aside><div className={styles.soundTracks}>{!selectedBoardId && <p className="muted">Select a soundboard to view its tracks.</p>}{selectedBoardId && state.detailLoading && !board && <p className="muted">Loading tracks...</p>}{selectedBoardId && board && <><div className={styles.soundTrackHeading}><div><p className="eyebrow">{board.shared ? 'SHARED GM BOARD' : 'PRIVATE GM BOARD'}</p><h4>{board.name}</h4></div><span>{detail.sounds.length} tracks</span></div>{detail.sounds.length === 0 ? <p className="muted">This board is quiet.</p> : <div className={styles.adventureSoundGrid}>{detail.sounds.map((sound) => <AdventureSoundCard key={`${sound.library_track_id || 'direct'}-${sound.id}`} sound={sound} board={board} onPlay={onPlay} onQueue={onQueue} />)}</div>}</>}</div></div>}</section>;
 }
 
 function AdventureSoundCard({ sound, board, onPlay, onQueue }) {

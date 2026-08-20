@@ -7,13 +7,15 @@
 .details small { color: var(--color-muted-inverse); }
 .eyebrow { color: var(--color-accent); font-size: 10px; font-weight: 700; letter-spacing: 1.5px; }
 .controls { display: grid; grid-template-columns: auto minmax(70px, 1fr) auto; align-items: center; gap: var(--space-2); min-width: 0; }
-.playToggle, .queueHeading button, .queue li button { border: 1px solid rgba(201, 157, 99, .55); background: transparent; color: var(--color-text-inverse); cursor: pointer; font: inherit; font-size: 12px; }
+.playToggle, .queueToggle, .queueHeading button, .queue li button { border: 1px solid rgba(201, 157, 99, .55); background: transparent; color: var(--color-text-inverse); cursor: pointer; font: inherit; font-size: 12px; }
 .playToggle { padding: 8px 10px; }
-.playToggle:hover, .queueHeading button:hover, .queue li button:hover { border-color: var(--color-accent); color: var(--color-accent); }
+.playToggle:hover, .queueToggle:hover, .queueHeading button:hover, .queue li button:hover { border-color: var(--color-accent); color: var(--color-accent); }
 .seek { width: 100%; accent-color: var(--color-accent); }
+.seek:disabled { cursor: not-allowed; opacity: .5; }
 .time { color: var(--color-muted-inverse); font-size: 11px; white-space: nowrap; }
 .close { align-self: start; padding: 0 4px; border: 0; background: none; color: var(--color-muted-inverse); font-size: 22px; line-height: 1; cursor: pointer; }
 .close:hover { color: var(--color-accent); }
+.queueToggle { grid-column: 1 / -1; justify-self: end; padding: 5px 8px; }
 .queue { grid-column: 1 / -1; padding-top: var(--space-3); border-top: 1px solid rgba(244, 238, 228, .14); }
 .queueHeading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .queueHeading button, .queue li button { padding: 5px 8px; }

@@ -72,6 +72,7 @@ pub struct SoundLibraryTrack {
     pub source_credit: Option<String>,
     pub has_audio_upload: bool,
     pub has_image_upload: bool,
+    pub board_ids: Vec<Uuid>,
     pub labels: Vec<SoundLabel>,
     pub created_at: DateTime<Utc>,
 }
