@@ -6,7 +6,9 @@ use axum::{
 use crate::{
     error::AppError,
     middleware::{access_guard::require_at_least, auth_guard::AuthUser},
-    models::{AccessLevel, ImportBookRequest, SourceBook, UpdateBookContentRequest},
+    models::{
+        AccessLevel, ImportBookRequest, SourceBook, UpdateBookContentRequest,
+    },
     repository::content_repo,
     routes::frames,
     state::AppState,
@@ -20,7 +22,9 @@ pub async fn get_character_creation_book(
     content_repo::find_character_creation_book(&state.db)
         .await?
         .map(Json)
-        .ok_or_else(|| AppError::NotFound("No book has been imported yet".to_owned()))
+        .ok_or_else(|| {
+            AppError::NotFound("No book has been imported yet".to_owned())
+        })
 }
 
 pub async fn import_book(
@@ -35,7 +39,8 @@ pub async fn import_book(
         || !request.content.is_object()
     {
         return Err(AppError::Validation(
-            "A book import needs an id, title, version, and object content".to_owned(),
+            "A book import needs an id, title, version, and object content"
+                .to_owned(),
         ));
     }
     validate_book_content(&request.content)?;
@@ -61,7 +66,9 @@ pub async fn update_book_content(
     content_repo::update_book_content(&state.db, &book_id, &request.content)
         .await?
         .map(Json)
-        .ok_or_else(|| AppError::NotFound("The requested book was not found".to_owned()))
+        .ok_or_else(|| {
+            AppError::NotFound("The requested book was not found".to_owned())
+        })
 }
 
 pub async fn export_books(
@@ -84,17 +91,22 @@ fn validate_book_content(content: &serde_json::Value) -> Result<(), AppError> {
         .is_some_and(serde_json::Value::is_object);
     if !has_trait_proposals {
         return Err(AppError::Validation(
-            "The book must include character_creation.trait_proposals".to_owned(),
+            "The book must include character_creation.trait_proposals"
+                .to_owned(),
         ));
     }
     let classes = content
         .get("classes")
         .and_then(serde_json::Value::as_array)
-        .ok_or_else(|| AppError::Validation("The book must include a classes array".to_owned()))?;
+        .ok_or_else(|| {
+            AppError::Validation(
+                "The book must include a classes array".to_owned(),
+            )
+        })?;
     for class in classes {
-        let class_object = class
-            .as_object()
-            .ok_or_else(|| AppError::Validation("Each class must be a JSON object".to_owned()))?;
+        let class_object = class.as_object().ok_or_else(|| {
+            AppError::Validation("Each class must be a JSON object".to_owned())
+        })?;
         for field in ["id", "name"] {
             if class_object
                 .get(field)
@@ -108,11 +120,16 @@ fn validate_book_content(content: &serde_json::Value) -> Result<(), AppError> {
         }
         if let Some(subclasses) = class_object.get("subclasses") {
             for subclass in subclasses.as_array().ok_or_else(|| {
-                AppError::Validation("A class subclasses field must be an array".to_owned())
+                AppError::Validation(
+                    "A class subclasses field must be an array".to_owned(),
+                )
             })? {
-                let subclass_object = subclass.as_object().ok_or_else(|| {
-                    AppError::Validation("Each subclass must be a JSON object".to_owned())
-                })?;
+                let subclass_object =
+                    subclass.as_object().ok_or_else(|| {
+                        AppError::Validation(
+                            "Each subclass must be a JSON object".to_owned(),
+                        )
+                    })?;
                 for field in ["id", "name"] {
                     if subclass_object
                         .get(field)
@@ -129,7 +146,9 @@ fn validate_book_content(content: &serde_json::Value) -> Result<(), AppError> {
     }
     if let Some(frame_values) = content.get("frames") {
         let frames = frame_values.as_array().ok_or_else(|| {
-            AppError::Validation("The book frames field must be an array".to_owned())
+            AppError::Validation(
+                "The book frames field must be an array".to_owned(),
+            )
         })?;
         let mut ids = std::collections::HashSet::new();
         for frame in frames {
@@ -137,10 +156,14 @@ fn validate_book_content(content: &serde_json::Value) -> Result<(), AppError> {
                 .get("id")
                 .and_then(serde_json::Value::as_str)
                 .ok_or_else(|| {
-                    AppError::Validation("Each frame needs a non-empty id".to_owned())
+                    AppError::Validation(
+                        "Each frame needs a non-empty id".to_owned(),
+                    )
                 })?;
             if !ids.insert(id.to_owned()) {
-                return Err(AppError::Validation(format!("Duplicate frame id {id}")));
+                return Err(AppError::Validation(format!(
+                    "Duplicate frame id {id}"
+                )));
             }
             frames::validate_frame_content(frame)?;
         }

@@ -8,8 +8,8 @@ use axum::{
 use jsonwebtoken::{Algorithm, DecodingKey, Validation, decode};
 
 use crate::{
-    error::AppError, models::User, repository::user_repo, services::auth_service::Claims,
-    state::AppState,
+    error::AppError, models::User, repository::user_repo,
+    services::auth_service::Claims, state::AppState,
 };
 
 /// Authenticated user loaded from the session cookie.
@@ -36,7 +36,10 @@ where
 {
     type Rejection = AppError;
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &S,
+    ) -> Result<Self, Self::Rejection> {
         if let Some(user) = parts.extensions.get::<AuthUser>() {
             return Ok(user.clone());
         }
@@ -46,9 +49,12 @@ where
     }
 }
 
-async fn authenticate(parts: &mut Parts, state: &AppState) -> Result<User, AppError> {
-    let token =
-        cookie_token(parts).ok_or_else(|| AppError::Unauthorized("Not signed in".to_owned()))?;
+async fn authenticate(
+    parts: &mut Parts,
+    state: &AppState,
+) -> Result<User, AppError> {
+    let token = cookie_token(parts)
+        .ok_or_else(|| AppError::Unauthorized("Not signed in".to_owned()))?;
 
     let mut validation = Validation::new(Algorithm::HS256);
     validation.validate_exp = true;
@@ -57,7 +63,11 @@ async fn authenticate(parts: &mut Parts, state: &AppState) -> Result<User, AppEr
         &DecodingKey::from_secret(state.config.jwt_secret.as_bytes()),
         &validation,
     )
-    .map_err(|_| AppError::Unauthorized("Session expired, please sign in again".to_owned()))?
+    .map_err(|_| {
+        AppError::Unauthorized(
+            "Session expired, please sign in again".to_owned(),
+        )
+    })?
     .claims;
 
     user_repo::find_by_id(&state.db, claims.sub)
@@ -72,5 +82,7 @@ fn cookie_token(parts: &Parts) -> Option<String> {
         .to_str()
         .ok()?
         .split(';')
-        .find_map(|part| part.trim().strip_prefix("auth_token=").map(str::to_owned))
+        .find_map(|part| {
+            part.trim().strip_prefix("auth_token=").map(str::to_owned)
+        })
 }

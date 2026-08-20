@@ -23,7 +23,10 @@ pub async fn create(
     .await
 }
 
-pub async fn find_by_email(pool: &PgPool, email: &str) -> Result<Option<User>, sqlx::Error> {
+pub async fn find_by_email(
+    pool: &PgPool,
+    email: &str,
+) -> Result<Option<User>, sqlx::Error> {
     sqlx::query_as::<_, User>(
         "SELECT id, email, name, password_hash, access_level, ai_generation_enabled, created_at
          FROM users WHERE lower(email) = lower($1)",
@@ -33,7 +36,10 @@ pub async fn find_by_email(pool: &PgPool, email: &str) -> Result<Option<User>, s
     .await
 }
 
-pub async fn find_by_id(pool: &PgPool, id: Uuid) -> Result<Option<User>, sqlx::Error> {
+pub async fn find_by_id(
+    pool: &PgPool,
+    id: Uuid,
+) -> Result<Option<User>, sqlx::Error> {
     sqlx::query_as::<_, User>(
         "SELECT id, email, name, password_hash, access_level, ai_generation_enabled, created_at
          FROM users WHERE id = $1",
@@ -43,7 +49,10 @@ pub async fn find_by_id(pool: &PgPool, id: Uuid) -> Result<Option<User>, sqlx::E
     .await
 }
 
-pub async fn bootstrap_admin(pool: &PgPool, email: &str) -> Result<(), sqlx::Error> {
+pub async fn bootstrap_admin(
+    pool: &PgPool,
+    email: &str,
+) -> Result<(), sqlx::Error> {
     sqlx::query("UPDATE users SET access_level = 'admin' WHERE lower(email) = lower($1)")
         .bind(email.trim())
         .execute(pool)
@@ -67,7 +76,10 @@ pub async fn update_name(
     .await
 }
 
-pub async fn delete_account(pool: &PgPool, user_id: Uuid) -> Result<bool, sqlx::Error> {
+pub async fn delete_account(
+    pool: &PgPool,
+    user_id: Uuid,
+) -> Result<bool, sqlx::Error> {
     let mut transaction = pool.begin().await?;
 
     sqlx::query(

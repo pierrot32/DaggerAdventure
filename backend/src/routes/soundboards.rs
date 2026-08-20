@@ -34,10 +34,18 @@ pub async fn create(
     Json(request): Json<CreateSoundBoardRequest>,
 ) -> Result<(StatusCode, Json<crate::models::SoundBoard>), AppError> {
     require_at_least(&user, AccessLevel::AdventureMaker)?;
-    let (name, description) = validate_board_metadata(&request.name, &request.description)?;
-    let shared = request.shared && user.access_level == AccessLevel::Admin.as_str();
-    let board =
-        soundboard_repo::create_board(&state.db, user.id, &name, &description, shared).await?;
+    let (name, description) =
+        validate_board_metadata(&request.name, &request.description)?;
+    let shared =
+        request.shared && user.access_level == AccessLevel::Admin.as_str();
+    let board = soundboard_repo::create_board(
+        &state.db,
+        user.id,
+        &name,
+        &description,
+        shared,
+    )
+    .await?;
     Ok((StatusCode::CREATED, Json(board)))
 }
 
@@ -60,11 +68,22 @@ pub async fn update(
     Json(request): Json<UpdateSoundBoardRequest>,
 ) -> Result<Json<crate::models::SoundBoard>, AppError> {
     require_at_least(&user, AccessLevel::AdventureMaker)?;
-    let (name, description) = validate_board_metadata(&request.name, &request.description)?;
-    soundboard_repo::update_board(&state.db, user.id, board_id, &name, &description)
-        .await?
-        .map(Json)
-        .ok_or_else(|| AppError::NotFound("Soundboard not found or not owned by you".to_owned()))
+    let (name, description) =
+        validate_board_metadata(&request.name, &request.description)?;
+    soundboard_repo::update_board(
+        &state.db,
+        user.id,
+        board_id,
+        &name,
+        &description,
+    )
+    .await?
+    .map(Json)
+    .ok_or_else(|| {
+        AppError::NotFound(
+            "Soundboard not found or not owned by you".to_owned(),
+        )
+    })
 }
 
 pub async fn delete(
@@ -90,7 +109,8 @@ pub async fn create_sound(
     require_at_least(&user, AccessLevel::AdventureMaker)?;
     ensure_board_owner(&state, &user, board_id).await?;
     let form = parse_sound_form(multipart).await?;
-    let sound = soundboard_repo::create_sound(&state.db, board_id, form).await?;
+    let sound =
+        soundboard_repo::create_sound(&state.db, board_id, form).await?;
     Ok((StatusCode::CREATED, Json(sound)))
 }
 
@@ -111,9 +131,14 @@ pub async fn create_source(
 ) -> Result<(StatusCode, Json<crate::models::SoundSource>), AppError> {
     require_at_least(&user, AccessLevel::AdventureMaker)?;
     let (name, website_url, description) = validate_source(&request)?;
-    let source =
-        soundboard_repo::create_source(&state.db, user.id, &name, &website_url, &description)
-            .await?;
+    let source = soundboard_repo::create_source(
+        &state.db,
+        user.id,
+        &name,
+        &website_url,
+        &description,
+    )
+    .await?;
     Ok((StatusCode::CREATED, Json(source)))
 }
 
@@ -135,7 +160,9 @@ pub async fn update_source(
     )
     .await?
     .map(Json)
-    .ok_or_else(|| AppError::NotFound("Source not found or not owned by you".to_owned()))
+    .ok_or_else(|| {
+        AppError::NotFound("Source not found or not owned by you".to_owned())
+    })
 }
 
 pub async fn delete_source(
@@ -194,7 +221,9 @@ pub async fn delete_library_track(
     Path(track_id): Path<Uuid>,
 ) -> Result<StatusCode, AppError> {
     require_at_least(&user, AccessLevel::AdventureMaker)?;
-    if !soundboard_repo::delete_library_track(&state.db, user.id, track_id).await? {
+    if !soundboard_repo::delete_library_track(&state.db, user.id, track_id)
+        .await?
+    {
         return Err(AppError::NotFound(
             "Library track not found or not owned by you".to_owned(),
         ));
@@ -209,7 +238,11 @@ pub async fn attach_library_track(
 ) -> Result<StatusCode, AppError> {
     require_at_least(&user, AccessLevel::AdventureMaker)?;
     ensure_board_owner(&state, &user, board_id).await?;
-    if !soundboard_repo::attach_library_track(&state.db, user.id, board_id, track_id).await? {
+    if !soundboard_repo::attach_library_track(
+        &state.db, user.id, board_id, track_id,
+    )
+    .await?
+    {
         return Err(AppError::NotFound(
             "Library track not found or already attached".to_owned(),
         ));
@@ -223,7 +256,11 @@ pub async fn detach_library_track(
     Path((board_id, track_id)): Path<(Uuid, Uuid)>,
 ) -> Result<StatusCode, AppError> {
     require_at_least(&user, AccessLevel::AdventureMaker)?;
-    if !soundboard_repo::detach_library_track(&state.db, user.id, board_id, track_id).await? {
+    if !soundboard_repo::detach_library_track(
+        &state.db, user.id, board_id, track_id,
+    )
+    .await?
+    {
         return Err(AppError::NotFound(
             "Library track is not attached to this board".to_owned(),
         ));
@@ -240,10 +277,15 @@ pub async fn library_media(
     let column = match kind.as_str() {
         "audio" => "audio_data, audio_mime_type",
         "image" => "image_data, image_mime_type",
-        _ => return Err(AppError::NotFound("Library media not found".to_owned())),
+        _ => {
+            return Err(AppError::NotFound(
+                "Library media not found".to_owned(),
+            ));
+        }
     };
-    let query =
-        format!("SELECT {column} FROM sound_library_tracks WHERE id = $1 AND owner_id = $2");
+    let query = format!(
+        "SELECT {column} FROM sound_library_tracks WHERE id = $1 AND owner_id = $2"
+    );
     let row = sqlx::query_as::<_, (Option<Vec<u8>>, Option<String>)>(&query)
         .bind(track_id)
         .bind(user.id)
@@ -252,14 +294,17 @@ pub async fn library_media(
     let Some((data, mime)) = row.and_then(|(data, mime)| data.zip(mime)) else {
         return Err(AppError::NotFound("Library media not found".to_owned()));
     };
-    let mime = HeaderValue::from_str(&mime)
-        .map_err(|_| AppError::Internal("Invalid stored media type".to_owned()))?;
+    let mime = HeaderValue::from_str(&mime).map_err(|_| {
+        AppError::Internal("Invalid stored media type".to_owned())
+    })?;
     Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, mime)
         .header(header::CACHE_CONTROL, "private, max-age=3600")
         .body(Body::from(data))
-        .map_err(|_| AppError::Internal("Could not build media response".to_owned()))
+        .map_err(|_| {
+            AppError::Internal("Could not build media response".to_owned())
+        })
 }
 
 pub async fn delete_sound(
@@ -268,7 +313,9 @@ pub async fn delete_sound(
     Path((board_id, sound_id)): Path<(Uuid, Uuid)>,
 ) -> Result<StatusCode, AppError> {
     require_at_least(&user, AccessLevel::AdventureMaker)?;
-    if !soundboard_repo::delete_sound(&state.db, user.id, board_id, sound_id).await? {
+    if !soundboard_repo::delete_sound(&state.db, user.id, board_id, sound_id)
+        .await?
+    {
         return Err(AppError::NotFound(
             "Sound not found or not owned by you".to_owned(),
         ));
@@ -283,18 +330,22 @@ pub async fn media(
 ) -> Result<impl IntoResponse, AppError> {
     require_at_least(&user, AccessLevel::AdventureMaker)?;
     let Some((data, mime)) =
-        soundboard_repo::media(&state.db, &user, board_id, sound_id, &kind).await?
+        soundboard_repo::media(&state.db, &user, board_id, sound_id, &kind)
+            .await?
     else {
         return Err(AppError::NotFound("Sound media not found".to_owned()));
     };
-    let mime = HeaderValue::from_str(&mime)
-        .map_err(|_| AppError::Internal("Invalid stored media type".to_owned()))?;
+    let mime = HeaderValue::from_str(&mime).map_err(|_| {
+        AppError::Internal("Invalid stored media type".to_owned())
+    })?;
     Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, mime)
         .header(header::CACHE_CONTROL, "private, max-age=3600")
         .body(Body::from(data))
-        .map_err(|_| AppError::Internal("Could not build media response".to_owned()))
+        .map_err(|_| {
+            AppError::Internal("Could not build media response".to_owned())
+        })
 }
 
 async fn ensure_board_owner(
@@ -313,7 +364,10 @@ async fn ensure_board_owner(
     Ok(())
 }
 
-fn validate_board_metadata(name: &str, description: &str) -> Result<(String, String), AppError> {
+fn validate_board_metadata(
+    name: &str,
+    description: &str,
+) -> Result<(String, String), AppError> {
     let name = name.trim();
     let description = description.trim();
     if name.is_empty() || name.len() > 120 {
@@ -334,8 +388,13 @@ fn validate_source(
 ) -> Result<(String, String, String), AppError> {
     let name = request.name.trim();
     let description = request.description.trim();
-    let website_url = clean_optional_url(request.website_url.clone(), "Website URL")?
-        .ok_or_else(|| AppError::Validation("A source website URL is required".to_owned()))?;
+    let website_url =
+        clean_optional_url(request.website_url.clone(), "Website URL")?
+            .ok_or_else(|| {
+                AppError::Validation(
+                    "A source website URL is required".to_owned(),
+                )
+            })?;
     if name.is_empty() || name.len() > 160 {
         return Err(AppError::Validation(
             "Source names must be 1 to 160 characters".to_owned(),
@@ -349,7 +408,9 @@ fn validate_source(
     Ok((name.to_owned(), website_url, description.to_owned()))
 }
 
-async fn parse_sound_form(mut multipart: Multipart) -> Result<NewSound, AppError> {
+async fn parse_sound_form(
+    mut multipart: Multipart,
+) -> Result<NewSound, AppError> {
     let mut name = None;
     let mut audio_url = None;
     let mut audio = None;
@@ -361,11 +422,9 @@ async fn parse_sound_form(mut multipart: Multipart) -> Result<NewSound, AppError
     let mut source_id = None;
     let mut source_credit = None;
     let mut labels = Vec::new();
-    while let Some(field) = multipart
-        .next_field()
-        .await
-        .map_err(|_| AppError::Validation("Could not read the sound upload".to_owned()))?
-    {
+    while let Some(field) = multipart.next_field().await.map_err(|_| {
+        AppError::Validation("Could not read the sound upload".to_owned())
+    })? {
         let Some(field_name) = field.name().map(str::to_owned) else {
             continue;
         };
@@ -379,7 +438,9 @@ async fn parse_sound_form(mut multipart: Multipart) -> Result<NewSound, AppError
                     .bytes()
                     .await
                     .map_err(|_| {
-                        AppError::Validation("Could not read the uploaded file".to_owned())
+                        AppError::Validation(
+                            "Could not read the uploaded file".to_owned(),
+                        )
                     })?
                     .to_vec();
                 if field_name == "audio" {
@@ -388,7 +449,8 @@ async fn parse_sound_form(mut multipart: Multipart) -> Result<NewSound, AppError
                             "Audio uploads must be non-empty audio files under 50 MB".to_owned(),
                         ));
                     }
-                    let mime_type = validate_audio_signature(&bytes, &content_type)?;
+                    let mime_type =
+                        validate_audio_signature(&bytes, &content_type)?;
                     audio = Some((bytes, mime_type.to_owned()));
                 } else {
                     if bytes.is_empty() || bytes.len() > MAX_IMAGE_BYTES {
@@ -396,24 +458,31 @@ async fn parse_sound_form(mut multipart: Multipart) -> Result<NewSound, AppError
                             "Artwork uploads must be non-empty images under 5 MB".to_owned(),
                         ));
                     }
-                    let mime_type = validate_image_signature(&bytes, &content_type)?;
+                    let mime_type =
+                        validate_image_signature(&bytes, &content_type)?;
                     image = Some((bytes, mime_type.to_owned()));
                 }
             }
             "labels" => {
-                labels.extend(parse_labels(&field.text().await.map_err(|_| {
-                    AppError::Validation("Could not read labels".to_owned())
-                })?)?);
+                labels.extend(parse_labels(&field.text().await.map_err(
+                    |_| {
+                        AppError::Validation("Could not read labels".to_owned())
+                    },
+                )?)?);
             }
             "name" => {
                 name = Some(field.text().await.map_err(|_| {
-                    AppError::Validation("Could not read the sound name".to_owned())
+                    AppError::Validation(
+                        "Could not read the sound name".to_owned(),
+                    )
                 })?)
             }
             "audio_url" => {
                 audio_url = clean_optional_url(
                     field.text().await.map_err(|_| {
-                        AppError::Validation("Could not read the audio URL".to_owned())
+                        AppError::Validation(
+                            "Could not read the audio URL".to_owned(),
+                        )
                     })?,
                     "audio URL",
                 )?
@@ -421,7 +490,9 @@ async fn parse_sound_form(mut multipart: Multipart) -> Result<NewSound, AppError
             "image_url" => {
                 image_url = clean_optional_url(
                     field.text().await.map_err(|_| {
-                        AppError::Validation("Could not read the artwork URL".to_owned())
+                        AppError::Validation(
+                            "Could not read the artwork URL".to_owned(),
+                        )
                     })?,
                     "artwork URL",
                 )?
@@ -429,7 +500,9 @@ async fn parse_sound_form(mut multipart: Multipart) -> Result<NewSound, AppError
             "creator_name" => {
                 creator_name = clean_optional_text(
                     field.text().await.map_err(|_| {
-                        AppError::Validation("Could not read the creator name".to_owned())
+                        AppError::Validation(
+                            "Could not read the creator name".to_owned(),
+                        )
                     })?,
                     160,
                 )?;
@@ -437,7 +510,9 @@ async fn parse_sound_form(mut multipart: Multipart) -> Result<NewSound, AppError
             "source_name" => {
                 source_name = clean_optional_text(
                     field.text().await.map_err(|_| {
-                        AppError::Validation("Could not read the source name".to_owned())
+                        AppError::Validation(
+                            "Could not read the source name".to_owned(),
+                        )
                     })?,
                     160,
                 )?;
@@ -445,28 +520,30 @@ async fn parse_sound_form(mut multipart: Multipart) -> Result<NewSound, AppError
             "source_url" => {
                 source_url = clean_optional_url(
                     field.text().await.map_err(|_| {
-                        AppError::Validation("Could not read the source URL".to_owned())
+                        AppError::Validation(
+                            "Could not read the source URL".to_owned(),
+                        )
                     })?,
                     "source URL",
                 )?
             }
             "source_id" => {
-                let value = field
-                    .text()
-                    .await
-                    .map_err(|_| AppError::Validation("Could not read the source".to_owned()))?;
+                let value = field.text().await.map_err(|_| {
+                    AppError::Validation("Could not read the source".to_owned())
+                })?;
                 let value = value.trim();
                 if !value.is_empty() {
-                    source_id = Some(
-                        Uuid::parse_str(value)
-                            .map_err(|_| AppError::Validation("Source is invalid".to_owned()))?,
-                    );
+                    source_id = Some(Uuid::parse_str(value).map_err(|_| {
+                        AppError::Validation("Source is invalid".to_owned())
+                    })?);
                 }
             }
             "source_credit" => {
                 source_credit = clean_optional_text(
                     field.text().await.map_err(|_| {
-                        AppError::Validation("Could not read source credit".to_owned())
+                        AppError::Validation(
+                            "Could not read source credit".to_owned(),
+                        )
                     })?,
                     800,
                 )?;
@@ -477,7 +554,9 @@ async fn parse_sound_form(mut multipart: Multipart) -> Result<NewSound, AppError
     let name = name
         .map(|value| value.trim().to_owned())
         .filter(|value| !value.is_empty())
-        .ok_or_else(|| AppError::Validation("Every sound needs a name".to_owned()))?;
+        .ok_or_else(|| {
+            AppError::Validation("Every sound needs a name".to_owned())
+        })?;
     if name.len() > 160 {
         return Err(AppError::Validation(
             "Sound names cannot exceed 160 characters".to_owned(),
@@ -485,7 +564,8 @@ async fn parse_sound_form(mut multipart: Multipart) -> Result<NewSound, AppError
     }
     if audio.is_some() && audio_url.is_some() {
         return Err(AppError::Validation(
-            "Choose an uploaded audio file or an audio URL, not both".to_owned(),
+            "Choose an uploaded audio file or an audio URL, not both"
+                .to_owned(),
         ));
     }
     if audio.is_none() && audio_url.is_none() {
@@ -532,7 +612,10 @@ fn parse_labels(value: &str) -> Result<Vec<String>, AppError> {
         .collect()
 }
 
-fn clean_optional_text(value: String, max_length: usize) -> Result<Option<String>, AppError> {
+fn clean_optional_text(
+    value: String,
+    max_length: usize,
+) -> Result<Option<String>, AppError> {
     let value = value.trim();
     if value.is_empty() {
         return Ok(None);
@@ -545,14 +628,21 @@ fn clean_optional_text(value: String, max_length: usize) -> Result<Option<String
     Ok(Some(value.to_owned()))
 }
 
-fn validate_audio_signature(bytes: &[u8], declared_type: &str) -> Result<&'static str, AppError> {
-    let detected = if bytes.starts_with(b"ID3") || looks_like_mpeg_frame(bytes) {
+fn validate_audio_signature(
+    bytes: &[u8],
+    declared_type: &str,
+) -> Result<&'static str, AppError> {
+    let detected = if bytes.starts_with(b"ID3") || looks_like_mpeg_frame(bytes)
+    {
         Some("audio/mpeg")
     } else if bytes.starts_with(b"OggS") {
         Some("audio/ogg")
     } else if bytes.starts_with(b"fLaC") {
         Some("audio/flac")
-    } else if bytes.len() >= 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WAVE" {
+    } else if bytes.len() >= 12
+        && &bytes[..4] == b"RIFF"
+        && &bytes[8..12] == b"WAVE"
+    {
         Some("audio/wav")
     } else if bytes.len() >= 12 && &bytes[4..8] == b"ftyp" {
         Some("audio/mp4")
@@ -562,18 +652,26 @@ fn validate_audio_signature(bytes: &[u8], declared_type: &str) -> Result<&'stati
     validate_declared_type(detected, declared_type, "audio")
 }
 
-fn validate_image_signature(bytes: &[u8], declared_type: &str) -> Result<&'static str, AppError> {
+fn validate_image_signature(
+    bytes: &[u8],
+    declared_type: &str,
+) -> Result<&'static str, AppError> {
     let detected = if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
         Some("image/png")
     } else if bytes.starts_with(b"\xff\xd8\xff") {
         Some("image/jpeg")
     } else if bytes.starts_with(b"GIF87a") || bytes.starts_with(b"GIF89a") {
         Some("image/gif")
-    } else if bytes.len() >= 12 && &bytes[..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
+    } else if bytes.len() >= 12
+        && &bytes[..4] == b"RIFF"
+        && &bytes[8..12] == b"WEBP"
+    {
         Some("image/webp")
     } else if bytes.starts_with(b"BM") {
         Some("image/bmp")
-    } else if bytes.len() >= 4 && ((&bytes[..4] == b"II*\0") || (&bytes[..4] == b"MM\0*")) {
+    } else if bytes.len() >= 4
+        && ((&bytes[..4] == b"II*\0") || (&bytes[..4] == b"MM\0*"))
+    {
         Some("image/tiff")
     } else {
         None
@@ -582,7 +680,10 @@ fn validate_image_signature(bytes: &[u8], declared_type: &str) -> Result<&'stati
 }
 
 fn looks_like_mpeg_frame(bytes: &[u8]) -> bool {
-    bytes.len() >= 2 && bytes[0] == 0xff && (bytes[1] & 0xe0) == 0xe0 && (bytes[1] & 0x06) != 0
+    bytes.len() >= 2
+        && bytes[0] == 0xff
+        && (bytes[1] & 0xe0) == 0xe0
+        && (bytes[1] & 0x06) != 0
 }
 
 fn validate_declared_type(
@@ -608,15 +709,21 @@ fn validate_declared_type(
                 || declared_type == "audio/opus"
                 || declared_type == "application/ogg"
         }
-        "audio/flac" => declared_type == "audio/flac" || declared_type == "audio/x-flac",
+        "audio/flac" => {
+            declared_type == "audio/flac" || declared_type == "audio/x-flac"
+        }
         "audio/wav" => {
             declared_type == "audio/wav"
                 || declared_type == "audio/x-wav"
                 || declared_type == "audio/wave"
         }
-        "audio/mp4" => declared_type == "audio/mp4" || declared_type == "audio/x-m4a",
+        "audio/mp4" => {
+            declared_type == "audio/mp4" || declared_type == "audio/x-m4a"
+        }
         "image/png" => declared_type == "image/png",
-        "image/jpeg" => declared_type == "image/jpeg" || declared_type == "image/jpg",
+        "image/jpeg" => {
+            declared_type == "image/jpeg" || declared_type == "image/jpg"
+        }
         "image/gif" => declared_type == "image/gif",
         "image/webp" => declared_type == "image/webp",
         "image/bmp" => declared_type == "image/bmp",
@@ -631,17 +738,24 @@ fn validate_declared_type(
     Ok(detected)
 }
 
-fn clean_optional_url(value: String, label: &str) -> Result<Option<String>, AppError> {
+fn clean_optional_url(
+    value: String,
+    label: &str,
+) -> Result<Option<String>, AppError> {
     let value = value.trim();
     if value.is_empty() {
         return Ok(None);
     }
     let parsed = Url::parse(value).map_err(|_| {
-        AppError::Validation(format!("{label} must be a valid http:// or https:// URL"))
+        AppError::Validation(format!(
+            "{label} must be a valid http:// or https:// URL"
+        ))
     })?;
     let authority = value
         .split_once("://")
-        .map(|(_, remainder)| remainder.split(['/', '?', '#']).next().unwrap_or_default())
+        .map(|(_, remainder)| {
+            remainder.split(['/', '?', '#']).next().unwrap_or_default()
+        })
         .unwrap_or_default();
     if !matches!(parsed.scheme(), "http" | "https")
         || parsed.host_str().is_none_or(str::is_empty)
@@ -701,7 +815,11 @@ mod tests {
             );
         }
         assert_eq!(
-            clean_optional_url(" https://example.com/audio.mp3 ".to_owned(), "URL").unwrap(),
+            clean_optional_url(
+                " https://example.com/audio.mp3 ".to_owned(),
+                "URL"
+            )
+            .unwrap(),
             Some("https://example.com/audio.mp3".to_owned())
         );
     }
@@ -736,10 +854,13 @@ mod tests {
             "audio/ogg"
         );
         assert_eq!(
-            validate_image_signature(b"\x89PNG\r\n\x1a\nimage", "image/png").unwrap(),
+            validate_image_signature(b"\x89PNG\r\n\x1a\nimage", "image/png")
+                .unwrap(),
             "image/png"
         );
         assert!(validate_audio_signature(b"ID3audio", "audio/ogg").is_err());
-        assert!(validate_image_signature(b"not an image", "image/png").is_err());
+        assert!(
+            validate_image_signature(b"not an image", "image/png").is_err()
+        );
     }
 }

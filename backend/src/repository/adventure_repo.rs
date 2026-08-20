@@ -4,8 +4,8 @@ use uuid::Uuid;
 use crate::{
     error::AppError,
     models::{
-        Adventure, AdventureCharacterSummary, AdventureInvite, AdventurePlayer, PendingInviteView,
-        User,
+        Adventure, AdventureCharacterSummary, AdventureInvite, AdventurePlayer,
+        PendingInviteView, User,
     },
 };
 
@@ -107,7 +107,10 @@ pub async fn create_with_frame(
     Ok(adventure)
 }
 
-pub async fn list_visible(pool: &PgPool, user: &User) -> Result<Vec<Adventure>, sqlx::Error> {
+pub async fn list_visible(
+    pool: &PgPool,
+    user: &User,
+) -> Result<Vec<Adventure>, sqlx::Error> {
     let is_admin = user.access_level == "admin";
     sqlx::query_as::<_, Adventure>(
         "SELECT DISTINCT a.id, a.creator_id, a.name, a.description, a.fear, a.created_at, a.updated_at
@@ -233,8 +236,12 @@ pub async fn list_players(
             user_name: row.user_name,
             character: row.character_id.map(|id| AdventureCharacterSummary {
                 id,
-                name: row.character_name.expect("character name accompanies id"),
-                level: row.character_level.expect("character level accompanies id"),
+                name: row
+                    .character_name
+                    .expect("character name accompanies id"),
+                level: row
+                    .character_level
+                    .expect("character level accompanies id"),
                 class_id: row
                     .character_class_id
                     .expect("character class accompanies id"),
@@ -268,12 +275,13 @@ pub async fn create_invite(
     email: &str,
 ) -> Result<AdventureInvite, AppError> {
     let mut transaction = pool.begin().await?;
-    let adventure =
-        sqlx::query_scalar::<_, Uuid>("SELECT creator_id FROM adventures WHERE id = $1 FOR UPDATE")
-            .bind(adventure_id)
-            .fetch_optional(&mut *transaction)
-            .await?
-            .ok_or_else(|| AppError::NotFound("Adventure not found".to_owned()))?;
+    let adventure = sqlx::query_scalar::<_, Uuid>(
+        "SELECT creator_id FROM adventures WHERE id = $1 FOR UPDATE",
+    )
+    .bind(adventure_id)
+    .fetch_optional(&mut *transaction)
+    .await?
+    .ok_or_else(|| AppError::NotFound("Adventure not found".to_owned()))?;
 
     if adventure != inviter.id {
         return Err(AppError::Forbidden(
@@ -281,11 +289,12 @@ pub async fn create_invite(
         ));
     }
 
-    let recipient_user_id =
-        sqlx::query_scalar::<_, Uuid>("SELECT id FROM users WHERE lower(email) = lower($1)")
-            .bind(email)
-            .fetch_optional(&mut *transaction)
-            .await?;
+    let recipient_user_id = sqlx::query_scalar::<_, Uuid>(
+        "SELECT id FROM users WHERE lower(email) = lower($1)",
+    )
+    .bind(email)
+    .fetch_optional(&mut *transaction)
+    .await?;
 
     let invite = sqlx::query_as::<_, AdventureInvite>(
         "INSERT INTO adventure_invites
@@ -303,7 +312,9 @@ pub async fn create_invite(
     .await
     .map_err(|error| {
         if crate::repository::user_repo::is_unique_violation(&error) {
-            AppError::Conflict("A pending invitation already exists for this email".to_owned())
+            AppError::Conflict(
+                "A pending invitation already exists for this email".to_owned(),
+            )
         } else {
             AppError::Internal(error.to_string())
         }
@@ -336,11 +347,13 @@ pub async fn list_invites(
     creator_id: Uuid,
     adventure_id: Uuid,
 ) -> Result<Vec<AdventureInvite>, AppError> {
-    let owner = sqlx::query_scalar::<_, Uuid>("SELECT creator_id FROM adventures WHERE id = $1")
-        .bind(adventure_id)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Adventure not found".to_owned()))?;
+    let owner = sqlx::query_scalar::<_, Uuid>(
+        "SELECT creator_id FROM adventures WHERE id = $1",
+    )
+    .bind(adventure_id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| AppError::NotFound("Adventure not found".to_owned()))?;
     if owner != creator_id {
         return Err(AppError::Forbidden(
             "Only the adventure creator can view invites".to_owned(),
@@ -386,11 +399,13 @@ pub async fn update_fear(
     fear: i32,
 ) -> Result<Adventure, AppError> {
     let fear = fear.clamp(0, 12);
-    let owner = sqlx::query_scalar::<_, Uuid>("SELECT creator_id FROM adventures WHERE id = $1")
-        .bind(adventure_id)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Adventure not found".to_owned()))?;
+    let owner = sqlx::query_scalar::<_, Uuid>(
+        "SELECT creator_id FROM adventures WHERE id = $1",
+    )
+    .bind(adventure_id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| AppError::NotFound("Adventure not found".to_owned()))?;
     if owner != user.id {
         return Err(AppError::Forbidden(
             "Only the GM can change the Fear pool".to_owned(),
@@ -424,7 +439,9 @@ pub async fn accept_invite(
     .await?
     .ok_or_else(|| AppError::NotFound("Invitation not found".to_owned()))?;
 
-    if invite.status != "pending" || !invite.recipient_email.eq_ignore_ascii_case(&user.email) {
+    if invite.status != "pending"
+        || !invite.recipient_email.eq_ignore_ascii_case(&user.email)
+    {
         return Err(AppError::Forbidden(
             "This invitation is not available to you".to_owned(),
         ));
@@ -478,7 +495,10 @@ pub async fn decline_invite(
     Ok(invite)
 }
 
-pub async fn link_pending_invites(pool: &PgPool, user: &User) -> Result<(), sqlx::Error> {
+pub async fn link_pending_invites(
+    pool: &PgPool,
+    user: &User,
+) -> Result<(), sqlx::Error> {
     #[derive(sqlx::FromRow)]
     struct PendingInvite {
         id: Uuid,

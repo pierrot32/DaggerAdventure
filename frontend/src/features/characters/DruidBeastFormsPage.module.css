@@ -1,34 +1,143 @@
-.page { display: grid; gap: var(--space-5); max-width: 1120px; }
-.header { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-5); }
-.header h2 { margin-top: var(--space-2); }
-.back { display: block; margin-bottom: var(--space-4); color: var(--color-muted-inverse); }
-.button { display: inline-flex; align-items: center; justify-content: center; padding: 9px 13px; border: 1px solid var(--color-accent); background: var(--color-accent); color: #1b1713; text-decoration: none; }
-.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-5); }
-.card { display: grid; gap: var(--space-4); padding: var(--space-5); border-top: 3px solid var(--color-accent); background: rgba(244, 238, 228, .07); }
-.cardHeader { display: flex; justify-content: space-between; gap: var(--space-4); align-items: flex-start; }
-.tier { color: var(--color-accent); font-size: 11px; letter-spacing: .1em; }
-.card h3 { margin-top: var(--space-2); font-size: 25px; text-transform: uppercase; }
-.examples { max-width: 220px; color: var(--color-muted-inverse); font-size: 13px; line-height: 1.4; text-align: right; }
-.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
-.stats div { display: grid; gap: 4px; padding: var(--space-3); background: rgba(20, 18, 16, .45); }
-.stats span { color: var(--color-muted-inverse); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
-.stats strong { color: var(--color-text-inverse); font-size: 14px; }
-.advantages, .feature { color: var(--color-muted-inverse); line-height: 1.6; }
-.advantages strong, .feature strong { color: var(--color-text-inverse); }
-.features { display: grid; gap: var(--space-3); padding-top: var(--space-3); border-top: 1px solid rgba(244, 238, 228, .14); }
-.features .feature { margin: 0; }
-.notice, .empty { max-width: 680px; padding: var(--space-6); border-top: 2px solid var(--color-accent); background: rgba(244, 238, 228, .07); }
-.notice h2, .empty h3 { margin: var(--space-2) 0 var(--space-3); }
-.notice .button { margin-top: var(--space-5); }
-.error { color: #ffb4ac; }
+.page {
+	display: grid;
+	gap: var(--space-5);
+	max-width: 1120px;
+}
+.header {
+	display: flex;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: var(--space-5);
+}
+.header h2 {
+	margin-top: var(--space-2);
+}
+.back {
+	display: block;
+	margin-bottom: var(--space-4);
+	color: var(--color-muted-inverse);
+}
+.button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 9px 13px;
+	border: 1px solid var(--color-accent);
+	background: var(--color-accent);
+	color: #1b1713;
+	text-decoration: none;
+}
+.grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--space-5);
+}
+.card {
+	display: grid;
+	gap: var(--space-4);
+	padding: var(--space-5);
+	border-top: 3px solid var(--color-accent);
+	background: rgba(244, 238, 228, 0.07);
+}
+.cardHeader {
+	display: flex;
+	justify-content: space-between;
+	gap: var(--space-4);
+	align-items: flex-start;
+}
+.tier {
+	color: var(--color-accent);
+	font-size: 11px;
+	letter-spacing: 0.1em;
+}
+.card h3 {
+	margin-top: var(--space-2);
+	font-size: 25px;
+	text-transform: uppercase;
+}
+.examples {
+	max-width: 220px;
+	color: var(--color-muted-inverse);
+	font-size: 13px;
+	line-height: 1.4;
+	text-align: right;
+}
+.stats {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: var(--space-2);
+}
+.stats div {
+	display: grid;
+	gap: 4px;
+	padding: var(--space-3);
+	background: rgba(20, 18, 16, 0.45);
+}
+.stats span {
+	color: var(--color-muted-inverse);
+	font-size: 10px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+.stats strong {
+	color: var(--color-text-inverse);
+	font-size: 14px;
+}
+.advantages,
+.feature {
+	color: var(--color-muted-inverse);
+	line-height: 1.6;
+}
+.advantages strong,
+.feature strong {
+	color: var(--color-text-inverse);
+}
+.features {
+	display: grid;
+	gap: var(--space-3);
+	padding-top: var(--space-3);
+	border-top: 1px solid rgba(244, 238, 228, 0.14);
+}
+.features .feature {
+	margin: 0;
+}
+.notice,
+.empty {
+	max-width: 680px;
+	padding: var(--space-6);
+	border-top: 2px solid var(--color-accent);
+	background: rgba(244, 238, 228, 0.07);
+}
+.notice h2,
+.empty h3 {
+	margin: var(--space-2) 0 var(--space-3);
+}
+.notice .button {
+	margin-top: var(--space-5);
+}
+.error {
+	color: #ffb4ac;
+}
 
 @media (max-width: 760px) {
-  .header { align-items: flex-start; flex-direction: column; }
-  .grid { grid-template-columns: 1fr; }
+	.header {
+		align-items: flex-start;
+		flex-direction: column;
+	}
+	.grid {
+		grid-template-columns: 1fr;
+	}
 }
 
 @media (max-width: 480px) {
-  .cardHeader { flex-direction: column; }
-  .examples { max-width: none; text-align: left; }
-  .stats { grid-template-columns: 1fr; }
+	.cardHeader {
+		flex-direction: column;
+	}
+	.examples {
+		max-width: none;
+		text-align: left;
+	}
+	.stats {
+		grid-template-columns: 1fr;
+	}
 }

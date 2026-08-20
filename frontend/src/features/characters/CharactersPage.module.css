@@ -1,28 +1,87 @@
 .heading {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--space-5);
-  margin-bottom: var(--space-7);
+	display: flex;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: var(--space-5);
+	margin-bottom: var(--space-7);
 }
 
-.heading h2 { margin-top: var(--space-2); }
-.heading a { text-decoration: none; }
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-5); }
-.card, .empty { padding: var(--space-5); border: 1px solid rgba(244, 238, 228, 0.14); border-radius: var(--radius-md); background: rgba(244, 238, 228, 0.07); }
-.cardLink { display: block; text-decoration: none; }
-.card h3 { margin: var(--space-2) 0; color: var(--color-accent); }
-.card p { margin: var(--space-2) 0 0; }
-.description { margin-top: var(--space-4) !important; color: var(--color-muted-inverse); font-size: 14px; }
-.empty { grid-column: 1 / -1; border-style: dashed; }
-.empty h3 { margin-bottom: var(--space-2); }
-.empty a { display: inline-block; margin-top: var(--space-4); }
-.error { color: #f0a59d; }
-.cardActions { display: flex; justify-content: flex-end; margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid rgba(244, 238, 228, 0.14); }
-.deleteButton { padding: 6px 10px; border: 1px solid rgba(240, 165, 157, 0.5); background: transparent; color: #f0a59d; cursor: pointer; font: inherit; font-size: 12px; }
-.deleteButton:hover:not(:disabled) { border-color: #f0a59d; background: rgba(240, 165, 157, 0.08); }
-.deleteButton:disabled { cursor: wait; opacity: .6; }
+.heading h2 {
+	margin-top: var(--space-2);
+}
+.heading a {
+	text-decoration: none;
+}
+.grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+	gap: var(--space-5);
+}
+.card,
+.empty {
+	padding: var(--space-5);
+	border: 1px solid rgba(244, 238, 228, 0.14);
+	border-radius: var(--radius-md);
+	background: rgba(244, 238, 228, 0.07);
+}
+.cardLink {
+	display: block;
+	text-decoration: none;
+}
+.card h3 {
+	margin: var(--space-2) 0;
+	color: var(--color-accent);
+}
+.card p {
+	margin: var(--space-2) 0 0;
+}
+.description {
+	margin-top: var(--space-4) !important;
+	color: var(--color-muted-inverse);
+	font-size: 14px;
+}
+.empty {
+	grid-column: 1 / -1;
+	border-style: dashed;
+}
+.empty h3 {
+	margin-bottom: var(--space-2);
+}
+.empty a {
+	display: inline-block;
+	margin-top: var(--space-4);
+}
+.error {
+	color: #f0a59d;
+}
+.cardActions {
+	display: flex;
+	justify-content: flex-end;
+	margin-top: var(--space-5);
+	padding-top: var(--space-4);
+	border-top: 1px solid rgba(244, 238, 228, 0.14);
+}
+.deleteButton {
+	padding: 6px 10px;
+	border: 1px solid rgba(240, 165, 157, 0.5);
+	background: transparent;
+	color: #f0a59d;
+	cursor: pointer;
+	font: inherit;
+	font-size: 12px;
+}
+.deleteButton:hover:not(:disabled) {
+	border-color: #f0a59d;
+	background: rgba(240, 165, 157, 0.08);
+}
+.deleteButton:disabled {
+	cursor: wait;
+	opacity: 0.6;
+}
 
 @media (max-width: 680px) {
-  .heading { align-items: flex-start; flex-direction: column; }
+	.heading {
+		align-items: flex-start;
+		flex-direction: column;
+	}
 }

@@ -8,7 +8,8 @@ const CHARACTER_FIELDS: &str = "id, user_id, adventure_id, name, pronouns, descr
     advancements, class_id, subclass_id, ancestry_id, secondary_ancestry_id, community_id, traits,
     experiences, background_answers, background_story, background_notes, birth_city, family_members,
     connections, equipment, domain_cards, stats, created_at, updated_at";
-const CHARACTER_SUMMARY_FIELDS: &str = "id, name, level, class_id, ancestry_id, community_id";
+const CHARACTER_SUMMARY_FIELDS: &str =
+    "id, name, level, class_id, ancestry_id, community_id";
 
 pub async fn create(
     pool: &PgPool,
@@ -78,7 +79,9 @@ pub async fn find_for_user(
     user_id: Uuid,
     character_id: Uuid,
 ) -> Result<Option<Character>, sqlx::Error> {
-    let query = format!("SELECT {CHARACTER_FIELDS} FROM characters WHERE id = $1 AND user_id = $2");
+    let query = format!(
+        "SELECT {CHARACTER_FIELDS} FROM characters WHERE id = $1 AND user_id = $2"
+    );
     sqlx::query_as::<_, Character>(&query)
         .bind(character_id)
         .bind(user_id)
@@ -262,10 +265,11 @@ pub async fn delete_for_user(
     user_id: Uuid,
     character_id: Uuid,
 ) -> Result<bool, sqlx::Error> {
-    let result = sqlx::query("DELETE FROM characters WHERE id = $1 AND user_id = $2")
-        .bind(character_id)
-        .bind(user_id)
-        .execute(pool)
-        .await?;
+    let result =
+        sqlx::query("DELETE FROM characters WHERE id = $1 AND user_id = $2")
+            .bind(character_id)
+            .bind(user_id)
+            .execute(pool)
+            .await?;
     Ok(result.rows_affected() == 1)
 }

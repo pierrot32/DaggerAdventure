@@ -16,7 +16,9 @@ pub async fn register(
     State(state): State<AppState>,
     Json(request): Json<RegisterRequest>,
 ) -> Result<Response, AppError> {
-    let result = auth_service::register(&state.db, &state.config.jwt_secret, request).await?;
+    let result =
+        auth_service::register(&state.db, &state.config.jwt_secret, request)
+            .await?;
     Ok(auth_response(
         StatusCode::CREATED,
         &result.user,
@@ -29,7 +31,9 @@ pub async fn login(
     State(state): State<AppState>,
     Json(request): Json<LoginRequest>,
 ) -> Result<Response, AppError> {
-    let result = auth_service::login(&state.db, &state.config.jwt_secret, request).await?;
+    let result =
+        auth_service::login(&state.db, &state.config.jwt_secret, request)
+            .await?;
     Ok(auth_response(
         StatusCode::OK,
         &result.user,
@@ -53,7 +57,12 @@ pub async fn logout(State(state): State<AppState>) -> Response {
     response
 }
 
-fn auth_response(status: StatusCode, user: &UserResponse, token: &str, secure: bool) -> Response {
+fn auth_response(
+    status: StatusCode,
+    user: &UserResponse,
+    token: &str,
+    secure: bool,
+) -> Response {
     let mut response = (status, Json(user)).into_response();
     response
         .headers_mut()

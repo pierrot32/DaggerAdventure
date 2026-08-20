@@ -3,7 +3,8 @@ use uuid::Uuid;
 
 use crate::{error::AppError, models::AiGenerationLog};
 
-pub const PROMPT_TEMPLATE_KEYS: &[&str] = &["playground", "character_builder", "character_image"];
+pub const PROMPT_TEMPLATE_KEYS: &[&str] =
+    &["playground", "character_builder", "character_image"];
 
 pub fn default_prompt_template(generation_type: &str) -> &'static str {
     match generation_type {
@@ -29,7 +30,8 @@ pub async fn prompt_template(
     .bind(generation_type)
     .fetch_optional(pool)
     .await?;
-    Ok(template.unwrap_or_else(|| default_prompt_template(generation_type).to_owned()))
+    Ok(template
+        .unwrap_or_else(|| default_prompt_template(generation_type).to_owned()))
 }
 
 pub async fn insert_log(

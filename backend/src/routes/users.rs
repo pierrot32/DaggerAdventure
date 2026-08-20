@@ -21,7 +21,9 @@ pub async fn update_me(
     user_repo::update_name(&state.db, user.id, &name)
         .await?
         .map(|updated| Json(updated.into()))
-        .ok_or_else(|| crate::error::AppError::NotFound("Account not found".to_owned()))
+        .ok_or_else(|| {
+            crate::error::AppError::NotFound("Account not found".to_owned())
+        })
 }
 
 pub async fn delete_me(

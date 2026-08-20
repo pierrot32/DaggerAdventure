@@ -1,12 +1,62 @@
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-4); margin-top: var(--space-6); }
-.card { display: grid; gap: var(--space-3); padding: var(--space-5); background: rgba(244, 238, 228, 0.08); }
-.cardLink { text-decoration: none; }
-.card h3 { color: var(--color-text-inverse); font-size: 24px; }
-.card p { margin-top: var(--space-3); color: var(--color-muted-inverse); line-height: 1.5; }
-.cardActions { display: flex; justify-content: flex-end; }
-.ownerLabel { color: var(--color-muted-inverse); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
-.invites { display: grid; gap: var(--space-3); margin-top: var(--space-6); }
-.invite { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); padding: var(--space-4); border-left: 3px solid var(--color-accent); background: rgba(244, 238, 228, 0.06); }
-.inviteActions { display: flex; align-items: center; gap: var(--space-3); }
-.error { color: #ffb4ac; }
-@media (max-width: 600px) { .invite { align-items: flex-start; flex-direction: column; } }
+.grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	gap: var(--space-4);
+	margin-top: var(--space-6);
+}
+.card {
+	display: grid;
+	gap: var(--space-3);
+	padding: var(--space-5);
+	background: rgba(244, 238, 228, 0.08);
+}
+.cardLink {
+	text-decoration: none;
+}
+.card h3 {
+	color: var(--color-text-inverse);
+	font-size: 24px;
+}
+.card p {
+	margin-top: var(--space-3);
+	color: var(--color-muted-inverse);
+	line-height: 1.5;
+}
+.cardActions {
+	display: flex;
+	justify-content: flex-end;
+}
+.ownerLabel {
+	color: var(--color-muted-inverse);
+	font-size: 12px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+.invites {
+	display: grid;
+	gap: var(--space-3);
+	margin-top: var(--space-6);
+}
+.invite {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-4);
+	padding: var(--space-4);
+	border-left: 3px solid var(--color-accent);
+	background: rgba(244, 238, 228, 0.06);
+}
+.inviteActions {
+	display: flex;
+	align-items: center;
+	gap: var(--space-3);
+}
+.error {
+	color: #ffb4ac;
+}
+@media (max-width: 600px) {
+	.invite {
+		align-items: flex-start;
+		flex-direction: column;
+	}
+}

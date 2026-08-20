@@ -5,7 +5,9 @@ use backend::{
 };
 use serde_json::json;
 
-fn create_character_request(adventure_id: Option<uuid::Uuid>) -> CreateCharacterRequest {
+fn create_character_request(
+    adventure_id: Option<uuid::Uuid>,
+) -> CreateCharacterRequest {
     CreateCharacterRequest {
         adventure_id,
         stats: json!({}),
@@ -39,7 +41,9 @@ fn create_character_request(adventure_id: Option<uuid::Uuid>) -> CreateCharacter
 
 #[sqlx::test]
 #[ignore = "requires DATABASE_URL and disposable Postgres test databases"]
-async fn character_list_returns_only_owner_scoped_summary_fields(pool: sqlx::PgPool) {
+async fn character_list_returns_only_owner_scoped_summary_fields(
+    pool: sqlx::PgPool,
+) {
     let jwt_secret = "test-secret";
     let owner = auth_service::register(
         &pool,
@@ -64,9 +68,13 @@ async fn character_list_returns_only_owner_scoped_summary_fields(pool: sqlx::PgP
     .await
     .expect("outsider registration should succeed");
 
-    let character = character_repo::create(&pool, owner.user.id, &create_character_request(None))
-        .await
-        .expect("character creation should succeed");
+    let character = character_repo::create(
+        &pool,
+        owner.user.id,
+        &create_character_request(None),
+    )
+    .await
+    .expect("character creation should succeed");
 
     let summaries = character_repo::list_for_user(&pool, owner.user.id)
         .await
@@ -84,9 +92,10 @@ async fn character_list_returns_only_owner_scoped_summary_fields(pool: sqlx::PgP
         })
     );
 
-    let outsider_summaries = character_repo::list_for_user(&pool, outsider.user.id)
-        .await
-        .expect("outsider list should succeed");
+    let outsider_summaries =
+        character_repo::list_for_user(&pool, outsider.user.id)
+            .await
+            .expect("outsider list should succeed");
     assert!(outsider_summaries.is_empty());
 }
 
@@ -120,9 +129,13 @@ async fn only_the_owner_can_persist_sheet_trackers(pool: sqlx::PgPool) {
     .await
     .expect("outsider registration should succeed");
 
-    let character = character_repo::create(&pool, owner.user.id, &create_character_request(None))
-        .await
-        .expect("character creation should succeed");
+    let character = character_repo::create(
+        &pool,
+        owner.user.id,
+        &create_character_request(None),
+    )
+    .await
+    .expect("character creation should succeed");
 
     let trackers = json!({
         "hit_points": { "current": 3, "max": 6 },
@@ -131,24 +144,34 @@ async fn only_the_owner_can_persist_sheet_trackers(pool: sqlx::PgPool) {
         "armor": { "current": 1, "max": 3 },
         "gold": { "handfuls": 4, "bags": 2, "chest": 1 },
     });
-    let updated = character_repo::update_stats(&pool, owner.user.id, character.id, &trackers)
-        .await
-        .expect("stats update should succeed")
-        .expect("owner should be able to update their own sheet");
+    let updated = character_repo::update_stats(
+        &pool,
+        owner.user.id,
+        character.id,
+        &trackers,
+    )
+    .await
+    .expect("stats update should succeed")
+    .expect("owner should be able to update their own sheet");
     assert_eq!(updated.stats["hit_points"]["current"], 3);
     assert_eq!(updated.stats["hope"]["current"], 5);
     assert_eq!(updated.stats["gold"]["bags"], 2);
 
-    let reloaded = character_repo::find_for_user(&pool, owner.user.id, character.id)
-        .await
-        .expect("reload should succeed")
-        .expect("character should still exist");
+    let reloaded =
+        character_repo::find_for_user(&pool, owner.user.id, character.id)
+            .await
+            .expect("reload should succeed")
+            .expect("character should still exist");
     assert_eq!(reloaded.stats, trackers, "trackers must survive a reload");
 
-    let blocked =
-        character_repo::update_stats(&pool, outsider.user.id, character.id, &json!({"hope": 0}))
-            .await
-            .expect("query should run");
+    let blocked = character_repo::update_stats(
+        &pool,
+        outsider.user.id,
+        character.id,
+        &json!({"hope": 0}),
+    )
+    .await
+    .expect("query should run");
     assert!(
         blocked.is_none(),
         "a non-owner must not be able to write another player's trackers"
@@ -162,7 +185,8 @@ async fn owner_creator_and_unrelated_user_visibility(pool: sqlx::PgPool) {
 
     let owner_email = format!("owner-{}@example.com", uuid::Uuid::new_v4());
     let creator_email = format!("creator-{}@example.com", uuid::Uuid::new_v4());
-    let outsider_email = format!("outsider-{}@example.com", uuid::Uuid::new_v4());
+    let outsider_email =
+        format!("outsider-{}@example.com", uuid::Uuid::new_v4());
 
     let owner = auth_service::register(
         &pool,
@@ -200,9 +224,10 @@ async fn owner_creator_and_unrelated_user_visibility(pool: sqlx::PgPool) {
     .await
     .expect("outsider registration should succeed");
 
-    let adventure = adventure_repo::create(&pool, creator.user.id, "The Lost Temple", None)
-        .await
-        .expect("adventure creation should succeed");
+    let adventure =
+        adventure_repo::create(&pool, creator.user.id, "The Lost Temple", None)
+            .await
+            .expect("adventure creation should succeed");
 
     let character = character_repo::create(
         &pool,
@@ -212,27 +237,37 @@ async fn owner_creator_and_unrelated_user_visibility(pool: sqlx::PgPool) {
     .await
     .expect("character creation should succeed");
 
-    let visible_to_owner = character_repo::find_visible_to_user(&pool, owner.user.id, character.id)
-        .await
-        .expect("query should not fail for the owner");
+    let visible_to_owner = character_repo::find_visible_to_user(
+        &pool,
+        owner.user.id,
+        character.id,
+    )
+    .await
+    .expect("query should not fail for the owner");
     assert!(
         visible_to_owner.is_some(),
         "owner should be able to open their own character"
     );
 
-    let visible_to_creator =
-        character_repo::find_visible_to_user(&pool, creator.user.id, character.id)
-            .await
-            .expect("query should not fail for the adventure creator");
+    let visible_to_creator = character_repo::find_visible_to_user(
+        &pool,
+        creator.user.id,
+        character.id,
+    )
+    .await
+    .expect("query should not fail for the adventure creator");
     assert!(
         visible_to_creator.is_some(),
         "adventure creator should be able to open a linked character"
     );
 
-    let visible_to_outsider =
-        character_repo::find_visible_to_user(&pool, outsider.user.id, character.id)
-            .await
-            .expect("query should not fail for an unrelated user");
+    let visible_to_outsider = character_repo::find_visible_to_user(
+        &pool,
+        outsider.user.id,
+        character.id,
+    )
+    .await
+    .expect("query should not fail for an unrelated user");
     assert!(
         visible_to_outsider.is_none(),
         "unrelated users should not be able to open the character"

@@ -182,17 +182,18 @@ mod tests {
             "connections": []
         }))
         .expect("legacy update payload should deserialize");
-        let explicit_empty: UpdateCharacterRequest = serde_json::from_value(json!({
-            "name": "Test Hero",
-            "pronouns": "they/them",
-            "description": "A test hero",
-            "birth_city": "",
-            "experiences": [],
-            "equipment": {},
-            "family_members": [],
-            "connections": []
-        }))
-        .expect("current update payload should deserialize");
+        let explicit_empty: UpdateCharacterRequest =
+            serde_json::from_value(json!({
+                "name": "Test Hero",
+                "pronouns": "they/them",
+                "description": "A test hero",
+                "birth_city": "",
+                "experiences": [],
+                "equipment": {},
+                "family_members": [],
+                "connections": []
+            }))
+            .expect("current update payload should deserialize");
 
         assert_eq!(omitted.birth_city, None);
         assert_eq!(explicit_empty.birth_city, Some(String::new()));

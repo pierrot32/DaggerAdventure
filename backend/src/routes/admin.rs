@@ -9,8 +9,9 @@ use crate::{
     error::AppError,
     middleware::{access_guard::require_at_least, auth_guard::AuthUser},
     models::{
-        AccessLevel, AiPromptTemplate, UpdateAccessLevelRequest, UpdateAiGenerationRequest,
-        UpdateAiPromptRequest, UpdateApprovalRequest, UserListQuery, UserListResponse,
+        AccessLevel, AiPromptTemplate, UpdateAccessLevelRequest,
+        UpdateAiGenerationRequest, UpdateAiPromptRequest,
+        UpdateApprovalRequest, UserListQuery, UserListResponse,
     },
     repository::{admin_repo, ai_repo},
     state::AppState,
@@ -46,8 +47,13 @@ pub async fn update_access_level(
     Json(request): Json<UpdateAccessLevelRequest>,
 ) -> Result<Json<crate::models::AdminUser>, AppError> {
     require_at_least(&actor, AccessLevel::Admin)?;
-    let user =
-        admin_repo::update_access_level(&state.db, &actor, target_id, request.access_level).await?;
+    let user = admin_repo::update_access_level(
+        &state.db,
+        &actor,
+        target_id,
+        request.access_level,
+    )
+    .await?;
     Ok(Json(user))
 }
 
@@ -58,7 +64,13 @@ pub async fn update_approval(
     Json(request): Json<UpdateApprovalRequest>,
 ) -> Result<Json<crate::models::AdminUser>, AppError> {
     require_at_least(&actor, AccessLevel::Admin)?;
-    let user = admin_repo::update_approval(&state.db, &actor, target_id, request.approved).await?;
+    let user = admin_repo::update_approval(
+        &state.db,
+        &actor,
+        target_id,
+        request.approved,
+    )
+    .await?;
     Ok(Json(user))
 }
 
@@ -69,8 +81,12 @@ pub async fn update_ai_generation_access(
     Json(request): Json<UpdateAiGenerationRequest>,
 ) -> Result<Json<crate::models::AdminUser>, AppError> {
     require_at_least(&actor, AccessLevel::Admin)?;
-    let user =
-        admin_repo::update_ai_generation_access(&state.db, target_id, request.enabled).await?;
+    let user = admin_repo::update_ai_generation_access(
+        &state.db,
+        target_id,
+        request.enabled,
+    )
+    .await?;
     Ok(Json(user))
 }
 
@@ -131,7 +147,12 @@ pub async fn update_ai_prompt_template(
         ));
     }
     Ok(Json(
-        admin_repo::update_ai_prompt_template(&state.db, &generation_type, &template).await?,
+        admin_repo::update_ai_prompt_template(
+            &state.db,
+            &generation_type,
+            &template,
+        )
+        .await?,
     ))
 }
 
@@ -142,6 +163,7 @@ pub async fn reset_ai_prompt_template(
 ) -> Result<Json<AiPromptTemplate>, AppError> {
     require_at_least(&actor, AccessLevel::Admin)?;
     Ok(Json(
-        admin_repo::reset_ai_prompt_template(&state.db, &generation_type).await?,
+        admin_repo::reset_ai_prompt_template(&state.db, &generation_type)
+            .await?,
     ))
 }

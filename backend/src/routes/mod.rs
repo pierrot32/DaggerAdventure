@@ -59,7 +59,8 @@ pub fn router(state: AppState) -> Router {
         )
         .route(
             "/api/characters/:character_id/notes/:note_id",
-            axum::routing::put(characters::update_note).delete(characters::delete_note),
+            axum::routing::put(characters::update_note)
+                .delete(characters::delete_note),
         )
         .route(
             "/api/characters/:character_id/note-sections",
@@ -119,7 +120,8 @@ pub fn router(state: AppState) -> Router {
         )
         .route(
             "/api/frames/library/:frame_id",
-            axum::routing::put(frames::update_library).delete(frames::delete_library),
+            axum::routing::put(frames::update_library)
+                .delete(frames::delete_library),
         )
         .route(
             "/api/adventures",
@@ -165,7 +167,8 @@ pub fn router(state: AppState) -> Router {
         )
         .route(
             "/api/adventures/:adventure_id/note-sections/:section_id",
-            axum::routing::put(notes::update_section).delete(notes::delete_section),
+            axum::routing::put(notes::update_section)
+                .delete(notes::delete_section),
         )
         .route(
             "/api/adventures/:adventure_id/notes/:note_id",
@@ -214,7 +217,8 @@ pub fn router(state: AppState) -> Router {
         )
         .route(
             "/api/sound-sources/:source_id",
-            axum::routing::put(soundboards::update_source).delete(soundboards::delete_source),
+            axum::routing::put(soundboards::update_source)
+                .delete(soundboards::delete_source),
         )
         .route(
             "/api/sound-library",
@@ -232,9 +236,13 @@ pub fn router(state: AppState) -> Router {
         )
         .route(
             "/api/soundboards/:board_id/library/:track_id",
-            post(soundboards::attach_library_track).delete(soundboards::detach_library_track),
+            post(soundboards::attach_library_track)
+                .delete(soundboards::detach_library_track),
         )
-        .route_layer(middleware::from_fn_with_state(state.clone(), require_auth));
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            require_auth,
+        ));
 
     Router::new()
         .route("/healthz", get(|| async { "OK" }))

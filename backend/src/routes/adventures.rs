@@ -8,8 +8,8 @@ use crate::{
     error::AppError,
     middleware::{access_guard::require_at_least, auth_guard::AuthUser},
     models::{
-        AccessLevel, Adventure, AdventureInvite, CreateAdventureRequest, CreateInviteRequest,
-        PendingInviteView, UpdateFearRequest,
+        AccessLevel, Adventure, AdventureInvite, CreateAdventureRequest,
+        CreateInviteRequest, PendingInviteView, UpdateFearRequest,
     },
     repository::adventure_repo,
     state::AppState,
@@ -22,16 +22,23 @@ pub async fn characters(
     Path(adventure_id): Path<Uuid>,
 ) -> Result<Json<Vec<crate::models::Character>>, AppError> {
     require_at_least(&user, AccessLevel::AdventureMaker)?;
-    let adventure = adventure_repo::find_visible(&state.db, &user, adventure_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Adventure not found".to_owned()))?;
+    let adventure =
+        adventure_repo::find_visible(&state.db, &user, adventure_id)
+            .await?
+            .ok_or_else(|| {
+                AppError::NotFound("Adventure not found".to_owned())
+            })?;
     if adventure.creator_id != user.id {
         return Err(AppError::Forbidden(
             "Only the GM can view player characters".to_owned(),
         ));
     }
     Ok(Json(
-        crate::repository::character_repo::list_for_adventure(&state.db, adventure_id).await?,
+        crate::repository::character_repo::list_for_adventure(
+            &state.db,
+            adventure_id,
+        )
+        .await?,
     ))
 }
 
@@ -78,11 +85,12 @@ pub async fn create(
     } else {
         None
     };
-    let resolved_frame = resolved_frame
-        .as_ref()
-        .map(|(source_type, source_id, content)| {
-            (source_type.as_str(), source_id.as_deref(), content)
-        });
+    let resolved_frame =
+        resolved_frame
+            .as_ref()
+            .map(|(source_type, source_id, content)| {
+                (source_type.as_str(), source_id.as_deref(), content)
+            });
     let adventure = adventure_repo::create_with_frame(
         &state.db,
         user.id,
@@ -118,7 +126,8 @@ pub async fn delete(
     Path(adventure_id): Path<Uuid>,
 ) -> Result<axum::http::StatusCode, AppError> {
     require_at_least(&user, AccessLevel::AdventureMaker)?;
-    if !adventure_repo::delete_adventure(&state.db, &user, adventure_id).await? {
+    if !adventure_repo::delete_adventure(&state.db, &user, adventure_id).await?
+    {
         return Err(AppError::NotFound("Adventure not found".to_owned()));
     }
     Ok(axum::http::StatusCode::NO_CONTENT)
@@ -132,7 +141,9 @@ pub async fn create_invite(
 ) -> Result<(axum::http::StatusCode, Json<AdventureInvite>), AppError> {
     require_at_least(&user, AccessLevel::AdventureMaker)?;
     let email = validation::normalize_email(&request.email)?;
-    let invite = adventure_repo::create_invite(&state.db, &user, adventure_id, &email).await?;
+    let invite =
+        adventure_repo::create_invite(&state.db, &user, adventure_id, &email)
+            .await?;
     Ok((axum::http::StatusCode::CREATED, Json(invite)))
 }
 
@@ -185,6 +196,12 @@ pub async fn update_fear(
 ) -> Result<Json<Adventure>, AppError> {
     require_at_least(&user, AccessLevel::AdventureMaker)?;
     Ok(Json(
-        adventure_repo::update_fear(&state.db, &user, adventure_id, request.fear).await?,
+        adventure_repo::update_fear(
+            &state.db,
+            &user,
+            adventure_id,
+            request.fear,
+        )
+        .await?,
     ))
 }

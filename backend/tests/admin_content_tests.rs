@@ -16,10 +16,11 @@ async fn import_update_and_reload_preserve_book_content(pool: PgPool) {
     assert_eq!(imported.content, request.content);
 
     let updated_content = sample_content("guardian", "warden");
-    let updated = content_repo::update_book_content(&pool, &book_id, &updated_content)
-        .await
-        .expect("book update should succeed")
-        .expect("existing book should be updated");
+    let updated =
+        content_repo::update_book_content(&pool, &book_id, &updated_content)
+            .await
+            .expect("book update should succeed")
+            .expect("existing book should be updated");
     assert_eq!(updated.content, updated_content);
 
     let reloaded = content_repo::list_books(&pool)
