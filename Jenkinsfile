@@ -196,15 +196,17 @@ pipeline {
                     set +x
                     verification_token="$(awk -F'#token=' '/#token=/{token=$2} END {gsub(/[[:space:]]/, "", token); print token}' "$email_outbox_dir/outbox.txt")"
                     test -n "$verification_token"
-                    if ! verification_response="$(docker run --rm --network "$test_network" curlimages/curl:8.12.1 \
+                    verification_payload="$(jq -cn --arg token "$verification_token" '{token: $token}')"
+                    if ! verification_response="$(printf '%s' "$verification_payload" | docker run -i --rm --network "$test_network" curlimages/curl:8.12.1 \
                         --fail-with-body --silent --show-error \
                         -H 'content-type: application/json' \
-                        --data "{\"token\":\"$verification_token\"}" \
+                        --data-binary @- \
                         "http://${backend_name}:8080/api/auth/verify-email")"; then
                         printf '%s\n' "$verification_response" >&2
                         exit 1
                     fi
                     unset verification_token
+                    unset verification_payload
                     unset verification_response
                     set -x
 
