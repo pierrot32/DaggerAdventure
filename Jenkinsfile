@@ -138,15 +138,19 @@ pipeline {
                     test_network="dagger-ci-${ci_suffix}"
                     postgres_name="dagger-postgres-ci-${ci_suffix}"
                     backend_name="dagger-backend-ci-${ci_suffix}"
+                    email_volume="dagger-email-ci-${ci_suffix}"
                     email_outbox_dir="$(mktemp -d)"
                     cleanup() {
                         docker rm -f "$backend_name" "$postgres_name" >/dev/null 2>&1 || true
                         docker network rm "$test_network" >/dev/null 2>&1 || true
+                        docker volume rm "$email_volume" >/dev/null 2>&1 || true
                         rm -rf "$email_outbox_dir"
                     }
                     trap cleanup EXIT
 
                     docker network create "$test_network"
+                    docker volume rm "$email_volume" >/dev/null 2>&1 || true
+                    docker volume create "$email_volume" >/dev/null
 
                     docker run -d --rm \
                       --name "$postgres_name" \
@@ -164,7 +168,7 @@ pipeline {
                     docker run -d --rm \
                                             --name "$backend_name" \
                                             --network "$test_network" \
-                      --mount type=bind,src="$email_outbox_dir",dst=/var/lib/dagger-email \
+                                            --mount type=volume,src="$email_volume",dst=/var/lib/dagger-email \
                       -e DATABASE_URL=postgres://dagger_adventure:ci-password@${postgres_name}:5432/dagger_adventure \
                       -e JWT_SECRET=ci-only-secret-change-this-to-a-32-byte-value \
                       -e COOKIE_SECURE=false \
@@ -183,6 +187,7 @@ pipeline {
                         -o /dev/null \
                         "http://${backend_name}:8080/api/auth/register"
 
+                    docker cp "$backend_name:/var/lib/dagger-email/outbox.txt" "$email_outbox_dir/"
                     set +x
                     verification_token="$(awk -F'#token=' '/#token=/{print $2; exit}' "$email_outbox_dir/outbox.txt")"
                     test -n "$verification_token"
@@ -373,6 +378,7 @@ EOF
                     ci_suffix="$(printf '%s' "$ci_suffix_source" | sha256sum | cut -c1-16)"
                     docker rm -f "dagger-backend-ci-${ci_suffix}" "dagger-postgres-ci-${ci_suffix}" 2>/dev/null || true
                     docker network rm "dagger-ci-${ci_suffix}" 2>/dev/null || true
+                    docker volume rm "dagger-email-ci-${ci_suffix}" 2>/dev/null || true
                 fi
                 docker image rm "${BACKEND_IMAGE}:${IMAGE_TAG}" "${FRONTEND_IMAGE}:${IMAGE_TAG}" \
                     "${BACKEND_IMAGE}:latest" "${FRONTEND_IMAGE}:latest" 2>/dev/null || true
