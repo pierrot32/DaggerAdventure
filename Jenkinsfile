@@ -91,7 +91,7 @@ pipeline {
                         docker network rm "$test_network" >/dev/null 2>&1 || true
                         docker image rm "$test_image" >/dev/null 2>&1 || true
                     }
-                    trap cleanup EXIT
+                    trap cleanup 0
 
                     docker network create "$test_network"
                     docker run -d --rm \
@@ -146,7 +146,7 @@ pipeline {
                         docker volume rm "$email_volume" >/dev/null 2>&1 || true
                         rm -rf "$email_outbox_dir"
                     }
-                    trap cleanup EXIT
+                    trap cleanup 0
 
                     docker network create "$test_network"
                     docker volume rm "$email_volume" >/dev/null 2>&1 || true
@@ -180,24 +180,32 @@ pipeline {
                     docker run --rm --network "$test_network" curlimages/curl:8.12.1 \
                         --fail --retry 10 --retry-delay 1 --retry-connrefused \
                         "http://${backend_name}:8080/healthz"
-                    docker run --rm --network "$test_network" curlimages/curl:8.12.1 \
-                        --fail --silent --show-error \
+                    set +x
+                    if ! registration_response="$(docker run --rm --network "$test_network" curlimages/curl:8.12.1 \
+                        --fail-with-body --silent --show-error \
                         -H 'content-type: application/json' \
                         --data '{"email":"ci@example.com","name":"CI User","password":"ci-password"}' \
-                        -o /dev/null \
-                        "http://${backend_name}:8080/api/auth/register"
+                        "http://${backend_name}:8080/api/auth/register")"; then
+                        printf '%s\n' "$registration_response" >&2
+                        exit 1
+                    fi
+                    unset registration_response
+                    set -x
 
                     docker cp "$backend_name:/var/lib/dagger-email/outbox.txt" "$email_outbox_dir/"
                     set +x
-                    verification_token="$(awk -F'#token=' '/#token=/{print $2; exit}' "$email_outbox_dir/outbox.txt")"
+                    verification_token="$(awk -F'#token=' '/#token=/{token=$2} END {gsub(/[[:space:]]/, "", token); print token}' "$email_outbox_dir/outbox.txt")"
                     test -n "$verification_token"
-                    docker run --rm --network "$test_network" curlimages/curl:8.12.1 \
-                        --fail --silent --show-error \
+                    if ! verification_response="$(docker run --rm --network "$test_network" curlimages/curl:8.12.1 \
+                        --fail-with-body --silent --show-error \
                         -H 'content-type: application/json' \
                         --data "{\"token\":\"$verification_token\"}" \
-                        -o /dev/null \
-                        "http://${backend_name}:8080/api/auth/verify-email"
+                        "http://${backend_name}:8080/api/auth/verify-email")"; then
+                        printf '%s\n' "$verification_response" >&2
+                        exit 1
+                    fi
                     unset verification_token
+                    unset verification_response
                     set -x
 
                     docker run --rm --network "$test_network" curlimages/curl:8.12.1 \
