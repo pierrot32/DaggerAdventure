@@ -193,7 +193,7 @@ Backend access checks use `require_at_least` and `require_ai_generation` in [`ba
 - **Status:** Implemented; configuration and pipeline paths documented, runtime state still environment-dependent.
 - **Local runtime:** PostgreSQL through [`docker-compose.yml`](../docker-compose.yml), backend on port 8080, frontend Vite development server normally on port 5173.
 - **Production runtime:** nginx and Certbot, Kubernetes manifests under [`k8s/`](../k8s/), Argo CD bootstrap under [`argo/`](../argo/), Jenkins pipeline in [`Jenkinsfile`](../Jenkinsfile).
-- **Checks:** Backend `cargo fmt -- --check`, `cargo check`, and `cargo test`; frontend `npm run lint` and `npm run build`; Docker check targets documented in [`README.md`](../README.md).
+- **Checks:** Backend `cargo fmt -- --check`, `cargo check`, and `cargo test`; frontend `npm run lint` and `npm run build`; Docker check targets documented in [`README.md`](../README.md). Jenkins' integration smoke test runs the current email-verification contract against disposable containers: health check, `202` registration through the development outbox, token verification, password login, and a protected `/api/hello` request. Authentication calls use bounded failure behavior and do not retry `503`/`429` responses indefinitely.
 - **Invariants:** Secrets remain outside committed files. Migrations run at backend startup. The Jenkins promotion branch merges the fetched current `production` ref into the tested source commit before rewriting only the backend and frontend image fields; merge conflicts fail the promotion. Do not change deployment names, image paths, ports, or secret keys without checking Compose, Kubernetes, nginx, and Jenkins together.
 
 ## Migration History

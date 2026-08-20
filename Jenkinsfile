@@ -133,10 +133,12 @@ pipeline {
             steps {
                 sh '''
                     set -eu
+                    email_outbox_dir="$(mktemp -d)"
                     docker network create dagger-ci-network
                     cleanup() {
                         docker rm -f dagger-backend-ci dagger-postgres-ci >/dev/null 2>&1 || true
                         docker network rm dagger-ci-network >/dev/null 2>&1 || true
+                        rm -rf "$email_outbox_dir"
                     }
                     trap cleanup EXIT
 
@@ -156,23 +158,46 @@ pipeline {
                     docker run -d --rm \
                       --name dagger-backend-ci \
                       --network dagger-ci-network \
+                      --mount type=bind,src="$email_outbox_dir",dst=/var/lib/dagger-email \
                       -e DATABASE_URL=postgres://dagger_adventure:ci-password@dagger-postgres-ci:5432/dagger_adventure \
                       -e JWT_SECRET=ci-only-secret-change-this-to-a-32-byte-value \
-                                            -e COOKIE_SECURE=false \
-                                            ${BACKEND_IMAGE}:${IMAGE_TAG}
+                      -e COOKIE_SECURE=false \
+                      -e EMAIL_PROVIDER=dev_file \
+                      -e EMAIL_DEV_OUTBOX=/var/lib/dagger-email/outbox.txt \
+                      -e EMAIL_VERIFICATION_BASE_URL=http://ci.invalid/verify-email \
+                      ${BACKEND_IMAGE}:${IMAGE_TAG}
 
                     docker run --rm --network dagger-ci-network curlimages/curl:8.12.1 \
                         --fail --retry 10 --retry-delay 1 --retry-connrefused \
                         http://dagger-backend-ci:8080/healthz
                     docker run --rm --network dagger-ci-network curlimages/curl:8.12.1 \
-                        --fail --retry 10 --retry-delay 1 --retry-connrefused \
-                        -c /tmp/ci-cookies \
+                        --fail --silent --show-error \
                         -H 'content-type: application/json' \
                         --data '{"email":"ci@example.com","name":"CI User","password":"ci-password"}' \
                         -o /dev/null \
-                        http://dagger-backend-ci:8080/api/auth/register \
+                        http://dagger-backend-ci:8080/api/auth/register
+
+                    set +x
+                    verification_token="$(awk -F'#token=' '/#token=/{print $2; exit}' "$email_outbox_dir/outbox.txt")"
+                    test -n "$verification_token"
+                    docker run --rm --network dagger-ci-network curlimages/curl:8.12.1 \
+                        --fail --silent --show-error \
+                        -H 'content-type: application/json' \
+                        --data "{\"token\":\"$verification_token\"}" \
+                        -o /dev/null \
+                        http://dagger-backend-ci:8080/api/auth/verify-email
+                    unset verification_token
+                    set -x
+
+                    docker run --rm --network dagger-ci-network curlimages/curl:8.12.1 \
+                        --fail --silent --show-error \
+                        -c /tmp/ci-cookies \
+                        -H 'content-type: application/json' \
+                        --data '{"email":"ci@example.com","password":"ci-password"}' \
+                        -o /dev/null \
+                        http://dagger-backend-ci:8080/api/auth/login \
                         --next \
-                        --fail --retry 10 --retry-delay 1 --retry-connrefused \
+                        --fail --silent --show-error \
                         -b /tmp/ci-cookies \
                         http://dagger-backend-ci:8080/api/hello
 
