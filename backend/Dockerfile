@@ -4,6 +4,7 @@ WORKDIR /app
 RUN rustup component add rustfmt
 
 COPY Cargo.toml Cargo.lock* ./
+COPY rustfmt.toml ./
 COPY src ./src
 COPY migrations ./migrations
 
