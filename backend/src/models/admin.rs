@@ -34,6 +34,7 @@ pub struct AdminUser {
     pub name: String,
     pub access_level: String,
     pub ai_generation_enabled: bool,
+    pub email_verified_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
 }
 

@@ -1,8 +1,12 @@
+mod common;
+
 use backend::{
+    error::AppError,
     models::{AccessLevel, LoginRequest, RegisterRequest},
     repository::{admin_repo, adventure_repo, notification_repo, user_repo},
     services::auth_service,
 };
+use common::fixtures::register_verified;
 
 #[sqlx::test]
 #[ignore = "requires DATABASE_URL and disposable Postgres test databases"]
@@ -10,7 +14,7 @@ async fn register_then_login_succeeds(pool: sqlx::PgPool) {
     let jwt_secret = "test-secret";
     let email = format!("{}@example.com", uuid::Uuid::new_v4());
 
-    let registered = auth_service::register(
+    let registered = register_verified(
         &pool,
         jwt_secret,
         RegisterRequest {
@@ -19,8 +23,7 @@ async fn register_then_login_succeeds(pool: sqlx::PgPool) {
             password: "correct-horse".to_owned(),
         },
     )
-    .await
-    .expect("registration should succeed");
+    .await;
     assert_eq!(registered.user.email, email);
     assert_eq!(registered.user.access_level, "nothing");
 
@@ -43,7 +46,7 @@ async fn login_with_wrong_password_is_rejected(pool: sqlx::PgPool) {
     let jwt_secret = "test-secret";
     let email = format!("{}@example.com", uuid::Uuid::new_v4());
 
-    auth_service::register(
+    register_verified(
         &pool,
         jwt_secret,
         RegisterRequest {
@@ -52,8 +55,7 @@ async fn login_with_wrong_password_is_rejected(pool: sqlx::PgPool) {
             password: "correct-horse".to_owned(),
         },
     )
-    .await
-    .expect("registration should succeed");
+    .await;
 
     let result = auth_service::login(
         &pool,
@@ -66,6 +68,42 @@ async fn login_with_wrong_password_is_rejected(pool: sqlx::PgPool) {
     .await;
 
     assert!(result.is_err());
+}
+
+#[sqlx::test]
+#[ignore = "requires DATABASE_URL and disposable Postgres test databases"]
+async fn new_registration_remains_pending_until_verified(pool: sqlx::PgPool) {
+    let jwt_secret = "test-secret";
+    let email = format!("pending-{}@example.com", uuid::Uuid::new_v4());
+
+    let registered = auth_service::register(
+        &pool,
+        jwt_secret,
+        RegisterRequest {
+            email: email.clone(),
+            name: "Pending Adventurer".to_owned(),
+            password: "correct-horse".to_owned(),
+        },
+    )
+    .await
+    .expect("registration should succeed");
+    let user = user_repo::find_by_id(&pool, registered.user.id)
+        .await
+        .expect("pending user lookup should succeed")
+        .expect("pending user should exist");
+    assert!(user.email_verification_required);
+    assert!(user.email_verified_at.is_none());
+
+    let login_result = auth_service::login(
+        &pool,
+        jwt_secret,
+        LoginRequest {
+            email,
+            password: "correct-horse".to_owned(),
+        },
+    )
+    .await;
+    assert!(matches!(login_result, Err(AppError::Forbidden(_))));
 }
 
 #[sqlx::test]
@@ -110,7 +148,7 @@ async fn admin_grants_access_and_invitation_workflow_succeeds(
     let maker_email = format!("maker-{}@example.com", uuid::Uuid::new_v4());
     let invited_email = format!("invited-{}@example.com", uuid::Uuid::new_v4());
 
-    let admin_response = auth_service::register(
+    let admin_response = register_verified(
         &pool,
         jwt_secret,
         RegisterRequest {
@@ -119,15 +157,14 @@ async fn admin_grants_access_and_invitation_workflow_succeeds(
             password: "correct-horse".to_owned(),
         },
     )
-    .await
-    .expect("admin registration should succeed");
+    .await;
     sqlx::query("UPDATE users SET access_level = 'admin' WHERE id = $1")
         .bind(admin_response.user.id)
         .execute(&pool)
         .await
         .expect("admin bootstrap should succeed");
 
-    let maker_response = auth_service::register(
+    let maker_response = register_verified(
         &pool,
         jwt_secret,
         RegisterRequest {
@@ -136,8 +173,7 @@ async fn admin_grants_access_and_invitation_workflow_succeeds(
             password: "correct-horse".to_owned(),
         },
     )
-    .await
-    .expect("maker registration should succeed");
+    .await;
     let admin = user_repo::find_by_id(&pool, admin_response.user.id)
         .await
         .expect("admin lookup should succeed")
@@ -172,7 +208,7 @@ async fn admin_grants_access_and_invitation_workflow_succeeds(
     .await
     .expect("maker should create an invite");
 
-    let invited_response = auth_service::register(
+    let invited_response = register_verified(
         &pool,
         jwt_secret,
         RegisterRequest {
@@ -181,8 +217,7 @@ async fn admin_grants_access_and_invitation_workflow_succeeds(
             password: "correct-horse".to_owned(),
         },
     )
-    .await
-    .expect("invited registration should succeed");
+    .await;
     assert_eq!(invited_response.user.access_level, "nothing");
     let invited = user_repo::find_by_id(&pool, invited_response.user.id)
         .await
@@ -232,7 +267,7 @@ async fn invitee_without_access_level_can_list_and_accept_invites(
         .await
         .expect("maker should create an invite");
 
-    let invited_response = auth_service::register(
+    let invited_response = register_verified(
         &pool,
         jwt_secret,
         RegisterRequest {
@@ -241,8 +276,7 @@ async fn invitee_without_access_level_can_list_and_accept_invites(
             password: "correct-horse".to_owned(),
         },
     )
-    .await
-    .expect("invited registration should succeed");
+    .await;
     let invited = user_repo::find_by_id(&pool, invited_response.user.id)
         .await
         .expect("invited lookup should succeed")
@@ -392,7 +426,7 @@ async fn register_with_level(
     prefix: &str,
     level: AccessLevel,
 ) -> backend::models::User {
-    let response = auth_service::register(
+    let response = register_verified(
         pool,
         jwt_secret,
         RegisterRequest {
@@ -401,8 +435,7 @@ async fn register_with_level(
             password: "correct-horse".to_owned(),
         },
     )
-    .await
-    .expect("registration should succeed");
+    .await;
     sqlx::query("UPDATE users SET access_level = $1 WHERE id = $2")
         .bind(level.as_str())
         .bind(response.user.id)

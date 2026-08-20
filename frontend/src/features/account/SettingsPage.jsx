@@ -97,6 +97,13 @@ export default function SettingsPage() {
 						Access level
 						<input value={user.access_level} readOnly />
 					</label>
+									<label>
+										Email verification
+										<input
+											value={user.email_verified ? "Verified" : "Pending"}
+											readOnly
+										/>
+									</label>
 					<div className={styles.actions}>
 						<Button type="submit" disabled={state.saving || state.deleting}>
 							{state.saving ? "Saving..." : "Save name"}

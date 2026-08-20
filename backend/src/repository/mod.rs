@@ -6,5 +6,7 @@ pub mod content_repo;
 pub mod frame_repo;
 pub mod note_repo;
 pub mod notification_repo;
+pub mod rate_limit_repo;
 pub mod soundboard_repo;
 pub mod user_repo;
+pub mod verification_repo;

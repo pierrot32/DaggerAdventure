@@ -47,5 +47,6 @@ pub use soundboard::{
 };
 pub use user::{
     AccessLevel, LoginRequest, MessageResponse, RegisterRequest,
-    UpdateUserRequest, User, UserResponse,
+    ResendVerificationRequest, UpdateUserRequest, User, UserResponse,
+    VerifyEmailRequest,
 };

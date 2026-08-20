@@ -49,6 +49,13 @@ DATABASE_URL=postgres://dagger_adventure:<POSTGRES_PASSWORD>@127.0.0.1:5432/dagg
 JWT_SECRET=replace_with_at_least_32_random_bytes
 COOKIE_SECURE=false
 PORT=8080
+TRUST_PROXY_HEADERS=false
+EMAIL_PROVIDER=disabled
+EMAIL_FROM=no-reply@localhost
+# Optional local-only delivery:
+# EMAIL_PROVIDER=dev_file
+# EMAIL_DEV_OUTBOX=/tmp/dagger-adventure-verification-mails.txt
+# EMAIL_VERIFICATION_BASE_URL=http://localhost:5173/verify-email
 OPENAI_API_KEY=replace_with_your_openai_key
 OPENAI_MODEL=gpt-5.6-luna
 ```
@@ -56,6 +63,47 @@ OPENAI_MODEL=gpt-5.6-luna
 Use the same password as `POSTGRES_PASSWORD` in the root `.env`. Do not commit `backend/.env`.
 The OpenAI key stays in this backend-only file. Do not put it in frontend environment variables,
 browser code, a Dockerfile, or a committed manifest.
+
+New accounts receive no session cookie until their email is verified. New registrations set
+`email_verification_required=true`. Migration `0022_add_email_verification_required` defaults
+that flag to `false` for existing rows, preserves their NULL `email_verified_at`, and
+grandfathers those legacy accounts so an upgrade does not lock them out or silently mark them
+verified. They stay grandfathered until a future explicit enforcement migration or admin
+operation changes the flag. Email verification remains separate from administrator approval and
+access levels.
+
+The default
+`EMAIL_PROVIDER=disabled` mode rejects new registrations with `503 Service Unavailable`
+before creating an account, because it cannot deliver a verification link. For local
+development, set `EMAIL_PROVIDER=dev_file`, `EMAIL_DEV_OUTBOX` to an untracked file,
+and `EMAIL_VERIFICATION_BASE_URL` to the frontend verification route. Delivery is
+attempted after the account and hashed token commit; a delivery failure returns `503`
+without exposing the token, and resend can recover the existing unverified account. Resend
+inserts a new hashed, one-use token, retains still-valid earlier tokens, and removes at most
+50 expired tokens for that user. A successful resend therefore does not invalidate an earlier
+valid link. Email links use a URL fragment rather than a query string; the browser reads and
+immediately removes the fragment before calling the verification API. The verification page
+and endpoint send `Referrer-Policy: no-referrer` and `Cache-Control: no-store`.
+The outbox is development-only; no production email provider or credentials are committed
+here, and no production provider implementation exists yet. Production registration remains
+blocked until a real provider is implemented and configured.
+
+Verification tokens expire after one hour and are consumed once. Rate-limit buckets are
+shared in PostgreSQL and cleaned after 24 hours of inactivity. `TRUST_PROXY_HEADERS` is
+false by default and should only be enabled when the complete proxy chain is configured
+and verified to replace client-forwarding headers. The bundled Kubernetes path has an outer
+nginx proxy that overwrites both headers with the address it observed, and the Argo installer
+configures the intermediate ingress-nginx with `use-forwarded-headers=true` before it forwards
+requests to the backend. The Kubernetes backend explicitly enables `TRUST_PROXY_HEADERS` for
+that private chain. Keep the ingress NodePort and backend service private; do not enable this
+setting when clients can reach either directly or when another proxy passes through
+client-controlled values.
+
+The bundled Kubernetes deployment keeps `EMAIL_PROVIDER=disabled` and sets the public
+verification URL explicitly, so new registrations remain fail-closed. No production provider
+implementation is included yet; registration cannot be enabled merely by adding credentials.
+A provider implementation and its deployment configuration must be added before production
+registration can be enabled through external secret management.
 
 To create the administrator locally, register the account through the frontend
 with the desired name, email, and password. Then start the backend with the

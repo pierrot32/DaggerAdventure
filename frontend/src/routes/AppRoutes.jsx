@@ -4,6 +4,7 @@ import AppLayout from "../layouts/AppLayout";
 import HomePage from "../pages/Home/HomePage";
 import LoginPage from "../pages/Auth/LoginPage";
 import RegisterPage from "../pages/Auth/RegisterPage";
+import VerifyEmailPage from "../pages/Auth/VerifyEmailPage";
 import DashboardPage from "../pages/Dashboard/DashboardPage";
 import { ACCESS_LEVELS } from "../utils/permissions";
 import AdminUsersPage from "../features/admin/AdminUsersPage";
@@ -38,6 +39,7 @@ export default function AppRoutes() {
 			<Route path="/" element={<HomePage />} />
 			<Route path="/login" element={<LoginPage />} />
 			<Route path="/register" element={<RegisterPage />} />
+			<Route path="/verify-email" element={<VerifyEmailPage />} />
 			<Route
 				path="/dashboard"
 				element={

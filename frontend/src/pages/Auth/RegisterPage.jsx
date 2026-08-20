@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import TextField from "../../components/TextField/TextField";
 import Button from "../../components/Button/Button";
@@ -7,11 +7,13 @@ import styles from "./Auth.module.css";
 
 // Registration form - kept separate from LoginPage per user/route, not a shared "mode" toggle
 export default function RegisterPage() {
-	const { user, status, register } = useAuth();
-	const navigate = useNavigate();
+	const { user, status, register, resendVerification } = useAuth();
 	const [form, setForm] = useState({ email: "", name: "", password: "" });
 	const [error, setError] = useState("");
 	const [submitting, setSubmitting] = useState(false);
+	const [pendingMessage, setPendingMessage] = useState("");
+	const [resending, setResending] = useState(false);
+	const [resendMessage, setResendMessage] = useState("");
 
 	if (status === "ready" && user) return <Navigate to="/dashboard" replace />;
 
@@ -20,12 +22,26 @@ export default function RegisterPage() {
 		setSubmitting(true);
 		setError("");
 		try {
-			await register(form);
-			navigate("/dashboard");
+			const result = await register(form);
+			setPendingMessage(result.message);
+			setResendMessage("");
 		} catch (err) {
 			setError(err.message);
 		} finally {
 			setSubmitting(false);
+		}
+	};
+
+	const resend = async () => {
+		setResending(true);
+		setResendMessage("");
+		try {
+			const result = await resendVerification(form.email);
+			setResendMessage(result.message);
+		} catch (err) {
+			setResendMessage(err.message);
+		} finally {
+			setResending(false);
 		}
 	};
 
@@ -37,6 +53,24 @@ export default function RegisterPage() {
 				<p className="muted">
 					Your name will identify you inside the application.
 				</p>
+				{pendingMessage ? (
+					<section className={styles.form} aria-live="polite">
+						<p>{pendingMessage}</p>
+						<p className="muted">
+							No session was created. Verify your email first, then sign in. Gameplay
+							access still requires administrator approval.
+						</p>
+						{resendMessage && <p className={styles.error}>{resendMessage}</p>}
+						<Button
+							type="button"
+							disabled={resending}
+							onClick={resend}
+							className={styles.submit}
+						>
+							{resending ? "Requesting link..." : "Resend verification email"}
+						</Button>
+					</section>
+				) : (
 				<form className={styles.form} onSubmit={submit}>
 					<TextField
 						label="Name"
@@ -71,6 +105,7 @@ export default function RegisterPage() {
 						{submitting ? "Creating account..." : "Create account"}
 					</Button>
 				</form>
+				)}
 				<Link to="/login" className={`${styles.switch} ${styles.switchLink}`}>
 					Already have an account? Sign in
 				</Link>

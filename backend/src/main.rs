@@ -32,7 +32,7 @@ async fn main() {
     println!("Server running on http://{addr}");
 
     axum::Server::bind(&addr)
-        .serve(app.into_make_service())
+        .serve(app.into_make_service_with_connect_info::<SocketAddr>())
         .await
         .unwrap();
 }

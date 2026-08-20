@@ -1,4 +1,4 @@
-use sqlx::PgPool;
+use sqlx::{PgPool, Postgres, Transaction};
 use uuid::Uuid;
 
 use crate::models::User;
@@ -11,9 +11,12 @@ pub async fn create(
     password_hash: &str,
 ) -> Result<User, sqlx::Error> {
     sqlx::query_as::<_, User>(
-        "INSERT INTO users (id, email, name, password_hash)
-         VALUES ($1, $2, $3, $4)
-         RETURNING id, email, name, password_hash, access_level, ai_generation_enabled, created_at",
+        "INSERT INTO users
+             (id, email, name, password_hash, email_verification_required)
+         VALUES ($1, $2, $3, $4, true)
+         RETURNING id, email, name, password_hash, access_level,
+                   ai_generation_enabled, email_verified_at,
+                   email_verification_required, created_at",
     )
     .bind(id)
     .bind(email)
@@ -23,12 +26,37 @@ pub async fn create(
     .await
 }
 
+pub async fn create_in_transaction(
+    transaction: &mut Transaction<'_, Postgres>,
+    id: Uuid,
+    email: &str,
+    name: &str,
+    password_hash: &str,
+) -> Result<User, sqlx::Error> {
+    sqlx::query_as::<_, User>(
+        "INSERT INTO users
+             (id, email, name, password_hash, email_verification_required)
+         VALUES ($1, $2, $3, $4, true)
+         RETURNING id, email, name, password_hash, access_level,
+                   ai_generation_enabled, email_verified_at,
+                   email_verification_required, created_at",
+    )
+    .bind(id)
+    .bind(email)
+    .bind(name)
+    .bind(password_hash)
+    .fetch_one(&mut **transaction)
+    .await
+}
+
 pub async fn find_by_email(
     pool: &PgPool,
     email: &str,
 ) -> Result<Option<User>, sqlx::Error> {
     sqlx::query_as::<_, User>(
-        "SELECT id, email, name, password_hash, access_level, ai_generation_enabled, created_at
+        "SELECT id, email, name, password_hash, access_level,
+            ai_generation_enabled, email_verified_at,
+            email_verification_required, created_at
          FROM users WHERE lower(email) = lower($1)",
     )
     .bind(email)
@@ -41,7 +69,9 @@ pub async fn find_by_id(
     id: Uuid,
 ) -> Result<Option<User>, sqlx::Error> {
     sqlx::query_as::<_, User>(
-        "SELECT id, email, name, password_hash, access_level, ai_generation_enabled, created_at
+        "SELECT id, email, name, password_hash, access_level,
+            ai_generation_enabled, email_verified_at,
+            email_verification_required, created_at
          FROM users WHERE id = $1",
     )
     .bind(id)
@@ -68,7 +98,9 @@ pub async fn update_name(
     sqlx::query_as::<_, User>(
         "UPDATE users SET name = $1
          WHERE id = $2
-         RETURNING id, email, name, password_hash, access_level, ai_generation_enabled, created_at",
+         RETURNING id, email, name, password_hash, access_level,
+                   ai_generation_enabled, email_verified_at,
+                   email_verification_required, created_at",
     )
     .bind(name)
     .bind(user_id)
