@@ -58,6 +58,7 @@ legend { padding: 0 var(--space-2); }
 .removeSound { font-size: 20px; line-height: .8; }
 .labels { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .labels span { padding: 4px 7px; border: 1px solid rgba(201, 157, 99, .6); color: var(--color-accent); font-size: 11px; }
+.soundActions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .playButton { padding: 10px 12px; border: 1px solid var(--color-accent); background: var(--color-accent); color: var(--color-text); font: inherit; font-weight: 700; cursor: pointer; }
 .playButton:hover { background: var(--color-surface); }
 .playButton:disabled, .attachButton:disabled { cursor: not-allowed; opacity: .5; }

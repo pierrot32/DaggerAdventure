@@ -30,6 +30,12 @@ echo "Installing ingress-nginx (routes the frontend/backend app inside k3s)..."
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.11.3/deploy/static/provider/baremetal/deploy.yaml
 kubectl rollout status deployment/ingress-nginx-controller -n ingress-nginx --timeout=300s
 
+echo "Allowing application uploads through ingress-nginx..."
+kubectl -n ingress-nginx patch configmap ingress-nginx-controller --type=merge \
+  -p '{"data":{"proxy-body-size":"64m"}}'
+kubectl -n ingress-nginx rollout restart deployment/ingress-nginx-controller
+kubectl rollout status deployment/ingress-nginx-controller -n ingress-nginx --timeout=300s
+
 echo "Exposing ingress-nginx on NodePort 30081..."
 kubectl -n ingress-nginx patch svc ingress-nginx-controller \
   -p '{"spec":{"type":"NodePort","ports":[{"name":"http","port":80,"nodePort":30081,"protocol":"TCP"},{"name":"https","port":443,"nodePort":30444,"protocol":"TCP"}]}}'

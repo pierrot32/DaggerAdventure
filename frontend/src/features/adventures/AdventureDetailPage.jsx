@@ -6,6 +6,8 @@ import { useAdventureStore } from './adventureStore';
 import * as adventureApi from './adventureApi';
 import { createLibraryFrame, getAdventureFrame, updateAdventureFrame } from '../frames/frameApi';
 import { contentToForm, draftToContent, frameEditorSections } from '../frames/frameDraft';
+import { getSoundBoard, listSoundBoards, soundMediaUrl } from '../soundboards/soundboardApi';
+import { useSoundPlayerStore } from '../soundboards/soundboardStore';
 import { FrameDraftForm } from './CreateAdventurePage';
 import NoteManager from '../notes/NoteManager';
 import styles from './AdventureDetailPage.module.css';
@@ -14,6 +16,7 @@ const tabs = [
   { id: 'campaign', label: 'Campaign' },
   { id: 'story', label: 'Story' },
   { id: 'players', label: 'Players' },
+  { id: 'sounds', label: 'Sounds', creatorOnly: true },
   { id: 'notes', label: 'Notes', creatorOnly: true },
   { id: 'settings', label: 'Settings', creatorOnly: true },
 ];
@@ -24,6 +27,8 @@ export default function AdventureDetailPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { current, invites, loading, error, clearInvites, fetchAdventure, fetchInvites, invite, setFear, deleteAdventure } = useAdventureStore();
+  const playSound = useSoundPlayerStore((state) => state.play);
+  const addSoundToQueue = useSoundPlayerStore((state) => state.addToQueue);
   const [activeTab, setActiveTab] = useState('campaign');
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
@@ -38,9 +43,15 @@ export default function AdventureDetailPage() {
   const [notes, setNotes] = useState([]);
   const [noteSections, setNoteSections] = useState([]);
   const [notesState, setNotesState] = useState({ loading: true, saving: false, error: '', message: '' });
+  const [soundBoards, setSoundBoards] = useState([]);
+  const [selectedSoundBoardId, setSelectedSoundBoardId] = useState('');
+  const [soundDetail, setSoundDetail] = useState(null);
+  const [soundsState, setSoundsState] = useState({ loading: false, detailLoading: false, error: '' });
   const routeRequestRef = useRef(0);
   const frameRevision = useRef(0);
   const notesRequestRef = useRef(0);
+  const soundBoardsRequestRef = useRef(0);
+  const soundDetailRequestRef = useRef(0);
 
   useEffect(() => {
     const requestGeneration = ++routeRequestRef.current;
@@ -66,6 +77,10 @@ export default function AdventureDetailPage() {
     setNotes([]);
     setNoteSections([]);
     setNotesState({ loading: true, saving: false, error: '', message: '' });
+    setSoundBoards([]);
+    setSelectedSoundBoardId('');
+    setSoundDetail(null);
+    setSoundsState({ loading: false, detailLoading: false, error: '' });
   }, [adventureId, clearInvites]);
 
   const isCurrentRoute = (requestGeneration) => routeRequestRef.current === requestGeneration;
@@ -136,6 +151,46 @@ export default function AdventureDetailPage() {
       });
     return () => { active = false; };
   }, [adventureId, current, user]);
+
+  useEffect(() => {
+    let active = true;
+    const requestGeneration = routeRequestRef.current;
+    const soundsRequest = ++soundBoardsRequestRef.current;
+    if (!current || current.id !== adventureId || current.creator_id !== user?.id || activeTab !== 'sounds') return () => { active = false; };
+    setSoundsState({ loading: true, detailLoading: false, error: '' });
+    setSoundDetail(null);
+    listSoundBoards()
+      .then((nextBoards) => {
+        if (!active || !isCurrentRoute(requestGeneration) || soundBoardsRequestRef.current !== soundsRequest) return;
+        setSoundBoards(nextBoards);
+        setSelectedSoundBoardId((selectedId) => nextBoards.some((board) => board.id === selectedId) ? selectedId : '');
+        setSoundsState({ loading: false, detailLoading: false, error: '' });
+      })
+      .catch((requestError) => {
+        if (active && isCurrentRoute(requestGeneration) && soundBoardsRequestRef.current === soundsRequest) setSoundsState({ loading: false, detailLoading: false, error: requestError.message });
+      });
+    return () => { active = false; };
+  }, [activeTab, adventureId, current, user]);
+
+  useEffect(() => {
+    let active = true;
+    const requestGeneration = routeRequestRef.current;
+    const soundsRequest = ++soundDetailRequestRef.current;
+    if (!current || current.id !== adventureId || current.creator_id !== user?.id || activeTab !== 'sounds' || !selectedSoundBoardId) return () => { active = false; };
+    setSoundDetail(null);
+    setSoundsState((state) => ({ ...state, detailLoading: true, error: '' }));
+    getSoundBoard(selectedSoundBoardId)
+      .then((detail) => {
+        if (active && isCurrentRoute(requestGeneration) && soundDetailRequestRef.current === soundsRequest && detail.board?.id === selectedSoundBoardId) {
+          setSoundDetail(detail);
+          setSoundsState((state) => ({ ...state, detailLoading: false }));
+        }
+      })
+      .catch((requestError) => {
+        if (active && isCurrentRoute(requestGeneration) && soundDetailRequestRef.current === soundsRequest) setSoundsState((state) => ({ ...state, detailLoading: false, error: requestError.message }));
+      });
+    return () => { active = false; };
+  }, [activeTab, adventureId, current, selectedSoundBoardId, user]);
 
   const submitInvite = async (event) => {
     event.preventDefault();
@@ -335,6 +390,11 @@ export default function AdventureDetailPage() {
   };
   const moveNote = async (note, sectionId, position) => saveNote({ ...note, section_id: sectionId, position });
 
+  const selectSoundBoard = (boardId) => {
+    setSelectedSoundBoardId(boardId);
+    setSoundDetail(null);
+  };
+
   const removeAdventure = async () => {
     if (!window.confirm(`Delete ${current.name}? This removes its members, invitations, and frame. Player characters are unlinked from the adventure but preserved.`)) return;
     const requestGeneration = routeRequestRef.current;
@@ -355,6 +415,7 @@ export default function AdventureDetailPage() {
     {activeTab === 'campaign' && <CampaignPanel frame={frame} frameForm={frameForm} frameState={frameState} isCreator={isCreator} frameEditMode={frameEditMode} setFrameEditMode={setFrameEditMode} activeFrameSection={activeFrameSection} setActiveFrameSection={setActiveFrameSection} canCreateCharacter={canCreateCharacter} adventureId={adventureId} updateFrameField={updateFrameField} updateSelection={updateSelection} updateEntrySelection={updateEntrySelection} saveFrame={saveFrame} saveFrameToLibrary={saveFrameToLibrary} />}
     {activeTab === 'story' && <StoryPanel description={current.description} />}
     {activeTab === 'players' && <PlayersPanel players={players} playersState={playersState} currentUserId={user?.id} isCreator={isCreator} current={current} invites={invites} email={email} setEmail={setEmail} message={message} submitInvite={submitInvite} setFear={setFear} adventureId={adventureId} />}
+    {activeTab === 'sounds' && isCreator && <AdventureSoundsPanel boards={soundBoards} selectedBoardId={selectedSoundBoardId} selectBoard={selectSoundBoard} detail={soundDetail} state={soundsState} onPlay={playSound} onQueue={addSoundToQueue} />}
     {activeTab === 'notes' && isCreator && <NoteManager title="Notes" eyebrow="GM NOTEBOOK" sections={noteSections} notes={notes} loading={notesState.loading} saving={notesState.saving} error={notesState.error} message={notesState.message} onSaveNote={saveNote} onDeleteNote={removeNote} onCreateSection={createNoteSection} onRenameSection={renameNoteSection} onDeleteSection={deleteNoteSection} onMoveNote={moveNote} onRetry={retryNotes} />}
     {activeTab === 'settings' && isCreator && <SettingsPanel deleteState={deleteState} removeAdventure={removeAdventure} />}
   </section>;
@@ -387,6 +448,18 @@ function PlayersPanel({ players, playersState, currentUserId, isCreator, current
 
 function StoryPanel({ description }) {
   return <section className={styles.workspacePanel}><div className={styles.panelHeading}><div><p className="eyebrow">CAMPAIGN STORY</p><h3>Story</h3></div></div>{description ? <p className={styles.storyText}>{description}</p> : <p className="muted">The GM has not added a story description yet.</p>}</section>;
+}
+
+function AdventureSoundsPanel({ boards, selectedBoardId, selectBoard, detail, state, onPlay, onQueue }) {
+  const board = detail?.board?.id === selectedBoardId ? detail.board : null;
+  return <section className={styles.workspacePanel}><div className={styles.panelHeading}><div><p className="eyebrow">GM SOUND LIBRARY</p><h3>Sounds</h3></div><span className="muted">Choose a board, then shape the atmosphere.</span></div>{state.error && <p className={styles.error} role="alert">{state.error}</p>}{state.loading ? <p className="muted">Loading soundboards...</p> : <div className={styles.soundWorkspace}><aside className={styles.soundBoardPicker}><strong>Soundboards</strong>{boards.length === 0 ? <p className="muted">No soundboards available yet.</p> : <div className={styles.soundBoardList}>{boards.map((item) => <button type="button" key={item.id} className={selectedBoardId === item.id ? styles.selectedSoundBoard : ''} onClick={() => selectBoard(item.id)}><strong>{item.name}</strong><span>{item.sound_count} tracks</span></button>)}</div>}</aside><div className={styles.soundTracks}>{!selectedBoardId && <p className="muted">Select a soundboard to view its tracks.</p>}{selectedBoardId && state.detailLoading && <p className="muted">Loading tracks...</p>}{selectedBoardId && !state.detailLoading && board && <><div className={styles.soundTrackHeading}><div><p className="eyebrow">{board.shared ? 'SHARED GM BOARD' : 'PRIVATE GM BOARD'}</p><h4>{board.name}</h4></div><span>{detail.sounds.length} tracks</span></div>{detail.sounds.length === 0 ? <p className="muted">This board is quiet.</p> : <div className={styles.adventureSoundGrid}>{detail.sounds.map((sound) => <AdventureSoundCard key={`${sound.library_track_id || 'direct'}-${sound.id}`} sound={sound} board={board} onPlay={onPlay} onQueue={onQueue} />)}</div>}</>}</div></div>}</section>;
+}
+
+function AdventureSoundCard({ sound, board, onPlay, onQueue }) {
+  const audioSource = sound.audio_url || (sound.has_audio_upload ? soundMediaUrl(board.id, sound.id, 'audio') : '');
+  const imageSource = sound.image_url || (sound.has_image_upload ? soundMediaUrl(board.id, sound.id, 'image') : '');
+  const playerSound = { ...sound, audioSource, imageSource, boardName: board.name };
+  return <article className={styles.adventureSoundCard}>{imageSource ? <img src={imageSource} alt="" /> : <div className={styles.adventureSoundPlaceholder}>SOUND</div>}<div className={styles.adventureSoundBody}><div className={styles.soundTrackHeader}><h4>{sound.name}</h4></div><div className={styles.soundTags}>{(sound.labels || []).map((label) => <span key={label.id}>{label.name}</span>)}</div><div className={styles.soundTrackActions}><button type="button" onClick={() => onPlay(playerSound)} disabled={!audioSource}>Play now</button><button type="button" onClick={() => onQueue(playerSound)} disabled={!audioSource}>Add to queue</button></div>{(sound.source_name || sound.creator_name || sound.source_credit) && <small>{sound.creator_name || 'Creator not listed'}{sound.source_name ? ` · ${sound.source_name}` : ''}{sound.source_credit ? ` · ${sound.source_credit}` : ''}</small>}</div></article>;
 }
 
 function SettingsPanel({ deleteState, removeAdventure }) {
