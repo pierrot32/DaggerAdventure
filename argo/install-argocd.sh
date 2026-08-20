@@ -32,7 +32,7 @@ kubectl rollout status deployment/ingress-nginx-controller -n ingress-nginx --ti
 
 echo "Allowing application uploads through ingress-nginx..."
 kubectl -n ingress-nginx patch configmap ingress-nginx-controller --type=merge \
-  -p '{"data":{"proxy-body-size":"64m"}}'
+  -p '{"data":{"proxy-body-size":"64m","use-forwarded-headers":"true"}}'
 kubectl -n ingress-nginx rollout restart deployment/ingress-nginx-controller
 kubectl rollout status deployment/ingress-nginx-controller -n ingress-nginx --timeout=300s
 

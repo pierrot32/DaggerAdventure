@@ -29,9 +29,7 @@ const emptyTrack = {
 	labels: "",
 	audioUrl: "",
 	imageUrl: "",
-	creatorName: "",
 	sourceId: "",
-	sourceCredit: "",
 	audioMode: "upload",
 };
 
@@ -321,9 +319,7 @@ export default function SoundboardPage() {
 		formData.append("name", trackForm.name);
 		formData.append("labels", trackForm.labels);
 		formData.append("image_url", trackForm.imageUrl);
-		formData.append("creator_name", trackForm.creatorName);
 		formData.append("source_id", trackForm.sourceId);
-		formData.append("source_credit", trackForm.sourceCredit);
 		if (trackForm.audioMode === "upload" && audioFile)
 			formData.append("audio", audioFile);
 		if (trackForm.audioMode === "url")
@@ -685,20 +681,6 @@ export default function SoundboardPage() {
 									/>
 								</fieldset>
 								<label>
-									Creator
-									<input
-										value={trackForm.creatorName}
-										onChange={(event) =>
-											setTrackForm({
-												...trackForm,
-												creatorName: event.target.value,
-											})
-										}
-										maxLength={160}
-										placeholder="Creator or studio"
-									/>
-								</label>
-								<label>
 									Named source
 									<select
 										value={trackForm.sourceId}
@@ -716,20 +698,6 @@ export default function SoundboardPage() {
 											</option>
 										))}
 									</select>
-								</label>
-								<label className={styles.wide}>
-									Source credit
-									<input
-										value={trackForm.sourceCredit}
-										onChange={(event) =>
-											setTrackForm({
-												...trackForm,
-												sourceCredit: event.target.value,
-											})
-										}
-										maxLength={800}
-										placeholder="License, creator credit, or attribution"
-									/>
 								</label>
 							</div>
 							<Button type="submit">Add to library</Button>
@@ -994,11 +962,29 @@ function LibraryCard({
 		(track.has_image_upload ? libraryMediaUrl(track.id, "image") : "");
 	return (
 		<article className={styles.soundCard}>
-			{imageSource ? (
-				<img className={styles.soundImage} src={imageSource} alt="" />
-			) : (
-				<div className={styles.soundImagePlaceholder}>LIBRARY</div>
-			)}
+			<div className={styles.soundArtwork}>
+				{imageSource ? (
+					<img className={styles.soundImage} src={imageSource} alt="" />
+				) : (
+					<div className={styles.soundImagePlaceholder}>LIBRARY</div>
+				)}
+				<button
+					className={styles.artworkPlay}
+					type="button"
+					onClick={() =>
+						onPlay({
+							...track,
+							audioSource,
+							imageSource,
+							boardName: board?.name || "Sound library",
+						})
+					}
+					disabled={!audioSource}
+					aria-label={`Play ${track.name}`}
+				>
+					Play
+				</button>
+			</div>
 			<div className={styles.soundBody}>
 				<div className={styles.soundTitle}>
 					<h4>{track.name}</h4>
@@ -1151,11 +1137,29 @@ function BoardSoundCard({ sound, board, canEdit, onPlay, onQueue, onDelete }) {
 		(sound.has_image_upload ? soundMediaUrl(board.id, sound.id, "image") : "");
 	return (
 		<article className={styles.soundCard}>
-			{imageSource ? (
-				<img className={styles.soundImage} src={imageSource} alt="" />
-			) : (
-				<div className={styles.soundImagePlaceholder}>SOUND</div>
-			)}
+			<div className={styles.soundArtwork}>
+				{imageSource ? (
+					<img className={styles.soundImage} src={imageSource} alt="" />
+				) : (
+					<div className={styles.soundImagePlaceholder}>SOUND</div>
+				)}
+				<button
+					className={styles.artworkPlay}
+					type="button"
+					onClick={() =>
+						onPlay({
+							...sound,
+							audioSource,
+							imageSource,
+							boardName: board.name,
+						})
+					}
+					disabled={!audioSource}
+					aria-label={`Play ${sound.name}`}
+				>
+					Play
+				</button>
+			</div>
 			<div className={styles.soundBody}>
 				<div className={styles.soundTitle}>
 					<h4>{sound.name}</h4>

@@ -1,8 +1,11 @@
+mod common;
+
 use backend::{
     models::{CreateCharacterRequest, LoginRequest, RegisterRequest},
     repository::{adventure_repo, character_repo},
     services::auth_service,
 };
+use common::fixtures::register_verified;
 use serde_json::json;
 
 fn create_character_request(
@@ -45,7 +48,7 @@ async fn character_list_returns_only_owner_scoped_summary_fields(
     pool: sqlx::PgPool,
 ) {
     let jwt_secret = "test-secret";
-    let owner = auth_service::register(
+    let owner = register_verified(
         &pool,
         jwt_secret,
         RegisterRequest {
@@ -54,9 +57,8 @@ async fn character_list_returns_only_owner_scoped_summary_fields(
             password: "correct-horse".to_owned(),
         },
     )
-    .await
-    .expect("owner registration should succeed");
-    let outsider = auth_service::register(
+    .await;
+    let outsider = register_verified(
         &pool,
         jwt_secret,
         RegisterRequest {
@@ -65,8 +67,7 @@ async fn character_list_returns_only_owner_scoped_summary_fields(
             password: "correct-horse".to_owned(),
         },
     )
-    .await
-    .expect("outsider registration should succeed");
+    .await;
 
     let character = character_repo::create(
         &pool,
@@ -106,7 +107,7 @@ async fn character_list_returns_only_owner_scoped_summary_fields(
 async fn only_the_owner_can_persist_sheet_trackers(pool: sqlx::PgPool) {
     let jwt_secret = "test-secret";
 
-    let owner = auth_service::register(
+    let owner = register_verified(
         &pool,
         jwt_secret,
         RegisterRequest {
@@ -115,9 +116,8 @@ async fn only_the_owner_can_persist_sheet_trackers(pool: sqlx::PgPool) {
             password: "correct-horse".to_owned(),
         },
     )
-    .await
-    .expect("owner registration should succeed");
-    let outsider = auth_service::register(
+    .await;
+    let outsider = register_verified(
         &pool,
         jwt_secret,
         RegisterRequest {
@@ -126,8 +126,7 @@ async fn only_the_owner_can_persist_sheet_trackers(pool: sqlx::PgPool) {
             password: "correct-horse".to_owned(),
         },
     )
-    .await
-    .expect("outsider registration should succeed");
+    .await;
 
     let character = character_repo::create(
         &pool,
@@ -188,7 +187,7 @@ async fn owner_creator_and_unrelated_user_visibility(pool: sqlx::PgPool) {
     let outsider_email =
         format!("outsider-{}@example.com", uuid::Uuid::new_v4());
 
-    let owner = auth_service::register(
+    let owner = register_verified(
         &pool,
         jwt_secret,
         RegisterRequest {
@@ -197,10 +196,9 @@ async fn owner_creator_and_unrelated_user_visibility(pool: sqlx::PgPool) {
             password: "correct-horse".to_owned(),
         },
     )
-    .await
-    .expect("owner registration should succeed");
+    .await;
 
-    let creator = auth_service::register(
+    let creator = register_verified(
         &pool,
         jwt_secret,
         RegisterRequest {
@@ -209,10 +207,9 @@ async fn owner_creator_and_unrelated_user_visibility(pool: sqlx::PgPool) {
             password: "correct-horse".to_owned(),
         },
     )
-    .await
-    .expect("creator registration should succeed");
+    .await;
 
-    let outsider = auth_service::register(
+    let outsider = register_verified(
         &pool,
         jwt_secret,
         RegisterRequest {
@@ -221,8 +218,7 @@ async fn owner_creator_and_unrelated_user_visibility(pool: sqlx::PgPool) {
             password: "correct-horse".to_owned(),
         },
     )
-    .await
-    .expect("outsider registration should succeed");
+    .await;
 
     let adventure =
         adventure_repo::create(&pool, creator.user.id, "The Lost Temple", None)

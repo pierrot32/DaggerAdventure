@@ -48,6 +48,8 @@ mod tests {
             password_hash: "unused".to_owned(),
             access_level: access_level.to_owned(),
             ai_generation_enabled: false,
+            email_verified_at: Some(Utc::now()),
+            email_verification_required: true,
             created_at: Utc::now(),
         }
     }

@@ -54,7 +54,15 @@ pub struct User {
     pub password_hash: String,
     pub access_level: String,
     pub ai_generation_enabled: bool,
+    pub email_verified_at: Option<DateTime<Utc>>,
+    pub email_verification_required: bool,
     pub created_at: DateTime<Utc>,
+}
+
+impl User {
+    pub fn needs_email_verification(&self) -> bool {
+        self.email_verification_required && self.email_verified_at.is_none()
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -64,6 +72,7 @@ pub struct UserResponse {
     pub name: String,
     pub access_level: String,
     pub ai_generation_enabled: bool,
+    pub email_verified: bool,
 }
 
 impl From<User> for UserResponse {
@@ -74,6 +83,7 @@ impl From<User> for UserResponse {
             name: user.name,
             access_level: user.access_level,
             ai_generation_enabled: user.ai_generation_enabled,
+            email_verified: user.email_verified_at.is_some(),
         }
     }
 }
@@ -94,6 +104,16 @@ pub struct UpdateUserRequest {
 pub struct LoginRequest {
     pub email: String,
     pub password: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct VerifyEmailRequest {
+    pub token: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ResendVerificationRequest {
+    pub email: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -132,5 +152,27 @@ mod tests {
     fn from_str_rejects_unknown_value() {
         assert!("superadmin".parse::<AccessLevel>().is_err());
         assert!("".parse::<AccessLevel>().is_err());
+    }
+
+    #[test]
+    fn email_verification_predicate_grandfathers_legacy_accounts() {
+        let mut user = User {
+            id: Uuid::new_v4(),
+            email: "test@example.com".to_owned(),
+            name: "Test User".to_owned(),
+            password_hash: "unused".to_owned(),
+            access_level: AccessLevel::Nothing.as_str().to_owned(),
+            ai_generation_enabled: false,
+            email_verified_at: None,
+            email_verification_required: false,
+            created_at: Utc::now(),
+        };
+        assert!(!user.needs_email_verification());
+
+        user.email_verification_required = true;
+        assert!(user.needs_email_verification());
+
+        user.email_verified_at = Some(Utc::now());
+        assert!(!user.needs_email_verification());
     }
 }

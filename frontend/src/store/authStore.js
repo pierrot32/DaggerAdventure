@@ -26,9 +26,12 @@ export const useAuthStore = create((set) => ({
 
 	register: async (payload) => {
 		set({ error: null });
-		const user = await authApi.register(payload);
-		set({ user });
-		return user;
+		return authApi.register(payload);
+	},
+
+	resendVerification: async (email) => {
+		set({ error: null });
+		return authApi.resendVerification(email);
 	},
 
 	logout: async () => {

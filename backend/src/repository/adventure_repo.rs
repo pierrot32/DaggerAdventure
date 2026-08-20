@@ -296,7 +296,7 @@ pub async fn create_invite(
     .fetch_optional(&mut *transaction)
     .await?;
 
-    let invite = sqlx::query_as::<_, AdventureInvite>(
+    let mut invite = sqlx::query_as::<_, AdventureInvite>(
         "INSERT INTO adventure_invites
          (id, adventure_id, inviter_id, recipient_email, recipient_user_id)
          VALUES ($1, $2, $3, $4, $5)
@@ -320,7 +320,26 @@ pub async fn create_invite(
         }
     })?;
 
-    if let Some(recipient_user_id) = recipient_user_id {
+    if invite.recipient_user_id.is_none() {
+        if let Some(updated_invite) = sqlx::query_as::<_, AdventureInvite>(
+            "UPDATE adventure_invites AS i
+             SET recipient_user_id = u.id
+             FROM users u
+             WHERE i.id = $1
+               AND i.recipient_user_id IS NULL
+               AND lower(u.email) = lower(i.recipient_email)
+             RETURNING i.id, i.adventure_id, i.inviter_id, i.recipient_email,
+                       i.recipient_user_id, i.status, i.created_at, i.accepted_at",
+        )
+        .bind(invite.id)
+        .fetch_optional(&mut *transaction)
+        .await?
+        {
+            invite = updated_invite;
+        }
+    }
+
+    if let Some(recipient_user_id) = invite.recipient_user_id {
         sqlx::query(
             "INSERT INTO notifications
              (id, recipient_user_id, actor_user_id, adventure_id, invite_id,
@@ -499,6 +518,15 @@ pub async fn link_pending_invites(
     pool: &PgPool,
     user: &User,
 ) -> Result<(), sqlx::Error> {
+    let mut transaction = pool.begin().await?;
+    link_pending_invites_in_transaction(&mut transaction, user).await?;
+    transaction.commit().await
+}
+
+pub async fn link_pending_invites_in_transaction(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    user: &User,
+) -> Result<(), sqlx::Error> {
     #[derive(sqlx::FromRow)]
     struct PendingInvite {
         id: Uuid,
@@ -508,7 +536,6 @@ pub async fn link_pending_invites(
         inviter_name: String,
     }
 
-    let mut transaction = pool.begin().await?;
     let invites = sqlx::query_as::<_, PendingInvite>(
         "UPDATE adventure_invites AS i
          SET recipient_user_id = $1
@@ -523,7 +550,7 @@ pub async fn link_pending_invites(
     )
     .bind(user.id)
     .bind(&user.email)
-    .fetch_all(&mut *transaction)
+    .fetch_all(&mut **transaction)
     .await?;
 
     for invite in invites {
@@ -543,10 +570,9 @@ pub async fn link_pending_invites(
             "{} invited you to join {}",
             invite.inviter_name, invite.adventure_name
         ))
-        .execute(&mut *transaction)
+        .execute(&mut **transaction)
         .await?;
     }
 
-    transaction.commit().await?;
     Ok(())
 }

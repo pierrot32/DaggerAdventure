@@ -6,6 +6,7 @@ export function useAuth() {
 	const status = useAuthStore((state) => state.status);
 	const login = useAuthStore((state) => state.login);
 	const register = useAuthStore((state) => state.register);
+	const resendVerification = useAuthStore((state) => state.resendVerification);
 	const logout = useAuthStore((state) => state.logout);
 	const updateProfile = useAuthStore((state) => state.updateProfile);
 	const deleteAccount = useAuthStore((state) => state.deleteAccount);
@@ -15,6 +16,7 @@ export function useAuth() {
 		isAuthenticated: Boolean(user),
 		login,
 		register,
+		resendVerification,
 		logout,
 		updateProfile,
 		deleteAccount,

@@ -248,6 +248,11 @@ pub fn router(state: AppState) -> Router {
         .route("/healthz", get(|| async { "OK" }))
         .route("/api/auth/register", post(auth::register))
         .route("/api/auth/login", post(auth::login))
+        .route("/api/auth/verify-email", post(auth::verify_email))
+        .route(
+            "/api/auth/resend-verification",
+            post(auth::resend_verification),
+        )
         .route("/api/auth/logout", post(auth::logout))
         .merge(protected)
         .with_state(state)

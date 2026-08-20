@@ -7,11 +7,13 @@ import styles from "./Auth.module.css";
 
 // Login form - separate from RegisterPage so each stays simple and independently extensible
 export default function LoginPage() {
-	const { user, status, login } = useAuth();
+	const { user, status, login, resendVerification } = useAuth();
 	const navigate = useNavigate();
 	const [form, setForm] = useState({ email: "", password: "" });
 	const [error, setError] = useState("");
 	const [submitting, setSubmitting] = useState(false);
+	const [resending, setResending] = useState(false);
+	const [resendMessage, setResendMessage] = useState("");
 
 	if (status === "ready" && user) return <Navigate to="/dashboard" replace />;
 
@@ -19,6 +21,7 @@ export default function LoginPage() {
 		event.preventDefault();
 		setSubmitting(true);
 		setError("");
+		setResendMessage("");
 		try {
 			await login(form.email, form.password);
 			navigate("/dashboard");
@@ -26,6 +29,19 @@ export default function LoginPage() {
 			setError(err.message);
 		} finally {
 			setSubmitting(false);
+		}
+	};
+
+	const resend = async () => {
+		setResending(true);
+		setResendMessage("");
+		try {
+			const result = await resendVerification(form.email);
+			setResendMessage(result.message);
+		} catch (err) {
+			setResendMessage(err.message);
+		} finally {
+			setResending(false);
 		}
 	};
 
@@ -57,6 +73,19 @@ export default function LoginPage() {
 						}
 					/>
 					{error && <p className={styles.error}>{error}</p>}
+					{error && (
+						<div>
+							<Button
+								type="button"
+								variant="text"
+								disabled={resending || !form.email}
+								onClick={resend}
+							>
+								{resending ? "Requesting link..." : "Resend verification email"}
+							</Button>
+							{resendMessage && <p className="muted">{resendMessage}</p>}
+						</div>
+					)}
 					<Button type="submit" disabled={submitting} className={styles.submit}>
 						{submitting ? "Signing in..." : "Sign in"}
 					</Button>

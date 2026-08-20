@@ -52,8 +52,11 @@ export default function SoundPlayer() {
 	const playing = useSoundPlayerStore((state) => state.playing);
 	const queue = useSoundPlayerStore((state) => state.queue);
 	const playbackVersion = useSoundPlayerStore((state) => state.playbackVersion);
+	const repeatMode = useSoundPlayerStore((state) => state.repeatMode);
 	const setPlaying = useSoundPlayerStore((state) => state.setPlaying);
 	const advanceQueue = useSoundPlayerStore((state) => state.advanceQueue);
+	const cycleRepeatMode = useSoundPlayerStore((state) => state.cycleRepeatMode);
+	const getRepeatMode = useSoundPlayerStore((state) => state.getRepeatMode);
 	const removeFromQueue = useSoundPlayerStore((state) => state.removeFromQueue);
 	const clearQueue = useSoundPlayerStore((state) => state.clearQueue);
 	const clear = useSoundPlayerStore((state) => state.clear);
@@ -61,6 +64,7 @@ export default function SoundPlayer() {
 	const [currentTime, setCurrentTime] = useState(0);
 	const [duration, setDuration] = useState(0);
 	const [queueVisible, setQueueVisible] = useState(false);
+	const [playerVisible, setPlayerVisible] = useState(true);
 	const seeking = useRef(false);
 	const mediaIdentity = useRef({ version: null, source: null });
 	const seekSequence = useRef(0);
@@ -83,7 +87,7 @@ export default function SoundPlayer() {
 				audioElement.currentTime < audioElement.duration - 0.05
 			)
 				return;
-			advanceQueue();
+			advanceQueue(getRepeatMode());
 		};
 		const handleTimeUpdate = () => {
 			if (isCurrentMedia(mediaIdentity) && !seeking.current)
@@ -126,7 +130,7 @@ export default function SoundPlayer() {
 			audioElement.removeEventListener("durationchange", handleDurationChange);
 			audioElement.removeEventListener("seeked", handleSeeked);
 		};
-	}, [advanceQueue, setPlaying]);
+	}, [advanceQueue, getRepeatMode, setPlaying]);
 
 	useEffect(() => {
 		if (queue.length === 0) setQueueVisible(false);
@@ -203,8 +207,25 @@ export default function SoundPlayer() {
 		seeking.current = false;
 		if (audioElement) setCurrentTime(audioElement.currentTime);
 	};
+	const seekProgress = duration
+		? Math.min(100, Math.max(0, (currentTime / duration) * 100))
+		: 0;
+	const repeatLabels = { off: "Off", song: "Song", queue: "Queue" };
 
 	if (!current) return null;
+	if (!playerVisible)
+		return (
+			<button
+				className={styles.collapsedPlayer}
+				type="button"
+				onClick={() => setPlayerVisible(true)}
+				aria-label={`Show sound player for ${current.name}`}
+				title={`Show sound player for ${current.name}`}
+			>
+				<span aria-hidden="true">♪</span>
+				<strong>{current.name}</strong>
+			</button>
+		);
 
 	return (
 		<aside className={styles.player} aria-label="Sound player">
@@ -241,6 +262,7 @@ export default function SoundPlayer() {
 					max={duration || 1}
 					step="any"
 					value={duration ? Math.min(currentTime, duration) : 0}
+					style={{ "--seek-progress": `${seekProgress}%` }}
 					onPointerDown={() => {
 						seeking.current = true;
 					}}
@@ -254,6 +276,15 @@ export default function SoundPlayer() {
 				</span>
 			</div>
 			<button
+				className={styles.repeatMode}
+				type="button"
+				onClick={cycleRepeatMode}
+				aria-label={`Repeat mode: ${repeatLabels[repeatMode]}. Activate to change.`}
+				title="Cycle repeat mode"
+			>
+				Repeat: {repeatLabels[repeatMode]}
+			</button>
+			<button
 				className={styles.queueToggle}
 				type="button"
 				onClick={() => setQueueVisible((visible) => !visible)}
@@ -261,6 +292,15 @@ export default function SoundPlayer() {
 				disabled={queue.length === 0}
 			>
 				Queue ({queue.length})
+			</button>
+			<button
+				className={styles.hide}
+				type="button"
+				onClick={() => setPlayerVisible(false)}
+				aria-label="Hide sound player"
+				title="Hide sound player"
+			>
+				Hide
 			</button>
 			<button
 				className={styles.close}

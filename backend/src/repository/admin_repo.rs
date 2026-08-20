@@ -23,7 +23,7 @@ pub async fn list_users(
     let pattern = format!("%{}%", search.trim().to_lowercase());
 
     let users = sqlx::query_as::<_, AdminUser>(
-        "SELECT id, email, name, access_level, ai_generation_enabled, created_at
+        "SELECT id, email, name, access_level, ai_generation_enabled, email_verified_at, created_at
          FROM users
          WHERE ($1 = '' OR lower(email) LIKE $2 OR lower(name) LIKE $2)
            AND ($3::text IS NULL OR access_level = $3)
@@ -67,7 +67,7 @@ pub async fn update_access_level(
 
     let mut transaction = pool.begin().await?;
     let target = sqlx::query_as::<_, AdminUser>(
-        "SELECT id, email, name, access_level, ai_generation_enabled, created_at
+        "SELECT id, email, name, access_level, ai_generation_enabled, email_verified_at, created_at
          FROM users WHERE id = $1 FOR UPDATE",
     )
     .bind(target_id)
@@ -110,7 +110,7 @@ pub async fn update_access_level(
     .await?;
 
     let updated = sqlx::query_as::<_, AdminUser>(
-        "SELECT id, email, name, access_level, ai_generation_enabled, created_at
+        "SELECT id, email, name, access_level, ai_generation_enabled, email_verified_at, created_at
          FROM users WHERE id = $1",
     )
     .bind(target_id)
@@ -135,7 +135,7 @@ pub async fn update_approval(
 
     let mut transaction = pool.begin().await?;
     let target = sqlx::query_as::<_, AdminUser>(
-        "SELECT id, email, name, access_level, ai_generation_enabled, created_at
+        "SELECT id, email, name, access_level, ai_generation_enabled, email_verified_at, created_at
          FROM users WHERE id = $1 FOR UPDATE",
     )
     .bind(target_id)
@@ -171,7 +171,7 @@ pub async fn update_approval(
     }
 
     let updated = sqlx::query_as::<_, AdminUser>(
-        "SELECT id, email, name, access_level, ai_generation_enabled, created_at
+        "SELECT id, email, name, access_level, ai_generation_enabled, email_verified_at, created_at
          FROM users WHERE id = $1",
     )
     .bind(target_id)
@@ -200,7 +200,7 @@ pub async fn update_ai_generation_access(
     }
 
     sqlx::query_as::<_, AdminUser>(
-        "SELECT id, email, name, access_level, ai_generation_enabled, created_at
+        "SELECT id, email, name, access_level, ai_generation_enabled, email_verified_at, created_at
          FROM users WHERE id = $1",
     )
     .bind(target_id)

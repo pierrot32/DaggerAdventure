@@ -13,6 +13,18 @@ export const register = ({ email, name, password }) =>
 		body: JSON.stringify({ email, name, password }),
 	});
 
+export const verifyEmail = (token) =>
+	request("/api/auth/verify-email", {
+		method: "POST",
+		body: JSON.stringify({ token }),
+	});
+
+export const resendVerification = (email) =>
+	request("/api/auth/resend-verification", {
+		method: "POST",
+		body: JSON.stringify({ email }),
+	});
+
 export const logout = () => request("/api/auth/logout", { method: "POST" });
 
 export const fetchMe = () => request("/api/auth/me");

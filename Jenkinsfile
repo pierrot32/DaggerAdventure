@@ -91,7 +91,7 @@ pipeline {
                         docker network rm "$test_network" >/dev/null 2>&1 || true
                         docker image rm "$test_image" >/dev/null 2>&1 || true
                     }
-                    trap cleanup EXIT
+                    trap cleanup 0
 
                     docker network create "$test_network"
                     docker run -d --rm \
@@ -133,51 +133,97 @@ pipeline {
             steps {
                 sh '''
                     set -eu
-                    docker network create dagger-ci-network
+                    ci_suffix_source="${BUILD_TAG:-jenkins-${JOB_NAME:-daggeradventure}-${BUILD_NUMBER:-unknown}}"
+                    ci_suffix="$(printf '%s' "$ci_suffix_source" | sha256sum | cut -c1-16)"
+                    test_network="dagger-ci-${ci_suffix}"
+                    postgres_name="dagger-postgres-ci-${ci_suffix}"
+                    backend_name="dagger-backend-ci-${ci_suffix}"
+                    email_volume="dagger-email-ci-${ci_suffix}"
+                    email_outbox_dir="$(mktemp -d)"
                     cleanup() {
-                        docker rm -f dagger-backend-ci dagger-postgres-ci >/dev/null 2>&1 || true
-                        docker network rm dagger-ci-network >/dev/null 2>&1 || true
+                        docker rm -f "$backend_name" "$postgres_name" >/dev/null 2>&1 || true
+                        docker network rm "$test_network" >/dev/null 2>&1 || true
+                        docker volume rm "$email_volume" >/dev/null 2>&1 || true
+                        rm -rf "$email_outbox_dir"
                     }
-                    trap cleanup EXIT
+                    trap cleanup 0
+
+                    docker network create "$test_network"
+                    docker volume rm "$email_volume" >/dev/null 2>&1 || true
+                    docker volume create "$email_volume" >/dev/null
 
                     docker run -d --rm \
-                      --name dagger-postgres-ci \
-                      --network dagger-ci-network \
+                      --name "$postgres_name" \
+                      --network "$test_network" \
                       -e POSTGRES_DB=dagger_adventure \
                       -e POSTGRES_USER=dagger_adventure \
                       -e POSTGRES_PASSWORD=ci-password \
                       postgres:16-alpine
 
-                    until docker run --rm --network dagger-ci-network postgres:16-alpine \
-                        pg_isready -h dagger-postgres-ci -U dagger_adventure -d dagger_adventure; do
+                    until docker run --rm --network "$test_network" postgres:16-alpine \
+                        pg_isready -h "$postgres_name" -U dagger_adventure -d dagger_adventure; do
                         sleep 1
                     done
 
                     docker run -d --rm \
-                      --name dagger-backend-ci \
-                      --network dagger-ci-network \
-                      -e DATABASE_URL=postgres://dagger_adventure:ci-password@dagger-postgres-ci:5432/dagger_adventure \
+                                            --name "$backend_name" \
+                                            --network "$test_network" \
+                                            --mount type=volume,src="$email_volume",dst=/var/lib/dagger-email \
+                      -e DATABASE_URL=postgres://dagger_adventure:ci-password@${postgres_name}:5432/dagger_adventure \
                       -e JWT_SECRET=ci-only-secret-change-this-to-a-32-byte-value \
-                                            -e COOKIE_SECURE=false \
-                                            ${BACKEND_IMAGE}:${IMAGE_TAG}
+                      -e COOKIE_SECURE=false \
+                      -e EMAIL_PROVIDER=dev_file \
+                      -e EMAIL_DEV_OUTBOX=/var/lib/dagger-email/outbox.txt \
+                      -e EMAIL_VERIFICATION_BASE_URL=http://ci.invalid/verify-email \
+                      ${BACKEND_IMAGE}:${IMAGE_TAG}
 
-                    docker run --rm --network dagger-ci-network curlimages/curl:8.12.1 \
+                    docker run --rm --network "$test_network" curlimages/curl:8.12.1 \
                         --fail --retry 10 --retry-delay 1 --retry-connrefused \
-                        http://dagger-backend-ci:8080/healthz
-                    docker run --rm --network dagger-ci-network curlimages/curl:8.12.1 \
-                        --fail --retry 10 --retry-delay 1 --retry-connrefused \
-                        -c /tmp/ci-cookies \
+                        "http://${backend_name}:8080/healthz"
+                    set +x
+                    if ! registration_response="$(docker run --rm --network "$test_network" curlimages/curl:8.12.1 \
+                        --fail-with-body --silent --show-error \
                         -H 'content-type: application/json' \
                         --data '{"email":"ci@example.com","name":"CI User","password":"ci-password"}' \
-                        -o /dev/null \
-                        http://dagger-backend-ci:8080/api/auth/register \
-                        --next \
-                        --fail --retry 10 --retry-delay 1 --retry-connrefused \
-                        -b /tmp/ci-cookies \
-                        http://dagger-backend-ci:8080/api/hello
+                        "http://${backend_name}:8080/api/auth/register")"; then
+                        printf '%s\n' "$registration_response" >&2
+                        exit 1
+                    fi
+                    unset registration_response
+                    set -x
 
-                    docker stop dagger-backend-ci || true
-                    docker network rm dagger-ci-network || true
+                    docker cp "$backend_name:/var/lib/dagger-email/outbox.txt" "$email_outbox_dir/"
+                    set +x
+                    verification_token="$(awk -F'#token=' '/#token=/{token=$2} END {gsub(/[[:space:]]/, "", token); print token}' "$email_outbox_dir/outbox.txt")"
+                    test -n "$verification_token"
+                    verification_payload="$(jq -cn --arg token "$verification_token" '{token: $token}')"
+                    if ! verification_response="$(printf '%s' "$verification_payload" | docker run -i --rm --network "$test_network" curlimages/curl:8.12.1 \
+                        --fail-with-body --silent --show-error \
+                        -H 'content-type: application/json' \
+                        --data-binary @- \
+                        "http://${backend_name}:8080/api/auth/verify-email")"; then
+                        printf '%s\n' "$verification_response" >&2
+                        exit 1
+                    fi
+                    unset verification_token
+                    unset verification_payload
+                    unset verification_response
+                    set -x
+
+                    docker run --rm --network "$test_network" curlimages/curl:8.12.1 \
+                        --fail --silent --show-error \
+                        -c /tmp/ci-cookies \
+                        -H 'content-type: application/json' \
+                        --data '{"email":"ci@example.com","password":"ci-password"}' \
+                        -o /dev/null \
+                        "http://${backend_name}:8080/api/auth/login" \
+                        --next \
+                        --fail --silent --show-error \
+                        -b /tmp/ci-cookies \
+                        "http://${backend_name}:8080/api/hello"
+
+                    docker stop "$backend_name" || true
+                    docker network rm "$test_network" || true
                 '''
             }
         }
@@ -337,8 +383,13 @@ EOF
     post {
         always {
             sh '''
-                docker rm -f dagger-backend-ci 2>/dev/null || true
-                docker network rm dagger-ci-network 2>/dev/null || true
+                ci_suffix_source="${BUILD_TAG:-jenkins-${JOB_NAME:-daggeradventure}-${BUILD_NUMBER:-unknown}}"
+                if [ -n "$ci_suffix_source" ]; then
+                    ci_suffix="$(printf '%s' "$ci_suffix_source" | sha256sum | cut -c1-16)"
+                    docker rm -f "dagger-backend-ci-${ci_suffix}" "dagger-postgres-ci-${ci_suffix}" 2>/dev/null || true
+                    docker network rm "dagger-ci-${ci_suffix}" 2>/dev/null || true
+                    docker volume rm "dagger-email-ci-${ci_suffix}" 2>/dev/null || true
+                fi
                 docker image rm "${BACKEND_IMAGE}:${IMAGE_TAG}" "${FRONTEND_IMAGE}:${IMAGE_TAG}" \
                     "${BACKEND_IMAGE}:latest" "${FRONTEND_IMAGE}:latest" 2>/dev/null || true
                 docker logout "${DOCKER_REGISTRY:-}" 2>/dev/null || true

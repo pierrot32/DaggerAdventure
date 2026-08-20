@@ -73,6 +73,16 @@ async fn authenticate(
     user_repo::find_by_id(&state.db, claims.sub)
         .await?
         .ok_or_else(|| AppError::Unauthorized("Not signed in".to_owned()))
+        .and_then(|user| {
+            if user.needs_email_verification() {
+                Err(AppError::Forbidden(
+                    "Verify your email before accessing the application"
+                        .to_owned(),
+                ))
+            } else {
+                Ok(user)
+            }
+        })
 }
 
 fn cookie_token(parts: &Parts) -> Option<String> {

@@ -189,6 +189,9 @@
 	grid-template-columns: minmax(0, 1fr) auto;
 	gap: var(--space-2);
 	align-items: start;
+	padding: var(--space-4);
+	border: 1px solid rgba(244, 238, 228, 0.16);
+	background: rgba(244, 238, 228, 0.04);
 }
 .entryVisibility {
 	display: flex !important;
@@ -200,6 +203,7 @@
 }
 .sourceOrigin,
 .customOrigin {
+	grid-column: 1 / -1;
 	display: inline-block;
 	color: var(--color-muted-inverse);
 	font-size: 11px;
@@ -210,6 +214,7 @@
 	color: var(--color-accent);
 }
 .repeatableFields {
+	grid-column: 1;
 	display: grid;
 	gap: var(--space-3);
 	min-width: 0;
@@ -222,6 +227,14 @@
 }
 .repeatableField textarea {
 	min-height: 180px;
+}
+.repeatableItem > .removeButton {
+	grid-column: 2;
+	align-self: end;
+	justify-self: end;
+}
+.repeatableItem > .tableEditor {
+	grid-column: 1 / -1;
 }
 .modificationSection {
 	display: grid;

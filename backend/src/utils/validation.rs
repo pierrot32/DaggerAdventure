@@ -1,6 +1,11 @@
 use crate::error::AppError;
 
 pub fn normalize_email(email: &str) -> Result<String, AppError> {
+    if email.bytes().any(|byte| byte.is_ascii_control()) {
+        return Err(AppError::Validation(
+            "Enter a valid email address".to_owned(),
+        ));
+    }
     let email = email.trim().to_lowercase();
     if !email.contains('@') || email.len() > 254 {
         return Err(AppError::Validation(
@@ -8,6 +13,64 @@ pub fn normalize_email(email: &str) -> Result<String, AppError> {
         ));
     }
     Ok(email)
+}
+
+pub fn validate_email_from(value: &str) -> Result<String, AppError> {
+    if value.bytes().any(|byte| byte.is_ascii_control()) {
+        return Err(AppError::Validation(
+            "EMAIL_FROM must be a valid single-line email address".to_owned(),
+        ));
+    }
+    let value = value.trim();
+    let valid_shape = value.len() <= 254
+        && value.matches('@').count() == 1
+        && value.split_once('@').is_some_and(|(local, domain)| {
+            !local.is_empty() && !domain.is_empty()
+        });
+    if value.is_empty()
+        || value.chars().any(char::is_whitespace)
+        || !valid_shape
+    {
+        return Err(AppError::Validation(
+            "EMAIL_FROM must be a valid single-line email address".to_owned(),
+        ));
+    }
+    Ok(value.to_owned())
+}
+
+pub fn validate_verification_base_url(value: &str) -> Result<String, AppError> {
+    if value.bytes().any(|byte| byte.is_ascii_control()) {
+        return Err(AppError::Validation(
+            "EMAIL_VERIFICATION_BASE_URL must be a single-line HTTP(S) URL"
+                .to_owned(),
+        ));
+    }
+    let value = value.trim();
+    if value.is_empty() || value.chars().any(char::is_whitespace) {
+        return Err(AppError::Validation(
+            "EMAIL_VERIFICATION_BASE_URL must be a single-line HTTP(S) URL"
+                .to_owned(),
+        ));
+    }
+
+    let parsed = reqwest::Url::parse(value).map_err(|_| {
+        AppError::Validation(
+            "EMAIL_VERIFICATION_BASE_URL must be a single-line HTTP(S) URL"
+                .to_owned(),
+        )
+    })?;
+    if !matches!(parsed.scheme(), "http" | "https")
+        || parsed.host_str().is_none()
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || parsed.query().is_some()
+        || parsed.fragment().is_some()
+    {
+        return Err(AppError::Validation(
+            "EMAIL_VERIFICATION_BASE_URL must be a single-line HTTP(S) URL without credentials, query, or fragment".to_owned(),
+        ));
+    }
+    Ok(value.to_owned())
 }
 
 pub fn validate_name(name: &str) -> Result<String, AppError> {
@@ -36,6 +99,42 @@ mod tests {
     #[test]
     fn rejects_email_without_at_sign() {
         assert!(normalize_email("not-an-email").is_err());
+    }
+
+    #[test]
+    fn rejects_email_with_ascii_control_characters() {
+        assert!(normalize_email("user\n@example.com").is_err());
+        assert!(normalize_email("user\r@example.com").is_err());
+        assert!(normalize_email("user\u{0007}@example.com").is_err());
+    }
+
+    #[test]
+    fn validates_single_line_email_sender() {
+        assert_eq!(
+            validate_email_from(" no-reply@example.com ").unwrap(),
+            "no-reply@example.com"
+        );
+        assert!(
+            validate_email_from("no-reply\nBcc: attacker@example.com").is_err()
+        );
+        assert!(validate_email_from("not-an-email").is_err());
+    }
+
+    #[test]
+    fn validates_verification_url_shape() {
+        assert!(
+            validate_verification_base_url("https://example.com/verify-email")
+                .is_ok()
+        );
+        assert!(validate_verification_base_url("javascript:alert(1)").is_err());
+        assert!(
+            validate_verification_base_url("https://example.com/verify?x=1")
+                .is_err()
+        );
+        assert!(
+            validate_verification_base_url("https://example.com/verify\n")
+                .is_err()
+        );
     }
 
     #[test]

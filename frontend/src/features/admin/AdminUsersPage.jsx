@@ -111,6 +111,7 @@ export default function AdminUsersPage() {
 							<tr>
 								<th>User ID</th>
 								<th>Account</th>
+								<th>Email verification</th>
 								<th>Access level</th>
 								<th>Approval</th>
 								<th>AI generation</th>
@@ -124,6 +125,9 @@ export default function AdminUsersPage() {
 									<td>
 										<strong>{user.name}</strong>
 										<span className={styles.email}>{user.email}</span>
+									</td>
+									<td>
+										{user.email_verified_at ? "Verified" : "Pending"}
 									</td>
 									<td>
 										{user.access_level === ACCESS_LEVELS.NOTHING ? (

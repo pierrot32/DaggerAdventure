@@ -1174,6 +1174,58 @@ function AdventureSoundsPanel({
 	onQueue,
 }) {
 	const board = detail?.board?.id === selectedBoardId ? detail.board : null;
+	const [searchTerm, setSearchTerm] = useState("");
+	const [labelFilter, setLabelFilter] = useState("");
+	const [sourceFilter, setSourceFilter] = useState("");
+	const sounds = board ? detail?.sounds || [] : [];
+	const labelOptions = [
+		...new Set(
+			sounds.flatMap((sound) =>
+				(sound.labels || []).map((label) => label.name),
+			),
+		),
+	].sort((a, b) => a.localeCompare(b));
+	const normalizedSearch = searchTerm.trim().toLowerCase();
+	const filteredSounds = sounds.filter((sound) => {
+		const labels = (sound.labels || []).map((label) => label.name.toLowerCase());
+		const searchable = [sound.name, sound.source_name, ...labels]
+			.filter(Boolean)
+			.join(" ")
+			.toLowerCase();
+		return (
+			(!normalizedSearch || searchable.includes(normalizedSearch)) &&
+			(!labelFilter || labels.includes(labelFilter.toLowerCase())) &&
+			(!sourceFilter || String(sound.source_id) === sourceFilter)
+		);
+	});
+	useEffect(() => {
+		setSearchTerm("");
+		setLabelFilter("");
+		setSourceFilter("");
+	}, [selectedBoardId]);
+	const soundSources = [
+		...new Map(
+			sounds
+				.filter((sound) => sound.source_id && sound.source_name)
+				.map((sound) => [sound.source_id, sound.source_name]),
+		).entries(),
+	];
+	const labelOptionsKey = labelOptions.join("\u001f");
+	const sourceOptionIdsKey = soundSources
+		.map(([sourceId]) => String(sourceId))
+		.join("\u001f");
+	useEffect(() => {
+		if (
+			labelFilter &&
+			!labelOptionsKey.split("\u001f").includes(labelFilter)
+		)
+			setLabelFilter("");
+		if (
+			sourceFilter &&
+			!sourceOptionIdsKey.split("\u001f").includes(sourceFilter)
+		)
+			setSourceFilter("");
+	}, [labelFilter, labelOptionsKey, sourceFilter, sourceOptionIdsKey]);
 	return (
 		<section className={styles.workspacePanel}>
 			<div className={styles.panelHeading}>
@@ -1228,6 +1280,45 @@ function AdventureSoundsPanel({
 						)}
 						{selectedBoardId && board && (
 							<>
+								<div className={styles.soundFilters}>
+									<label>
+										Search sounds
+										<input
+											type="search"
+											value={searchTerm}
+											onChange={(event) => setSearchTerm(event.target.value)}
+											placeholder="Search by name or source"
+										/>
+									</label>
+									<label>
+										Label
+										<select
+											value={labelFilter}
+											onChange={(event) => setLabelFilter(event.target.value)}
+										>
+											<option value="">All labels</option>
+											{labelOptions.map((label) => (
+												<option key={label} value={label}>
+													{label}
+												</option>
+											))}
+										</select>
+									</label>
+									<label>
+										Named source
+										<select
+											value={sourceFilter}
+											onChange={(event) => setSourceFilter(event.target.value)}
+										>
+											<option value="">All sources</option>
+											{soundSources.map(([sourceId, sourceName]) => (
+												<option key={sourceId} value={sourceId}>
+													{sourceName}
+												</option>
+											))}
+										</select>
+									</label>
+								</div>
 								<div className={styles.soundTrackHeading}>
 									<div>
 										<p className="eyebrow">
@@ -1235,13 +1326,15 @@ function AdventureSoundsPanel({
 										</p>
 										<h4>{board.name}</h4>
 									</div>
-									<span>{detail.sounds.length} tracks</span>
+									<span>{filteredSounds.length} tracks</span>
 								</div>
-								{detail.sounds.length === 0 ? (
+								{sounds.length === 0 ? (
 									<p className="muted">This board is quiet.</p>
+								) : filteredSounds.length === 0 ? (
+									<p className="muted">No sounds match these filters.</p>
 								) : (
 									<div className={styles.adventureSoundGrid}>
-										{detail.sounds.map((sound) => (
+										{filteredSounds.map((sound) => (
 											<AdventureSoundCard
 												key={`${sound.library_track_id || "direct"}-${sound.id}`}
 												sound={sound}
@@ -1276,11 +1369,22 @@ function AdventureSoundCard({ sound, board, onPlay, onQueue }) {
 	};
 	return (
 		<article className={styles.adventureSoundCard}>
-			{imageSource ? (
-				<img src={imageSource} alt="" />
-			) : (
-				<div className={styles.adventureSoundPlaceholder}>SOUND</div>
-			)}
+			<div className={styles.adventureSoundArtwork}>
+				{imageSource ? (
+					<img src={imageSource} alt="" />
+				) : (
+					<div className={styles.adventureSoundPlaceholder}>SOUND</div>
+				)}
+				<button
+					className={styles.artworkPlay}
+					type="button"
+					onClick={() => onPlay(playerSound)}
+					disabled={!audioSource}
+					aria-label={`Play ${sound.name}`}
+				>
+					Play
+				</button>
+			</div>
 			<div className={styles.adventureSoundBody}>
 				<div className={styles.soundTrackHeader}>
 					<h4>{sound.name}</h4>
