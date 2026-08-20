@@ -199,7 +199,11 @@ async fn list_sounds(pool: &PgPool, board_id: Uuid) -> Result<Vec<SoundRecord>, 
                 t.creator_name, t.source_id, s.name AS source_name, s.website_url AS source_url,
                 s.description AS source_description, t.source_credit,
                 (t.audio_data IS NOT NULL) AS has_audio_upload,
-                (t.image_data IS NOT NULL) AS has_image_upload, t.created_at
+                (t.image_data IS NOT NULL) AS has_image_upload,
+                COALESCE((SELECT ARRAY_AGG(board_link.board_id ORDER BY board_link.board_id)
+                          FROM sound_board_library_tracks board_link
+                          WHERE board_link.track_id = t.id), ARRAY[]::UUID[]) AS board_ids,
+                t.created_at
          FROM sound_board_library_tracks link
          JOIN sound_library_tracks t ON t.id = link.track_id
          LEFT JOIN sound_sources s ON s.id = t.source_id
@@ -247,6 +251,7 @@ struct LibraryTrackRow {
     source_credit: Option<String>,
     has_audio_upload: bool,
     has_image_upload: bool,
+    board_ids: Vec<Uuid>,
     created_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -484,7 +489,11 @@ pub async fn list_library(
                 t.creator_name, t.source_id, s.name AS source_name, s.website_url AS source_url,
                 s.description AS source_description, t.source_credit,
                 (t.audio_data IS NOT NULL) AS has_audio_upload,
-                (t.image_data IS NOT NULL) AS has_image_upload, t.created_at
+                (t.image_data IS NOT NULL) AS has_image_upload,
+                COALESCE((SELECT ARRAY_AGG(link.board_id ORDER BY link.board_id)
+                          FROM sound_board_library_tracks link
+                          WHERE link.track_id = t.id), ARRAY[]::UUID[]) AS board_ids,
+                t.created_at
          FROM sound_library_tracks t LEFT JOIN sound_sources s ON s.id = t.source_id
          WHERE t.owner_id = $1 ORDER BY t.created_at DESC, t.id",
     )
@@ -508,6 +517,7 @@ pub async fn list_library(
             source_credit: row.source_credit,
             has_audio_upload: row.has_audio_upload,
             has_image_upload: row.has_image_upload,
+            board_ids: row.board_ids,
             labels: library_labels(pool, row.id).await?,
             created_at: row.created_at,
         });

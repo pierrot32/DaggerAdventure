@@ -21,6 +21,11 @@ textarea { resize: vertical; }
 .checkbox input { width: auto; }
 .main { min-width: 0; }
 .librarySection { display: grid; gap: var(--space-4); }
+.libraryFilters { display: grid; grid-template-columns: minmax(220px, 2fr) repeat(3, minmax(140px, 1fr)) auto; align-items: end; gap: var(--space-3); padding: var(--space-3); border: 1px solid rgba(244, 238, 228, .16); background: rgba(244, 238, 228, .04); }
+.libraryFilters label { color: var(--color-muted-inverse); font-size: 12px; }
+.searchField { min-width: 0; }
+.clearFilters { padding: 10px 12px; border: 1px solid var(--color-border); background: transparent; color: var(--color-text-inverse); cursor: pointer; font: inherit; font-size: 12px; white-space: nowrap; }
+.clearFilters:hover { border-color: var(--color-accent); color: var(--color-accent); }
 .sourceSection { margin-top: var(--space-7); padding-top: var(--space-5); border-top: 1px solid rgba(244, 238, 228, .16); }
 .sourceForm { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1.5fr) auto auto; gap: var(--space-2); margin-top: var(--space-4); }
 .sourceForm input { min-width: 0; }
@@ -71,6 +76,6 @@ legend { padding: 0 var(--space-2); }
 .empty h3 { margin-top: var(--space-2); }
 .error { color: #ffb4ac; }
 .message { color: #a9dfbd; }
-@media (max-width: 900px) { .workspace { grid-template-columns: 1fr; } .sidebar { grid-template-columns: 1fr 1fr; } .boardForm { grid-column: 1 / -1; } }
+@media (max-width: 900px) { .workspace { grid-template-columns: 1fr; } .sidebar { grid-template-columns: 1fr 1fr; } .boardForm { grid-column: 1 / -1; } .libraryFilters { grid-template-columns: repeat(2, minmax(0, 1fr)); } .libraryFilters .searchField { grid-column: 1 / -1; } }
 @media (max-width: 900px) { .sourceForm { grid-template-columns: 1fr 1fr; } .sourceForm input:nth-child(3) { grid-column: 1 / -1; } }
-@media (max-width: 650px) { .sidebar, .formGrid, .sourceForm { grid-template-columns: 1fr; } .wide { grid-column: auto; } .boardHeading, .formHeading, .sourceList article { flex-direction: column; } .sourceForm input:nth-child(3) { grid-column: auto; } }
+@media (max-width: 650px) { .sidebar, .formGrid, .sourceForm, .libraryFilters { grid-template-columns: 1fr; } .wide { grid-column: auto; } .boardHeading, .formHeading, .sourceList article { flex-direction: column; } .sourceForm input:nth-child(3) { grid-column: auto; } .libraryFilters .searchField { grid-column: auto; } }
