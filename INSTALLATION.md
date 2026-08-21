@@ -256,6 +256,11 @@ $KUBECTL -n dagger-adventure create secret generic backend-secrets \
   --from-literal=openai-api-key='paste_the_key_without_committing_it'
 $KUBECTL -n dagger-adventure create secret generic backend-admin-secrets \
   --from-literal=admin-email='admin@example.com'
+$KUBECTL -n dagger-adventure create secret generic backend-email-secrets \
+  --from-literal=email-from='no-reply@your-domain.example' \
+  --from-literal=smtp-host='smtp.your-provider.example' \
+  --from-literal=smtp-username='no-reply@your-domain.example' \
+  --from-literal=smtp-password='replace_with_smtp_password'
 $KUBECTL -n dagger-adventure create secret generic postgres-secrets \
   --from-literal=POSTGRES_PASSWORD='replace_with_a_strong_password'
 ```
@@ -268,6 +273,32 @@ the real email from a local shell or password manager, not in a committed
 manifest. The backend uses that email to promote the existing account after
 startup; it does not create an account or store an administrator password from
 Kubernetes configuration.
+
+Create `backend-email-secrets` with the sender address and SMTP credentials
+provided by your email provider. The sender address and credentials are kept
+out of `k8s/backend/deployment.yaml`; the backend receives them through
+`EMAIL_FROM`, `EMAIL_SMTP_HOST`, `EMAIL_SMTP_USERNAME`, and
+`EMAIL_SMTP_PASSWORD`. For an existing deployment, update it idempotently
+with:
+
+```bash
+docker compose exec -T k3s sh -c \
+  "kubectl --kubeconfig /k3s-config/kubeconfig.yaml \
+    -n dagger-adventure create secret generic backend-email-secrets \
+    --from-literal=email-from='no-reply@your-domain.example' \
+    --from-literal=smtp-host='smtp.your-provider.example' \
+    --from-literal=smtp-username='no-reply@your-domain.example' \
+    --from-literal=smtp-password='replace_with_smtp_password' \
+    --dry-run=client -o yaml | \
+   kubectl --kubeconfig /k3s-config/kubeconfig.yaml apply -f -"
+```
+
+  Replace the example values with the settings from your provider. The default
+  Deployment uses port `587` with `EMAIL_SMTP_TLS=starttls`. If your provider
+  requires implicit TLS, change `EMAIL_SMTP_PORT` to `465` and
+  `EMAIL_SMTP_TLS` to `implicit` in `k8s/backend/deployment.yaml`. The SMTP
+  username is commonly the complete sender address. Never commit the SMTP
+  password.
 
 For an existing deployment, update only the separate admin secret without
 touching database credentials. Replace the placeholder email directly in the
