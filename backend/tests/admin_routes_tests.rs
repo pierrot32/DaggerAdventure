@@ -27,6 +27,11 @@ fn app(pool: PgPool, jwt_secret: &str) -> Router {
             email_provider: "disabled".to_owned(),
             email_from: "no-reply@example.com".to_owned(),
             email_dev_outbox: None,
+            email_smtp_host: None,
+            email_smtp_port: 587,
+            email_smtp_username: None,
+            email_smtp_password: None,
+            email_smtp_tls: "starttls".to_owned(),
             email_verification_base_url: "http://localhost:5173/verify-email"
                 .to_owned(),
             openai_api_key: None,

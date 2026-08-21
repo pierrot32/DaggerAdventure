@@ -13,6 +13,11 @@ pub struct Config {
     pub email_provider: String,
     pub email_from: String,
     pub email_dev_outbox: Option<String>,
+    pub email_smtp_host: Option<String>,
+    pub email_smtp_port: u16,
+    pub email_smtp_username: Option<String>,
+    pub email_smtp_password: Option<String>,
+    pub email_smtp_tls: String,
     pub email_verification_base_url: String,
     pub openai_api_key: Option<String>,
     pub openai_model: String,
@@ -58,6 +63,15 @@ impl Config {
                 .unwrap_or_else(|_| "disabled".to_owned()),
             email_from,
             email_dev_outbox: env::var("EMAIL_DEV_OUTBOX").ok(),
+            email_smtp_host: env::var("EMAIL_SMTP_HOST").ok(),
+            email_smtp_port: env::var("EMAIL_SMTP_PORT")
+                .ok()
+                .and_then(|value| value.parse().ok())
+                .unwrap_or(587),
+            email_smtp_username: env::var("EMAIL_SMTP_USERNAME").ok(),
+            email_smtp_password: env::var("EMAIL_SMTP_PASSWORD").ok(),
+            email_smtp_tls: env::var("EMAIL_SMTP_TLS")
+                .unwrap_or_else(|_| "starttls".to_owned()),
             email_verification_base_url,
             openai_api_key: env::var("OPENAI_API_KEY")
                 .ok()

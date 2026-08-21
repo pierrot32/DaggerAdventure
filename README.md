@@ -76,18 +76,20 @@ The safe default
 `EMAIL_PROVIDER=disabled` rejects new registrations with `503 Service Unavailable` before an
 account is created; it never creates an account that cannot receive a verification link. For
 local development, use `EMAIL_PROVIDER=dev_file` with an untracked `EMAIL_DEV_OUTBOX` path and
-`EMAIL_VERIFICATION_BASE_URL`; this is an append-only development outbox, not a production
-provider. Delivery is attempted only after the account and hashed token commit, and a transient
-delivery failure returns `503` without exposing the token; resend inserts another hashed,
-one-use token without deleting still-valid tokens, cleans up at most 50 expired tokens for that
-user, and can recover the existing unverified account once delivery is available. A successful
-resend also leaves earlier valid links usable. Verification links carry the token in the URL
-fragment, which browsers do not send in the initial HTTP request; the verification page removes
-the fragment immediately before making the API request. The verification page and endpoint use
-`Referrer-Policy: no-referrer` and `Cache-Control: no-store`. The backend rate limiter uses PostgreSQL so
-limits are shared across replicas. Keep `TRUST_PROXY_HEADERS=false` unless a trusted reverse
-proxy chain is configured and verified to replace client-forwarding headers. In the bundled
-Kubernetes deployment, the outer nginx overwrites `X-Forwarded-For` and `X-Real-IP`, the Argo
+`EMAIL_VERIFICATION_BASE_URL`; this is an append-only development outbox. Production deployments
+can use `EMAIL_PROVIDER=smtp` with `EMAIL_SMTP_HOST`, `EMAIL_SMTP_PORT`,
+`EMAIL_SMTP_USERNAME`, `EMAIL_SMTP_PASSWORD`, and `EMAIL_SMTP_TLS`; SMTP credentials must be
+provided out of band. Delivery is attempted only after the account and hashed token commit, and
+a transient delivery failure returns `503` without exposing the token; resend inserts another
+hashed, one-use token without deleting still-valid tokens, cleans up at most 50 expired tokens for
+that user, and can recover the existing unverified account once delivery is available. A
+successful resend also leaves earlier valid links usable. Verification links carry the token in
+the URL fragment, which browsers do not send in the initial HTTP request; the verification page
+removes the fragment immediately before making the API request. The verification page and
+endpoint use `Referrer-Policy: no-referrer` and `Cache-Control: no-store`. The backend rate
+limiter uses PostgreSQL so limits are shared across replicas. Keep `TRUST_PROXY_HEADERS=false`
+unless a trusted reverse proxy chain is configured and verified to replace client-forwarding
+headers. In the bundled Kubernetes deployment, the outer nginx overwrites `X-Forwarded-For` and `X-Real-IP`, the Argo
 installer configures ingress-nginx with `use-forwarded-headers=true`, and the backend explicitly
 enables trust for that private chain. Do not expose the ingress NodePort or backend service
 directly, and do not copy that setting to a deployment whose proxies can pass through

@@ -17,7 +17,7 @@ spec:
       containers:
         - name: backend
           # image tag is rewritten in the Jenkins production promotion branch
-          image: docker.io/pierrot32/daggeradventure_backend:90-753f9a0b649b
+          image: docker.io/pierrot32/daggeradventure_backend:91-88d92bba38e7
           env:
             # created out-of-band: kubectl -n dagger-adventure create secret generic
             # backend-secrets --from-literal=database-url=... --from-literal=jwt-secret=... \
@@ -49,10 +49,32 @@ spec:
             # and ingress NodePort private; do not copy this setting elsewhere.
             - name: TRUST_PROXY_HEADERS
               value: "true"
-            # Registration remains fail-closed because no production email
-            # provider implementation is included in this repository.
             - name: EMAIL_PROVIDER
-              value: "disabled"
+              value: "smtp"
+            - name: EMAIL_FROM
+              valueFrom:
+                secretKeyRef:
+                  name: backend-email-secrets
+                  key: email-from
+            - name: EMAIL_SMTP_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: backend-email-secrets
+                  key: smtp-host
+            - name: EMAIL_SMTP_PORT
+              value: "587"
+            - name: EMAIL_SMTP_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: backend-email-secrets
+                  key: smtp-username
+            - name: EMAIL_SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: backend-email-secrets
+                  key: smtp-password
+            - name: EMAIL_SMTP_TLS
+              value: "starttls"
             - name: EMAIL_VERIFICATION_BASE_URL
               value: "https://daggeradventure.xyz/verify-email"
             # Optional: set to an existing account email to bootstrap admin access.
