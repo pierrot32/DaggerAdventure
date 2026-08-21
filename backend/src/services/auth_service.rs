@@ -72,7 +72,8 @@ pub async fn register_pending(
 
     email_service::send_verification_email(config, &user.email, &token)
         .await
-        .map_err(|_| {
+        .map_err(|error| {
+            eprintln!("verification email delivery failed: {error}");
             AppError::ServiceUnavailable(
                 "Email delivery is temporarily unavailable. Please try again later."
                     .to_owned(),
@@ -167,7 +168,8 @@ pub async fn resend_verification(
         .map_err(AppError::from)?;
     email_service::send_verification_email(config, &user.email, &token)
         .await
-        .map_err(|_| {
+        .map_err(|error| {
+            eprintln!("verification email delivery failed: {error}");
             AppError::ServiceUnavailable(
                 "Email delivery is temporarily unavailable. Please try again later."
                     .to_owned(),

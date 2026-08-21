@@ -56,6 +56,50 @@ pub fn ensure_delivery_available(config: &Config) -> Result<(), AppError> {
     if dev_file_configured || smtp_configured {
         Ok(())
     } else {
+        let reason = match config.email_provider.as_str() {
+            "dev_file" if !outbox_available => {
+                "EMAIL_DEV_OUTBOX is missing or unavailable"
+            }
+            "dev_file" if !valid_email_from => "EMAIL_FROM is invalid",
+            "dev_file" if !valid_verification_url => {
+                "EMAIL_VERIFICATION_BASE_URL is invalid"
+            }
+            "smtp" if !valid_email_from => "EMAIL_FROM is invalid",
+            "smtp" if !valid_verification_url => {
+                "EMAIL_VERIFICATION_BASE_URL is invalid"
+            }
+            "smtp"
+                if config
+                    .email_smtp_host
+                    .as_deref()
+                    .is_none_or(|host| host.trim().is_empty()) =>
+            {
+                "EMAIL_SMTP_HOST is missing"
+            }
+            "smtp"
+                if config
+                    .email_smtp_username
+                    .as_deref()
+                    .is_none_or(|username| username.trim().is_empty()) =>
+            {
+                "EMAIL_SMTP_USERNAME is missing"
+            }
+            "smtp"
+                if config
+                    .email_smtp_password
+                    .as_deref()
+                    .is_none_or(str::is_empty) =>
+            {
+                "EMAIL_SMTP_PASSWORD is missing"
+            }
+            "smtp" => "EMAIL_SMTP_TLS must be starttls or implicit",
+            "disabled" => "EMAIL_PROVIDER is disabled",
+            _ => "EMAIL_PROVIDER is unsupported",
+        };
+        eprintln!(
+            "email delivery unavailable: provider={} reason={reason}",
+            config.email_provider
+        );
         Err(AppError::ServiceUnavailable(
             DELIVERY_UNAVAILABLE_MESSAGE.to_owned(),
         ))
@@ -155,11 +199,12 @@ async fn send_smtp(
     .credentials(credentials)
     .build();
 
-    transport
-        .send(email)
-        .await
-        .map(|_| ())
-        .map_err(|error| error.to_string())
+    transport.send(email).await.map(|_| ()).map_err(|error| {
+        eprintln!(
+            "email delivery failed: provider=smtp host={host} error={error}"
+        );
+        error.to_string()
+    })
 }
 
 fn build_verification_url(base_url: &str, token: &str) -> String {
