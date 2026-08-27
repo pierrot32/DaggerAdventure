@@ -40,6 +40,13 @@ export const updateSoundSource = (sourceId, payload) =>
 export const deleteSoundSource = (sourceId) =>
 	request(`/api/sound-sources/${sourceId}`, { method: "DELETE" });
 
+export const listSoundLabels = () => request("/api/sound-labels");
+export const createSoundLabel = (payload) =>
+	request("/api/sound-labels", {
+		method: "POST",
+		body: JSON.stringify(payload),
+	});
+
 export const listSoundLibrary = () => request("/api/sound-library");
 export const uploadLibraryTrack = (formData) =>
 	request("/api/sound-library", {
@@ -48,12 +55,31 @@ export const uploadLibraryTrack = (formData) =>
 	});
 export const deleteLibraryTrack = (trackId) =>
 	request(`/api/sound-library/${trackId}`, { method: "DELETE" });
+export const updateLibraryLabels = (trackId, labelIds) =>
+	request(`/api/sound-library/${trackId}/labels`, {
+		method: "PUT",
+		body: JSON.stringify({ label_ids: labelIds }),
+	});
 export const attachLibraryTrack = (boardId, trackId) =>
 	request(`/api/soundboards/${boardId}/library/${trackId}`, { method: "POST" });
 export const detachLibraryTrack = (boardId, trackId) =>
 	request(`/api/soundboards/${boardId}/library/${trackId}`, {
 		method: "DELETE",
 	});
+
+export const listSoundPlaylists = () => request("/api/sound-playlists");
+export const createSoundPlaylist = (payload) =>
+	request("/api/sound-playlists", {
+		method: "POST",
+		body: JSON.stringify(payload),
+	});
+export const updateSoundPlaylist = (playlistId, payload) =>
+	request(`/api/sound-playlists/${playlistId}`, {
+		method: "PUT",
+		body: JSON.stringify(payload),
+	});
+export const deleteSoundPlaylist = (playlistId) =>
+	request(`/api/sound-playlists/${playlistId}`, { method: "DELETE" });
 
 export function soundMediaUrl(boardId, soundId, kind) {
 	return `/api/soundboards/${boardId}/sounds/${soundId}/${kind}`;

@@ -6,12 +6,17 @@ use axum::{
     response::IntoResponse,
 };
 use reqwest::Url;
+use std::collections::HashSet;
 use uuid::Uuid;
 
 use crate::{
     error::AppError,
     middleware::{access_guard::require_at_least, auth_guard::AuthUser},
-    models::{AccessLevel, CreateSoundBoardRequest, UpdateSoundBoardRequest},
+    models::{
+        AccessLevel, CreateSoundBoardRequest, SoundLabelRequest,
+        SoundPlaylistRequest, UpdateSoundBoardRequest,
+        UpdateSoundLabelsRequest,
+    },
     repository::soundboard_repo::{self, NewLibraryTrack, NewSound},
     state::AppState,
 };
@@ -179,6 +184,28 @@ pub async fn delete_source(
     Ok(StatusCode::NO_CONTENT)
 }
 
+pub async fn labels(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+) -> Result<Json<Vec<crate::models::SoundLabel>>, AppError> {
+    require_at_least(&user, AccessLevel::AdventureMaker)?;
+    Ok(Json(
+        soundboard_repo::list_labels(&state.db, user.id).await?,
+    ))
+}
+
+pub async fn create_label(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+    Json(request): Json<SoundLabelRequest>,
+) -> Result<(StatusCode, Json<crate::models::SoundLabel>), AppError> {
+    require_at_least(&user, AccessLevel::AdventureMaker)?;
+    let name = validate_label_name(&request.name)?;
+    let label =
+        soundboard_repo::create_label(&state.db, user.id, &name).await?;
+    Ok((StatusCode::CREATED, Json(label)))
+}
+
 pub async fn library(
     State(state): State<AppState>,
     AuthUser(user): AuthUser,
@@ -226,6 +253,87 @@ pub async fn delete_library_track(
     {
         return Err(AppError::NotFound(
             "Library track not found or not owned by you".to_owned(),
+        ));
+    }
+    Ok(StatusCode::NO_CONTENT)
+}
+
+pub async fn update_library_labels(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+    Path(track_id): Path<Uuid>,
+    Json(request): Json<UpdateSoundLabelsRequest>,
+) -> Result<Json<crate::models::SoundLibraryTrack>, AppError> {
+    require_at_least(&user, AccessLevel::AdventureMaker)?;
+    let label_ids = validate_label_ids(&request.label_ids)?;
+    soundboard_repo::update_library_labels(
+        &state.db, user.id, track_id, &label_ids,
+    )
+    .await?
+    .map(Json)
+    .ok_or_else(|| {
+        AppError::NotFound(
+            "Library track not found or not owned by you".to_owned(),
+        )
+    })
+}
+
+pub async fn playlists(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+) -> Result<Json<Vec<crate::models::SoundPlaylist>>, AppError> {
+    require_at_least(&user, AccessLevel::AdventureMaker)?;
+    Ok(Json(
+        soundboard_repo::list_playlists(&state.db, user.id).await?,
+    ))
+}
+
+pub async fn create_playlist(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+    Json(request): Json<SoundPlaylistRequest>,
+) -> Result<(StatusCode, Json<crate::models::SoundPlaylist>), AppError> {
+    require_at_least(&user, AccessLevel::AdventureMaker)?;
+    let (name, track_ids) = validate_playlist_request(&request)?;
+    let playlist =
+        soundboard_repo::create_playlist(&state.db, user.id, &name, &track_ids)
+            .await?;
+    Ok((StatusCode::CREATED, Json(playlist)))
+}
+
+pub async fn update_playlist(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+    Path(playlist_id): Path<Uuid>,
+    Json(request): Json<SoundPlaylistRequest>,
+) -> Result<Json<crate::models::SoundPlaylist>, AppError> {
+    require_at_least(&user, AccessLevel::AdventureMaker)?;
+    let (name, track_ids) = validate_playlist_request(&request)?;
+    soundboard_repo::update_playlist(
+        &state.db,
+        user.id,
+        playlist_id,
+        &name,
+        &track_ids,
+    )
+    .await?
+    .map(Json)
+    .ok_or_else(|| {
+        AppError::NotFound("Playlist not found or not owned by you".to_owned())
+    })
+}
+
+pub async fn delete_playlist(
+    State(state): State<AppState>,
+    AuthUser(user): AuthUser,
+    Path(playlist_id): Path<Uuid>,
+) -> Result<StatusCode, AppError> {
+    require_at_least(&user, AccessLevel::AdventureMaker)?;
+    if !soundboard_repo::delete_playlist(&state.db, user.id, playlist_id)
+        .await?
+    {
+        return Err(AppError::NotFound(
+            "Playlist not found or not owned by you".to_owned(),
         ));
     }
     Ok(StatusCode::NO_CONTENT)
@@ -406,6 +514,58 @@ fn validate_source(
         ));
     }
     Ok((name.to_owned(), website_url, description.to_owned()))
+}
+
+fn validate_label_name(value: &str) -> Result<String, AppError> {
+    let value = value.trim();
+    if value.is_empty() || value.len() > 40 {
+        return Err(AppError::Validation(
+            "Sound labels must be 1 to 40 characters".to_owned(),
+        ));
+    }
+    Ok(value.to_lowercase())
+}
+
+fn validate_label_ids(label_ids: &[Uuid]) -> Result<Vec<Uuid>, AppError> {
+    if label_ids.len() > 12 {
+        return Err(AppError::Validation(
+            "A sound can have at most 12 labels".to_owned(),
+        ));
+    }
+    let mut unique = HashSet::with_capacity(label_ids.len());
+    for label_id in label_ids {
+        if !unique.insert(*label_id) {
+            return Err(AppError::Validation(
+                "A sound cannot have duplicate labels".to_owned(),
+            ));
+        }
+    }
+    Ok(label_ids.to_vec())
+}
+
+fn validate_playlist_request(
+    request: &SoundPlaylistRequest,
+) -> Result<(String, Vec<Uuid>), AppError> {
+    let name = request.name.trim();
+    if name.is_empty() || name.len() > 120 {
+        return Err(AppError::Validation(
+            "Playlist names must be 1 to 120 characters".to_owned(),
+        ));
+    }
+    if request.track_ids.len() > 200 {
+        return Err(AppError::Validation(
+            "A playlist can contain at most 200 tracks".to_owned(),
+        ));
+    }
+    let mut unique = HashSet::with_capacity(request.track_ids.len());
+    for track_id in &request.track_ids {
+        if !unique.insert(*track_id) {
+            return Err(AppError::Validation(
+                "A playlist cannot contain duplicate tracks".to_owned(),
+            ));
+        }
+    }
+    Ok((name.to_owned(), request.track_ids.clone()))
 }
 
 async fn parse_sound_form(
@@ -861,6 +1021,51 @@ mod tests {
         assert!(validate_audio_signature(b"ID3audio", "audio/ogg").is_err());
         assert!(
             validate_image_signature(b"not an image", "image/png").is_err()
+        );
+    }
+
+    #[test]
+    fn new_labels_are_trimmed_lowercase_and_bounded() {
+        assert_eq!(validate_label_name(" Tense ").unwrap(), "tense");
+        assert!(validate_label_name(" ").is_err());
+        assert!(validate_label_name(&"x".repeat(41)).is_err());
+    }
+
+    #[test]
+    fn label_membership_rejects_duplicates_and_more_than_twelve() {
+        let label_id = Uuid::new_v4();
+        assert!(validate_label_ids(&[label_id, label_id]).is_err());
+        assert!(
+            validate_label_ids(
+                &(0..13).map(|_| Uuid::new_v4()).collect::<Vec<_>>()
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn playlist_names_and_membership_are_bounded() {
+        let track_id = Uuid::new_v4();
+        assert!(
+            validate_playlist_request(&SoundPlaylistRequest {
+                name: " Evening set ".to_owned(),
+                track_ids: vec![track_id],
+            })
+            .is_ok()
+        );
+        assert!(
+            validate_playlist_request(&SoundPlaylistRequest {
+                name: " ".to_owned(),
+                track_ids: vec![track_id],
+            })
+            .is_err()
+        );
+        assert!(
+            validate_playlist_request(&SoundPlaylistRequest {
+                name: "Set".to_owned(),
+                track_ids: vec![track_id, track_id],
+            })
+            .is_err()
         );
     }
 }

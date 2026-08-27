@@ -132,6 +132,112 @@ textarea {
 	border: 1px solid rgba(244, 238, 228, 0.16);
 	background: rgba(244, 238, 228, 0.04);
 }
+.labelManager,
+.playlistSection {
+	display: grid;
+	gap: var(--space-3);
+	margin-top: var(--space-4);
+	padding: var(--space-4);
+	border: 1px solid rgba(244, 238, 228, 0.16);
+	background: rgba(244, 238, 228, 0.04);
+}
+.labelManager {
+	grid-template-columns: minmax(0, 1fr) minmax(260px, 1fr);
+	align-items: center;
+}
+.labelManager h3,
+.playlistSection h3 {
+	margin: var(--space-2) 0;
+}
+.labelForm,
+.playlistAdd,
+.playlistActions {
+	display: flex;
+	align-items: end;
+	flex-wrap: wrap;
+	gap: var(--space-2);
+}
+.labelForm input {
+	min-width: 0;
+}
+.labelForm button,
+.labelEdit,
+.playlistEditor button,
+.labelEditor button {
+	padding: 9px 11px;
+	border: 1px solid var(--color-border);
+	background: transparent;
+	color: var(--color-text-inverse);
+	font: inherit;
+	font-size: 12px;
+	cursor: pointer;
+}
+.labelForm button:hover,
+.labelEdit:hover,
+.playlistEditor button:hover,
+.labelEditor button:hover {
+	border-color: var(--color-accent);
+	color: var(--color-accent);
+}
+.labelList {
+	grid-column: 1 / -1;
+	margin: 0;
+	color: var(--color-muted-inverse);
+	font-size: 12px;
+}
+.playlistSection {
+	margin-top: var(--space-7);
+	border-color: var(--color-accent);
+	background: rgba(201, 157, 99, 0.08);
+}
+.playlistPicker {
+	max-width: 360px;
+}
+.playlistEditor {
+	display: grid;
+	gap: var(--space-3);
+}
+.playlistEditor > label {
+	max-width: 520px;
+}
+.playlistAdd label {
+	min-width: min(360px, 100%);
+}
+.playlistTracks {
+	display: grid;
+	gap: var(--space-2);
+	max-width: 720px;
+	margin: 0;
+	padding-left: 24px;
+}
+.playlistTracks li {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-3);
+	padding: 6px 0;
+	color: var(--color-text-inverse);
+}
+.playlistTracks li > span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.playlistTracks li > div {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+.playlistTracks button {
+	padding: 5px 7px;
+}
+.playlistActions {
+	align-items: center;
+}
+.playlistActions .deleteBoard {
+	padding: 7px;
+}
 .libraryFilters label {
 	color: var(--color-muted-inverse);
 	font-size: 12px;
@@ -387,6 +493,25 @@ legend {
 	color: var(--color-accent);
 	font-size: 11px;
 }
+.labelEdit {
+	justify-self: start;
+	padding: 5px 8px;
+}
+.labelEditor {
+	display: grid;
+	gap: var(--space-2);
+	padding: var(--space-3);
+	border: 1px solid rgba(244, 238, 228, 0.18);
+	background: rgba(23, 33, 38, 0.7);
+}
+.labelChoice {
+	display: flex;
+	align-items: center;
+	gap: var(--space-2);
+}
+.labelChoice input {
+	width: auto;
+}
 .soundActions {
 	display: flex;
 	flex-wrap: wrap;
@@ -470,7 +595,8 @@ legend {
 	.sidebar,
 	.formGrid,
 	.sourceForm,
-	.libraryFilters {
+	.libraryFilters,
+	.labelManager {
 		grid-template-columns: 1fr;
 	}
 	.wide {
@@ -486,5 +612,9 @@ legend {
 	}
 	.libraryFilters .searchField {
 		grid-column: auto;
+	}
+	.playlistTracks li {
+		align-items: flex-start;
+		flex-direction: column;
 	}
 }
