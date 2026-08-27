@@ -17,7 +17,7 @@ spec:
       containers:
         - name: backend
           # image tag is rewritten in the Jenkins production promotion branch
-          image: docker.io/pierrot32/daggeradventure_backend:93-8f47c9c20ce9
+          image: docker.io/pierrot32/daggeradventure_backend:94-fb64c541cc57
           env:
             # created out-of-band: kubectl -n dagger-adventure create secret generic
             # backend-secrets --from-literal=database-url=... --from-literal=jwt-secret=... \
