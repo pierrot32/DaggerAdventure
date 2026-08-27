@@ -4,23 +4,31 @@ import { canManageUsers } from "../../utils/permissions";
 import Button from "../../components/Button/Button";
 import {
 	attachLibraryTrack,
+	createSoundLabel,
 	createSoundBoard,
+	createSoundPlaylist,
 	createSoundSource,
 	deleteLibraryTrack,
 	deleteSound,
 	deleteSoundBoard,
 	deleteSoundSource,
+	deleteSoundPlaylist,
 	detachLibraryTrack,
 	getSoundBoard,
 	libraryMediaUrl,
 	listSoundBoards,
+	listSoundLabels,
 	listSoundLibrary,
+	listSoundPlaylists,
 	listSoundSources,
 	soundMediaUrl,
+	updateLibraryLabels,
+	updateSoundPlaylist,
 	updateSoundSource,
 	uploadLibraryTrack,
 } from "./soundboardApi";
 import { useSoundPlayerStore } from "./soundboardStore";
+import { fisherYatesShuffle } from "./soundboardUtils";
 import styles from "./SoundboardPage.module.css";
 
 const LABEL_PRESETS = ["ambiance", "music", "minimal music"];
@@ -37,9 +45,12 @@ export default function SoundboardPage() {
 	const { user } = useAuth();
 	const play = useSoundPlayerStore((state) => state.play);
 	const addToQueue = useSoundPlayerStore((state) => state.addToQueue);
+	const launchSequence = useSoundPlayerStore((state) => state.launchSequence);
 	const [boards, setBoards] = useState([]);
 	const [sources, setSources] = useState([]);
 	const [library, setLibrary] = useState([]);
+	const [labels, setLabels] = useState([]);
+	const [playlists, setPlaylists] = useState([]);
 	const [selectedId, setSelectedId] = useState("");
 	const [searchTerm, setSearchTerm] = useState("");
 	const [labelFilter, setLabelFilter] = useState("");
@@ -60,6 +71,7 @@ export default function SoundboardPage() {
 		description: "",
 	});
 	const [editingSourceId, setEditingSourceId] = useState("");
+	const [newLabel, setNewLabel] = useState("");
 	const [state, setState] = useState({
 		loading: true,
 		detailLoading: false,
@@ -69,9 +81,30 @@ export default function SoundboardPage() {
 	const selectedIdRef = useRef("");
 	const detailRequestGeneration = useRef(0);
 	const workspaceRequestGeneration = useRef(0);
+	const workspaceMutationGeneration = useRef(0);
+	const workspaceMutationsInFlight = useRef(0);
+	const labelRequestGenerations = useRef(new Map());
+	const playlistRequestGenerations = useRef(new Map());
+	const labelSavePending = useRef(new Set());
+	const playlistMutationPending = useRef(new Set());
+	const [pendingLabelTrackIds, setPendingLabelTrackIds] = useState(new Set());
+	const [pendingPlaylistIds, setPendingPlaylistIds] = useState(new Set());
 
 	const invalidateWorkspaceRequests = () => {
 		workspaceRequestGeneration.current += 1;
+	};
+	const beginWorkspaceMutation = () => {
+		workspaceMutationGeneration.current += 1;
+		workspaceMutationsInFlight.current += 1;
+		invalidateWorkspaceRequests();
+	};
+	const endWorkspaceMutation = () => {
+		workspaceMutationGeneration.current += 1;
+		workspaceMutationsInFlight.current = Math.max(
+			0,
+			workspaceMutationsInFlight.current - 1,
+		);
+		return workspaceMutationsInFlight.current === 0;
 	};
 	const selectBoard = (nextId) => {
 		selectedIdRef.current = nextId;
@@ -79,18 +112,28 @@ export default function SoundboardPage() {
 	};
 	const loadWorkspace = async (preferredId) => {
 		const requestGeneration = ++workspaceRequestGeneration.current;
+		const mutationGeneration = workspaceMutationGeneration.current;
 		setState((current) => ({ ...current, loading: true, error: "" }));
 		try {
-			const [nextBoards, nextSources, nextLibrary] = await Promise.all([
+			const [nextBoards, nextSources, nextLibrary, nextLabels, nextPlaylists] =
+				await Promise.all([
 				listSoundBoards(),
 				listSoundSources(),
 				listSoundLibrary(),
-			]);
-			if (workspaceRequestGeneration.current !== requestGeneration)
+				listSoundLabels(),
+				listSoundPlaylists(),
+				]);
+			if (
+				workspaceRequestGeneration.current !== requestGeneration ||
+				workspaceMutationGeneration.current !== mutationGeneration ||
+				workspaceMutationsInFlight.current > 0
+			)
 				return false;
 			setBoards(nextBoards);
 			setSources(nextSources);
 			setLibrary(nextLibrary);
+			setLabels(nextLabels);
+			setPlaylists(nextPlaylists);
 			const nextSelectedId =
 				preferredId !== undefined
 					? nextBoards.some((board) => board.id === preferredId)
@@ -103,7 +146,11 @@ export default function SoundboardPage() {
 			setState((current) => ({ ...current, loading: false, error: "" }));
 			return true;
 		} catch (error) {
-			if (workspaceRequestGeneration.current === requestGeneration) {
+			if (
+				workspaceRequestGeneration.current === requestGeneration &&
+				workspaceMutationGeneration.current === mutationGeneration &&
+				workspaceMutationsInFlight.current === 0
+			) {
 				setState((current) => ({
 					...current,
 					loading: false,
@@ -119,9 +166,12 @@ export default function SoundboardPage() {
 	}, []);
 	useEffect(() => {
 		const availableLabels = new Set(
-			library.flatMap((track) =>
-				(track.labels || []).map((label) => label.name),
-			),
+			[
+				...labels.map((label) => label.name),
+				...library.flatMap((track) =>
+					(track.labels || []).map((label) => label.name),
+				),
+			],
 		);
 		if (labelFilter && !availableLabels.has(labelFilter)) setLabelFilter("");
 		if (sourceFilter && !sources.some((source) => source.id === sourceFilter))
@@ -147,6 +197,7 @@ export default function SoundboardPage() {
 		editingSourceId,
 		labelFilter,
 		library,
+		labels,
 		sourceFilter,
 		sources,
 		trackForm.sourceId,
@@ -200,9 +251,12 @@ export default function SoundboardPage() {
 	);
 	const labelOptions = [
 		...new Set(
-			library.flatMap((track) =>
-				(track.labels || []).map((label) => label.name),
-			),
+			[
+				...labels.map((label) => label.name),
+				...library.flatMap((track) =>
+					(track.labels || []).map((label) => label.name),
+				),
+			],
 		),
 	].sort((a, b) => a.localeCompare(b));
 	const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -272,6 +326,164 @@ export default function SoundboardPage() {
 				};
 			}),
 		);
+	};
+	const saveTrackLabels = async (trackId, labelIds) => {
+		if (labelSavePending.current.has(trackId)) return false;
+		labelSavePending.current.add(trackId);
+		setPendingLabelTrackIds((current) => new Set(current).add(trackId));
+		beginWorkspaceMutation();
+		const requestGeneration =
+			(labelRequestGenerations.current.get(trackId) || 0) + 1;
+		labelRequestGenerations.current.set(trackId, requestGeneration);
+		let mutationError = "";
+		try {
+			const updated = await updateLibraryLabels(trackId, labelIds);
+			if (labelRequestGenerations.current.get(trackId) !== requestGeneration)
+				return;
+			setLibrary((current) =>
+				current.map((track) => (track.id === trackId ? updated : track)),
+			);
+			setState((current) => ({ ...current, message: "Labels saved.", error: "" }));
+			return true;
+		} catch (error) {
+			if (labelRequestGenerations.current.get(trackId) === requestGeneration)
+				mutationError = error.message;
+			return false;
+		} finally {
+			labelSavePending.current.delete(trackId);
+			setPendingLabelTrackIds((current) => {
+				const next = new Set(current);
+				next.delete(trackId);
+				return next;
+			});
+			if (endWorkspaceMutation()) await loadWorkspace();
+			if (mutationError)
+				setState((current) => ({ ...current, error: mutationError }));
+		}
+	};
+	const submitLabel = async (event) => {
+		event.preventDefault();
+		beginWorkspaceMutation();
+		let mutationError = "";
+		try {
+			const created = await createSoundLabel({ name: newLabel });
+			setLabels((current) =>
+				[created, ...current.filter((label) => label.id !== created.id)].sort(
+					(a, b) => a.name.localeCompare(b.name),
+				),
+			);
+			setNewLabel("");
+			setState((current) => ({
+				...current,
+				message: `${created.name} is ready to use on library tracks.`,
+				error: "",
+			}));
+		} catch (error) {
+			mutationError = error.message;
+		} finally {
+			if (endWorkspaceMutation()) await loadWorkspace();
+			if (mutationError)
+				setState((current) => ({ ...current, error: mutationError }));
+		}
+	};
+	const savePlaylist = async (playlistId, payload) => {
+		const pendingKey = playlistId || "new";
+		if (playlistMutationPending.current.has(pendingKey)) return null;
+		playlistMutationPending.current.add(pendingKey);
+		setPendingPlaylistIds((current) => new Set(current).add(pendingKey));
+		beginWorkspaceMutation();
+		const requestGeneration =
+			(playlistRequestGenerations.current.get(pendingKey) || 0) + 1;
+		playlistRequestGenerations.current.set(pendingKey, requestGeneration);
+		let mutationError = "";
+		try {
+			const saved = playlistId
+				? await updateSoundPlaylist(playlistId, payload)
+				: await createSoundPlaylist(payload);
+			if (
+				playlistRequestGenerations.current.get(pendingKey) !==
+				requestGeneration
+			)
+				return null;
+			setPlaylists((current) =>
+				playlistId
+					? current.some((playlist) => playlist.id === saved.id)
+						? current.map((playlist) =>
+								playlist.id === saved.id ? saved : playlist,
+							)
+						: [saved, ...current]
+					: [...current, saved],
+			);
+			setState((current) => ({
+				...current,
+				message: playlistId ? "Playlist saved." : "Playlist created.",
+				error: "",
+			}));
+			return saved;
+		} catch (error) {
+			if (
+				playlistRequestGenerations.current.get(pendingKey) ===
+				requestGeneration
+			)
+				mutationError = error.message;
+			return null;
+		} finally {
+			playlistMutationPending.current.delete(pendingKey);
+			setPendingPlaylistIds((current) => {
+				const next = new Set(current);
+				next.delete(pendingKey);
+				return next;
+			});
+			if (endWorkspaceMutation()) await loadWorkspace();
+			if (mutationError)
+				setState((current) => ({ ...current, error: mutationError }));
+		}
+	};
+	const removePlaylist = async (playlist) => {
+		if (!window.confirm(`Delete ${playlist.name}?`)) return;
+		if (playlistMutationPending.current.has(playlist.id)) return;
+		playlistMutationPending.current.add(playlist.id);
+		setPendingPlaylistIds((current) => new Set(current).add(playlist.id));
+		beginWorkspaceMutation();
+		let mutationError = "";
+		try {
+			await deleteSoundPlaylist(playlist.id);
+			setPlaylists((current) =>
+				current.filter((item) => item.id !== playlist.id),
+			);
+			setState((current) => ({ ...current, message: "Playlist deleted.", error: "" }));
+		} catch (error) {
+			mutationError = error.message;
+		} finally {
+			playlistMutationPending.current.delete(playlist.id);
+			setPendingPlaylistIds((current) => {
+				const next = new Set(current);
+				next.delete(playlist.id);
+				return next;
+			});
+			if (endWorkspaceMutation()) await loadWorkspace();
+			if (mutationError)
+				setState((current) => ({ ...current, error: mutationError }));
+		}
+	};
+	const launchPlaylist = (playlist, shuffled) => {
+		const tracks = playlist.tracks.map(({ track }) => ({
+			...track,
+			audioSource:
+				track.audio_url ||
+				(track.has_audio_upload ? libraryMediaUrl(track.id, "audio") : ""),
+			imageSource:
+				track.image_url ||
+				(track.has_image_upload ? libraryMediaUrl(track.id, "image") : ""),
+			boardName: `Playlist: ${playlist.name}`,
+		}));
+		const launchTracks = shuffled ? fisherYatesShuffle(tracks) : tracks;
+		launchSequence(launchTracks);
+		setState((current) => ({
+			...current,
+			message: `${playlist.name} launched ${shuffled ? "randomly" : "in order"}. The current queue was kept.`,
+			error: "",
+		}));
 	};
 
 	const submitBoard = async (event) => {
@@ -553,12 +765,20 @@ export default function SoundboardPage() {
 							labelFilter={labelFilter}
 							setLabelFilter={setLabelFilter}
 							labelOptions={labelOptions}
+												labelIds={labels}
+												onSaveLabels={saveTrackLabels}
 							sourceFilter={sourceFilter}
 							setSourceFilter={setSourceFilter}
 							sources={sources}
 							boardFilter={boardFilter}
 							setBoardFilter={setBoardFilter}
 							boards={boards}
+						/>
+						<LabelManager
+							newLabel={newLabel}
+							setNewLabel={setNewLabel}
+							onSubmit={submitLabel}
+							labels={labelOptions}
 						/>
 						<form className={styles.soundForm} onSubmit={submitTrack}>
 							<div className={styles.formHeading}>
@@ -702,6 +922,14 @@ export default function SoundboardPage() {
 							</div>
 							<Button type="submit">Add to library</Button>
 						</form>
+						<PlaylistSection
+							playlists={playlists}
+							library={library}
+							pendingPlaylistIds={pendingPlaylistIds}
+							onSave={savePlaylist}
+							onDelete={removePlaylist}
+							onLaunch={launchPlaylist}
+						/>
 						{library.length === 0 ? (
 							<p className="muted">
 								Your library is empty. Add a track above before choosing a
@@ -718,6 +946,10 @@ export default function SoundboardPage() {
 										board={board}
 										attached={attachedIds.has(track.id)}
 										canAttach={canEditBoard}
+										labelOptions={labelOptions}
+										labelIds={labels}
+										onSaveLabels={saveTrackLabels}
+												pendingLabelSave={pendingLabelTrackIds.has(track.id)}
 										onPlay={play}
 										onToggle={toggleAttachment}
 										onDelete={removeTrack}
@@ -945,15 +1177,202 @@ function LibraryFilters({
 	);
 }
 
+function LabelManager({ newLabel, setNewLabel, onSubmit, labels }) {
+	return (
+		<section className={styles.labelManager} aria-labelledby="sound-labels-heading">
+			<div>
+				<p className="eyebrow">LABELS</p>
+				<h3 id="sound-labels-heading">Your sound labels</h3>
+				<p className={styles.hint}>
+					Create labels once, then tick them on any library track.
+				</p>
+			</div>
+			<form className={styles.labelForm} onSubmit={onSubmit}>
+				<input
+					value={newLabel}
+					onChange={(event) => setNewLabel(event.target.value)}
+					placeholder="e.g. tense"
+					maxLength={40}
+					required
+					aria-label="New label name"
+				/>
+				<button type="submit">Create label</button>
+			</form>
+			{labels.length > 0 && (
+				<p className={styles.labelList}>
+					Existing: {labels.join(", ")}
+				</p>
+			)}
+		</section>
+	);
+}
+
+function PlaylistSection({
+	playlists,
+	library,
+	pendingPlaylistIds,
+	onSave,
+	onDelete,
+	onLaunch,
+}) {
+	const [selectedId, setSelectedId] = useState("");
+	const [name, setName] = useState("");
+	const [trackIds, setTrackIds] = useState([]);
+	const [trackToAdd, setTrackToAdd] = useState("");
+	const [saving, setSaving] = useState(false);
+	const hydratedPlaylistId = useRef("");
+	const selectedPlaylist = playlists.find((playlist) => playlist.id === selectedId);
+	const playlistPending =
+		saving || pendingPlaylistIds.has(selectedId || "new");
+	const isDirty = selectedPlaylist
+		? name !== selectedPlaylist.name ||
+			trackIds.join(",") !== selectedPlaylist.tracks.map(({ track }) => track.id).join(",")
+		: name !== "" || trackIds.length > 0;
+	useEffect(() => {
+		if (selectedId && !selectedPlaylist) setSelectedId("");
+	}, [selectedId, selectedPlaylist]);
+	useEffect(() => {
+		const playlistId = selectedPlaylist?.id || "";
+		if (hydratedPlaylistId.current === playlistId) return;
+		hydratedPlaylistId.current = playlistId;
+		if (selectedPlaylist) {
+			setName(selectedPlaylist.name);
+			setTrackIds(selectedPlaylist.tracks.map(({ track }) => track.id));
+		} else {
+			setName("");
+			setTrackIds([]);
+		}
+	}, [selectedPlaylist]);
+	const startNew = () => {
+		setSelectedId("");
+		setName("");
+		setTrackIds([]);
+	};
+	const save = async (event) => {
+		event.preventDefault();
+		if (saving) return;
+		setSaving(true);
+		try {
+			const saved = await onSave(selectedId, { name, track_ids: trackIds });
+			if (saved) {
+				setSelectedId(saved.id);
+				setName(saved.name);
+				setTrackIds(saved.tracks.map(({ track }) => track.id));
+			}
+		} finally {
+			setSaving(false);
+		}
+	};
+	const addTrack = () => {
+		if (trackToAdd && !trackIds.includes(trackToAdd)) {
+			setTrackIds((current) => [...current, trackToAdd]);
+			setTrackToAdd("");
+		}
+	};
+	const moveTrack = (index, direction) => {
+		const nextIndex = index + direction;
+		if (nextIndex < 0 || nextIndex >= trackIds.length) return;
+		setTrackIds((current) => {
+			const next = [...current];
+			[next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+			return next;
+		});
+	};
+	const playlistForLaunch = selectedPlaylist;
+	return (
+		<section className={styles.playlistSection} aria-labelledby="sound-playlists-heading">
+			<div className={styles.sectionHeading}>
+				<div>
+					<p className="eyebrow">PLAYLISTS</p>
+					<h3 id="sound-playlists-heading">Saved playback sequences</h3>
+					<p className={styles.hint}>
+						Launch replaces the active sequence only; your current queue stays intact.
+					</p>
+				</div>
+				<button className={styles.attachButton} type="button" onClick={startNew} disabled={playlistPending}>
+					New playlist
+				</button>
+			</div>
+			{playlists.length > 0 && (
+				<label className={styles.playlistPicker}>
+					Saved playlist
+					<select
+						value={selectedId}
+						onChange={(event) => setSelectedId(event.target.value)}
+						disabled={playlistPending}
+					>
+						<option value="">New playlist</option>
+						{playlists.map((playlist) => (
+							<option key={playlist.id} value={playlist.id}>
+								{playlist.name}
+							</option>
+						))}
+					</select>
+				</label>
+			)}
+			<form className={styles.playlistEditor} onSubmit={save}>
+				<label>
+					Playlist name
+					<input value={name} onChange={(event) => setName(event.target.value)} maxLength={120} required disabled={playlistPending} />
+				</label>
+				<div className={styles.playlistAdd}>
+					<label>
+						Add library track
+						<select value={trackToAdd} onChange={(event) => setTrackToAdd(event.target.value)} disabled={playlistPending}>
+							<option value="">Choose a track</option>
+							{library
+								.filter((track) => !trackIds.includes(track.id))
+								.map((track) => <option key={track.id} value={track.id}>{track.name}</option>)}
+						</select>
+					</label>
+					<button className={styles.attachButton} type="button" onClick={addTrack} disabled={playlistPending || !trackToAdd}>Add track</button>
+				</div>
+				<ol className={styles.playlistTracks}>
+					{trackIds.map((trackId, index) => {
+						const track = library.find((item) => item.id === trackId);
+						return (
+							<li key={trackId}>
+								<span>{track?.name || "Track unavailable"}</span>
+								<div>
+									<button type="button" onClick={() => moveTrack(index, -1)} disabled={playlistPending || index === 0} aria-label={`Move ${track?.name || "track"} up`} title="Move up">↑</button>
+									<button type="button" onClick={() => moveTrack(index, 1)} disabled={playlistPending || index === trackIds.length - 1} aria-label={`Move ${track?.name || "track"} down`} title="Move down">↓</button>
+									<button type="button" onClick={() => setTrackIds((current) => current.filter((id) => id !== trackId))} disabled={playlistPending} aria-label={`Remove ${track?.name || "track"}`}>Remove</button>
+								</div>
+							</li>
+						);
+					})}
+				</ol>
+				<div className={styles.playlistActions}>
+					<button className={styles.playButton} type="submit" disabled={playlistPending}>{saving ? "Saving playlist" : selectedId ? "Save playlist" : "Create playlist"}</button>
+					<button className={styles.attachButton} type="button" disabled={playlistPending || !playlistForLaunch || isDirty} onClick={() => onLaunch(playlistForLaunch, false)}>Launch in order</button>
+					<button className={styles.attachButton} type="button" disabled={playlistPending || !playlistForLaunch || isDirty} onClick={() => onLaunch(playlistForLaunch, true)}>Launch randomly</button>
+					{selectedPlaylist && <button className={styles.deleteBoard} type="button" disabled={playlistPending} onClick={() => onDelete(selectedPlaylist)}>Delete playlist</button>}
+				</div>
+			</form>
+		</section>
+	);
+}
+
 function LibraryCard({
 	track,
 	board,
 	attached,
 	canAttach,
+	labelOptions,
+	labelIds,
+	onSaveLabels,
+	pendingLabelSave,
 	onPlay,
 	onToggle,
 	onDelete,
 }) {
+	const [labelsOpen, setLabelsOpen] = useState(false);
+	const [selectedLabelIds, setSelectedLabelIds] = useState(
+		track.labels.map((label) => label.id),
+	);
+	useEffect(() => {
+		if (!labelsOpen) setSelectedLabelIds(track.labels.map((label) => label.id));
+	}, [labelsOpen, track.labels]);
 	const audioSource =
 		track.audio_url ||
 		(track.has_audio_upload ? libraryMediaUrl(track.id, "audio") : "");
@@ -1003,6 +1422,37 @@ function LibraryCard({
 						<span key={label.id}>{label.name}</span>
 					))}
 				</div>
+				<button
+					className={styles.labelEdit}
+					type="button"
+					onClick={() => setLabelsOpen((open) => !open)}
+					aria-expanded={labelsOpen}
+					disabled={pendingLabelSave}
+				>
+					{labelsOpen ? "Close labels" : "Edit labels"}
+				</button>
+				{labelsOpen && (
+					<div className={styles.labelEditor}>
+						{labelOptions.length === 0 ? (
+							<span className={styles.hint}>Create a label above first.</span>
+						) : labelOptions.map((labelName) => {
+							const label = labelIds.find((item) => item.name === labelName);
+							if (!label) return null;
+							return (
+								<label className={styles.labelChoice} key={label.id}>
+									<input
+										type="checkbox"
+										checked={selectedLabelIds.includes(label.id)}
+										disabled={pendingLabelSave}
+										onChange={() => setSelectedLabelIds((current) => current.includes(label.id) ? current.filter((id) => id !== label.id) : [...current, label.id])}
+									/>
+									{label.name}
+								</label>
+							);
+						})}
+						<button className={styles.attachButton} type="button" disabled={pendingLabelSave || selectedLabelIds.length > 12} onClick={async () => { if (await onSaveLabels(track.id, selectedLabelIds)) setLabelsOpen(false); }}>{pendingLabelSave ? "Saving labels" : "Save labels"}</button>
+					</div>
+				)}
 				<div className={styles.soundActions}>
 					<button
 						className={styles.playButton}

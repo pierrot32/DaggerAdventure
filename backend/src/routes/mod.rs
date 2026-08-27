@@ -221,6 +221,10 @@ pub fn router(state: AppState) -> Router {
                 .delete(soundboards::delete_source),
         )
         .route(
+            "/api/sound-labels",
+            get(soundboards::labels).post(soundboards::create_label),
+        )
+        .route(
             "/api/sound-library",
             get(soundboards::library)
                 .post(soundboards::create_library_track)
@@ -231,6 +235,10 @@ pub fn router(state: AppState) -> Router {
             axum::routing::delete(soundboards::delete_library_track),
         )
         .route(
+            "/api/sound-library/:track_id/labels",
+            axum::routing::put(soundboards::update_library_labels),
+        )
+        .route(
             "/api/sound-library/:track_id/:kind",
             get(soundboards::library_media),
         )
@@ -238,6 +246,15 @@ pub fn router(state: AppState) -> Router {
             "/api/soundboards/:board_id/library/:track_id",
             post(soundboards::attach_library_track)
                 .delete(soundboards::detach_library_track),
+        )
+        .route(
+            "/api/sound-playlists",
+            get(soundboards::playlists).post(soundboards::create_playlist),
+        )
+        .route(
+            "/api/sound-playlists/:playlist_id",
+            axum::routing::put(soundboards::update_playlist)
+                .delete(soundboards::delete_playlist),
         )
         .route_layer(middleware::from_fn_with_state(
             state.clone(),

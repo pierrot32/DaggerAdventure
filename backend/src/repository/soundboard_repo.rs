@@ -3,7 +3,10 @@ use uuid::Uuid;
 
 use crate::{
     error::AppError,
-    models::{SoundBoard, SoundBoardDetail, SoundLabel, SoundRecord, User},
+    models::{
+        SoundBoard, SoundBoardDetail, SoundLabel, SoundLibraryTrack,
+        SoundPlaylist, SoundPlaylistTrack, SoundRecord, User,
+    },
 };
 
 pub async fn list_boards(
@@ -186,6 +189,7 @@ async fn list_sounds(
             id: row.id,
             board_id: row.board_id,
             library_track_id: None,
+            source_id: None,
             name: row.name,
             audio_url: row.audio_url,
             audio_mime_type: row.audio_mime_type,
@@ -224,6 +228,7 @@ async fn list_sounds(
             id: row.id,
             board_id,
             library_track_id: Some(row.id),
+            source_id: row.source_id,
             name: row.name,
             audio_url: row.audio_url,
             audio_mime_type: row.audio_mime_type,
@@ -495,6 +500,44 @@ pub async fn delete_source(
     )
 }
 
+pub async fn list_labels(
+    pool: &PgPool,
+    owner_id: Uuid,
+) -> Result<Vec<SoundLabel>, sqlx::Error> {
+    sqlx::query_as::<_, SoundLabel>(
+        "SELECT id, name FROM sound_library_labels
+         WHERE owner_id = $1 ORDER BY lower(name), id",
+    )
+    .bind(owner_id)
+    .fetch_all(pool)
+    .await
+}
+
+pub async fn create_label(
+    pool: &PgPool,
+    owner_id: Uuid,
+    name: &str,
+) -> Result<SoundLabel, AppError> {
+    sqlx::query_as::<_, SoundLabel>(
+        "INSERT INTO sound_library_labels (id, owner_id, name)
+         VALUES ($1, $2, $3) RETURNING id, name",
+    )
+    .bind(Uuid::new_v4())
+    .bind(owner_id)
+    .bind(name)
+    .fetch_one(pool)
+    .await
+    .map_err(|error| {
+        if crate::repository::user_repo::is_unique_violation(&error) {
+            AppError::Conflict(
+                "A label with that name already exists".to_owned(),
+            )
+        } else {
+            AppError::Internal(error.to_string())
+        }
+    })
+}
+
 pub async fn list_library(
     pool: &PgPool,
     owner_id: Uuid,
@@ -639,6 +682,66 @@ pub async fn delete_library_track(
         > 0)
 }
 
+pub async fn update_library_labels(
+    pool: &PgPool,
+    owner_id: Uuid,
+    track_id: Uuid,
+    label_ids: &[Uuid],
+) -> Result<Option<SoundLibraryTrack>, AppError> {
+    let mut transaction = pool.begin().await?;
+    let track_owned = sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS(
+             SELECT 1 FROM sound_library_tracks WHERE id = $1 AND owner_id = $2
+         )",
+    )
+    .bind(track_id)
+    .bind(owner_id)
+    .fetch_one(&mut *transaction)
+    .await?;
+    if !track_owned {
+        return Ok(None);
+    }
+    let valid_label_count = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM sound_library_labels
+         WHERE owner_id = $1 AND id = ANY($2)",
+    )
+    .bind(owner_id)
+    .bind(label_ids)
+    .fetch_one(&mut *transaction)
+    .await?;
+    if valid_label_count != label_ids.len() as i64 {
+        return Err(AppError::Validation(
+            "Choose only your sound library labels".to_owned(),
+        ));
+    }
+    sqlx::query("DELETE FROM sound_library_label_links WHERE track_id = $1")
+        .bind(track_id)
+        .execute(&mut *transaction)
+        .await?;
+    sqlx::query(
+        "INSERT INTO sound_library_label_links (track_id, label_id)
+         SELECT $1, id FROM sound_library_labels
+         WHERE owner_id = $2 AND id = ANY($3)",
+    )
+    .bind(track_id)
+    .bind(owner_id)
+    .bind(label_ids)
+    .execute(&mut *transaction)
+    .await?;
+    transaction.commit().await?;
+    Ok(Some(
+        list_library(pool, owner_id)
+            .await?
+            .into_iter()
+            .find(|track| track.id == track_id)
+            .ok_or_else(|| {
+                AppError::Internal(
+                    "Updated library track could not be loaded".to_owned(),
+                )
+            })?,
+    ))
+}
+
 pub async fn attach_library_track(
     pool: &PgPool,
     owner_id: Uuid,
@@ -667,6 +770,241 @@ pub async fn detach_library_track(
 ) -> Result<bool, sqlx::Error> {
     Ok(sqlx::query("DELETE FROM sound_board_library_tracks link USING sound_boards b WHERE link.board_id = $1 AND link.track_id = $2 AND b.id = link.board_id AND b.owner_id = $3")
         .bind(board_id).bind(track_id).bind(owner_id).execute(pool).await?.rows_affected() > 0)
+}
+
+#[derive(Debug, sqlx::FromRow)]
+struct PlaylistRow {
+    id: Uuid,
+    owner_id: Uuid,
+    name: String,
+    created_at: chrono::DateTime<chrono::Utc>,
+    updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+pub async fn list_playlists(
+    pool: &PgPool,
+    owner_id: Uuid,
+) -> Result<Vec<SoundPlaylist>, AppError> {
+    let rows = sqlx::query_as::<_, PlaylistRow>(
+        "SELECT id, owner_id, name, created_at, updated_at
+         FROM sound_playlists WHERE owner_id = $1
+         ORDER BY lower(name), id",
+    )
+    .bind(owner_id)
+    .fetch_all(pool)
+    .await?;
+    let mut playlists = Vec::with_capacity(rows.len());
+    for row in rows {
+        playlists.push(SoundPlaylist {
+            id: row.id,
+            owner_id: row.owner_id,
+            name: row.name,
+            tracks: playlist_tracks(pool, owner_id, row.id).await?,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+        });
+    }
+    Ok(playlists)
+}
+
+pub async fn create_playlist(
+    pool: &PgPool,
+    owner_id: Uuid,
+    name: &str,
+    track_ids: &[Uuid],
+) -> Result<SoundPlaylist, AppError> {
+    let mut transaction = pool.begin().await?;
+    validate_playlist_tracks(&mut transaction, owner_id, track_ids).await?;
+    let playlist_id = Uuid::new_v4();
+    sqlx::query(
+        "INSERT INTO sound_playlists (id, owner_id, name)
+         VALUES ($1, $2, $3)",
+    )
+    .bind(playlist_id)
+    .bind(owner_id)
+    .bind(name)
+    .execute(&mut *transaction)
+    .await
+    .map_err(map_playlist_write_error)?;
+    insert_playlist_tracks(&mut transaction, playlist_id, track_ids).await?;
+    transaction.commit().await?;
+    list_playlists(pool, owner_id)
+        .await?
+        .into_iter()
+        .find(|playlist| playlist.id == playlist_id)
+        .ok_or_else(|| {
+            AppError::Internal(
+                "Created playlist could not be loaded".to_owned(),
+            )
+        })
+}
+
+pub async fn update_playlist(
+    pool: &PgPool,
+    owner_id: Uuid,
+    playlist_id: Uuid,
+    name: &str,
+    track_ids: &[Uuid],
+) -> Result<Option<SoundPlaylist>, AppError> {
+    let mut transaction = pool.begin().await?;
+    validate_playlist_tracks(&mut transaction, owner_id, track_ids).await?;
+    let updated = sqlx::query(
+        "UPDATE sound_playlists SET name = $1, updated_at = now()
+         WHERE id = $2 AND owner_id = $3",
+    )
+    .bind(name)
+    .bind(playlist_id)
+    .bind(owner_id)
+    .execute(&mut *transaction)
+    .await
+    .map_err(map_playlist_write_error)?
+    .rows_affected();
+    if updated == 0 {
+        return Ok(None);
+    }
+    sqlx::query("DELETE FROM sound_playlist_tracks WHERE playlist_id = $1")
+        .bind(playlist_id)
+        .execute(&mut *transaction)
+        .await?;
+    insert_playlist_tracks(&mut transaction, playlist_id, track_ids).await?;
+    transaction.commit().await?;
+    Ok(Some(
+        list_playlists(pool, owner_id)
+            .await?
+            .into_iter()
+            .find(|playlist| playlist.id == playlist_id)
+            .ok_or_else(|| {
+                AppError::Internal(
+                    "Updated playlist could not be loaded".to_owned(),
+                )
+            })?,
+    ))
+}
+
+pub async fn delete_playlist(
+    pool: &PgPool,
+    owner_id: Uuid,
+    playlist_id: Uuid,
+) -> Result<bool, sqlx::Error> {
+    Ok(sqlx::query(
+        "DELETE FROM sound_playlists WHERE id = $1 AND owner_id = $2",
+    )
+    .bind(playlist_id)
+    .bind(owner_id)
+    .execute(pool)
+    .await?
+    .rows_affected()
+        > 0)
+}
+
+async fn playlist_tracks(
+    pool: &PgPool,
+    owner_id: Uuid,
+    playlist_id: Uuid,
+) -> Result<Vec<SoundPlaylistTrack>, AppError> {
+    let positions = sqlx::query_as::<_, (i32, Uuid)>(
+        "SELECT link.position, link.track_id
+         FROM sound_playlist_tracks link
+         JOIN sound_playlists playlist ON playlist.id = link.playlist_id
+         WHERE link.playlist_id = $1 AND playlist.owner_id = $2
+         ORDER BY link.position, link.track_id",
+    )
+    .bind(playlist_id)
+    .bind(owner_id)
+    .fetch_all(pool)
+    .await?;
+    let tracks = list_library(pool, owner_id).await?;
+    Ok(positions
+        .into_iter()
+        .filter_map(|(position, track_id)| {
+            tracks
+                .iter()
+                .find(|track| track.id == track_id)
+                .map(|track| SoundPlaylistTrack {
+                    position,
+                    track: clone_library_track(track),
+                })
+        })
+        .collect())
+}
+
+fn clone_library_track(track: &SoundLibraryTrack) -> SoundLibraryTrack {
+    SoundLibraryTrack {
+        id: track.id,
+        owner_id: track.owner_id,
+        name: track.name.clone(),
+        audio_url: track.audio_url.clone(),
+        audio_mime_type: track.audio_mime_type.clone(),
+        image_url: track.image_url.clone(),
+        creator_name: track.creator_name.clone(),
+        source_id: track.source_id,
+        source_name: track.source_name.clone(),
+        source_url: track.source_url.clone(),
+        source_description: track.source_description.clone(),
+        source_credit: track.source_credit.clone(),
+        has_audio_upload: track.has_audio_upload,
+        has_image_upload: track.has_image_upload,
+        board_ids: track.board_ids.clone(),
+        labels: track
+            .labels
+            .iter()
+            .map(|label| SoundLabel {
+                id: label.id,
+                name: label.name.clone(),
+            })
+            .collect(),
+        created_at: track.created_at,
+    }
+}
+
+async fn validate_playlist_tracks(
+    transaction: &mut Transaction<'_, Postgres>,
+    owner_id: Uuid,
+    track_ids: &[Uuid],
+) -> Result<(), AppError> {
+    let count = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM sound_library_tracks
+         WHERE owner_id = $1 AND id = ANY($2)",
+    )
+    .bind(owner_id)
+    .bind(track_ids)
+    .fetch_one(&mut **transaction)
+    .await?;
+    if count != track_ids.len() as i64 {
+        return Err(AppError::Validation(
+            "Choose only tracks from your sound library".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+async fn insert_playlist_tracks(
+    transaction: &mut Transaction<'_, Postgres>,
+    playlist_id: Uuid,
+    track_ids: &[Uuid],
+) -> Result<(), AppError> {
+    for (position, track_id) in track_ids.iter().enumerate() {
+        sqlx::query(
+            "INSERT INTO sound_playlist_tracks (playlist_id, track_id, position)
+             VALUES ($1, $2, $3)",
+        )
+        .bind(playlist_id)
+        .bind(track_id)
+        .bind(position as i32)
+        .execute(&mut **transaction)
+        .await?;
+    }
+    Ok(())
+}
+
+fn map_playlist_write_error(error: sqlx::Error) -> AppError {
+    if crate::repository::user_repo::is_unique_violation(&error) {
+        AppError::Conflict(
+            "A playlist with that name already exists".to_owned(),
+        )
+    } else {
+        AppError::Internal(error.to_string())
+    }
 }
 
 pub async fn media(

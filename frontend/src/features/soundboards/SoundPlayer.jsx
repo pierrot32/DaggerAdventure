@@ -53,8 +53,13 @@ export default function SoundPlayer() {
 	const queue = useSoundPlayerStore((state) => state.queue);
 	const playbackVersion = useSoundPlayerStore((state) => state.playbackVersion);
 	const repeatMode = useSoundPlayerStore((state) => state.repeatMode);
+	const sequence = useSoundPlayerStore((state) => state.sequence);
+	const sequenceIndex = useSoundPlayerStore((state) => state.sequenceIndex);
+	const history = useSoundPlayerStore((state) => state.history);
 	const setPlaying = useSoundPlayerStore((state) => state.setPlaying);
 	const advanceQueue = useSoundPlayerStore((state) => state.advanceQueue);
+	const next = useSoundPlayerStore((state) => state.next);
+	const previous = useSoundPlayerStore((state) => state.previous);
 	const cycleRepeatMode = useSoundPlayerStore((state) => state.cycleRepeatMode);
 	const getRepeatMode = useSoundPlayerStore((state) => state.getRepeatMode);
 	const removeFromQueue = useSoundPlayerStore((state) => state.removeFromQueue);
@@ -211,6 +216,12 @@ export default function SoundPlayer() {
 		? Math.min(100, Math.max(0, (currentTime / duration) * 100))
 		: 0;
 	const repeatLabels = { off: "Off", song: "Song", queue: "Queue" };
+	const hasPrevious =
+		(sequence.length > 0 && sequenceIndex > 0) || history.length > 0;
+	const hasNext =
+		(sequence.length > 0 && sequenceIndex < sequence.length - 1) ||
+		queue.length > 0 ||
+		(sequence.length > 0 && repeatMode === "queue");
 
 	if (!current) return null;
 	if (!playerVisible)
@@ -248,12 +259,32 @@ export default function SoundPlayer() {
 			</button>
 			<div className={styles.controls}>
 				<button
+					className={styles.navButton}
+					type="button"
+					onClick={previous}
+					disabled={!hasPrevious}
+					aria-label="Previous sound"
+					title="Previous sound"
+				>
+					<span aria-hidden="true">‹</span>
+				</button>
+				<button
 					className={styles.playToggle}
 					type="button"
 					onClick={togglePlaying}
 					aria-label={playing ? "Pause sound" : "Play sound"}
 				>
 					{playing ? "Pause" : "Play"}
+				</button>
+				<button
+					className={styles.navButton}
+					type="button"
+					onClick={next}
+					disabled={!hasNext}
+					aria-label="Next sound"
+					title="Next sound"
+				>
+					<span aria-hidden="true">›</span>
 				</button>
 				<input
 					className={styles.seek}

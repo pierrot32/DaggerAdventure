@@ -42,8 +42,9 @@ pub use note::{
 pub use notification::Notification;
 pub use soundboard::{
     CreateSoundBoardRequest, SoundBoard, SoundBoardDetail, SoundLabel,
-    SoundLibraryTrack, SoundRecord, SoundSource, SoundSourceRequest,
-    UpdateSoundBoardRequest,
+    SoundLabelRequest, SoundLibraryTrack, SoundPlaylist, SoundPlaylistRequest,
+    SoundPlaylistTrack, SoundRecord, SoundSource, SoundSourceRequest,
+    UpdateSoundBoardRequest, UpdateSoundLabelsRequest,
 };
 pub use user::{
     AccessLevel, LoginRequest, MessageResponse, RegisterRequest,
