@@ -3,8 +3,12 @@ use uuid::Uuid;
 
 use crate::{error::AppError, models::AiGenerationLog};
 
-pub const PROMPT_TEMPLATE_KEYS: &[&str] =
-    &["playground", "character_builder", "character_image"];
+pub const PROMPT_TEMPLATE_KEYS: &[&str] = &[
+    "playground",
+    "character_builder",
+    "character_image",
+    "story_builder",
+];
 
 pub fn default_prompt_template(generation_type: &str) -> &'static str {
     match generation_type {
@@ -13,6 +17,9 @@ pub fn default_prompt_template(generation_type: &str) -> &'static str {
         }
         "character_image" => {
             "Create a polished, full-body fantasy character portrait for a tabletop RPG character. Make the visual design distinctive and readable."
+        }
+        "story_builder" => {
+            "You create grounded, original tabletop adventure story plans as valid JSON. Use only the supplied campaign and character context; do not reproduce source text or rules."
         }
         _ => {
             "You are a concise, imaginative assistant for a tabletop roleplaying game. Produce useful, polished creative material."

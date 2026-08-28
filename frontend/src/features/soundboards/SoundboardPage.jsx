@@ -27,7 +27,10 @@ import {
 	updateSoundSource,
 	uploadLibraryTrack,
 } from "./soundboardApi";
-import { useSoundPlayerStore } from "./soundboardStore";
+import {
+	createPlayerSound,
+	useSoundPlayerStore,
+} from "./soundboardStore";
 import { fisherYatesShuffle } from "./soundboardUtils";
 import styles from "./SoundboardPage.module.css";
 
@@ -467,16 +470,20 @@ export default function SoundboardPage() {
 		}
 	};
 	const launchPlaylist = (playlist, shuffled) => {
-		const tracks = playlist.tracks.map(({ track }) => ({
-			...track,
-			audioSource:
-				track.audio_url ||
-				(track.has_audio_upload ? libraryMediaUrl(track.id, "audio") : ""),
-			imageSource:
-				track.image_url ||
-				(track.has_image_upload ? libraryMediaUrl(track.id, "image") : ""),
-			boardName: `Playlist: ${playlist.name}`,
-		}));
+		const tracks = playlist.tracks.map(({ track }) =>
+			createPlayerSound(track, {
+				audioSource:
+					track.audio_url ||
+					(track.has_audio_upload ? libraryMediaUrl(track.id, "audio") : ""),
+				imageSource:
+					track.image_url ||
+					(track.has_image_upload ? libraryMediaUrl(track.id, "image") : ""),
+				boardName: `Playlist: ${playlist.name}`,
+				boardId: `playlist:${playlist.id}`,
+				sourceKind: "playlist",
+				sourceId: `${playlist.id}:${track.id}`,
+			}),
+		);
 		const launchTracks = shuffled ? fisherYatesShuffle(tracks) : tracks;
 		launchSequence(launchTracks);
 		setState((current) => ({
@@ -1379,6 +1386,13 @@ function LibraryCard({
 	const imageSource =
 		track.image_url ||
 		(track.has_image_upload ? libraryMediaUrl(track.id, "image") : "");
+	const playerSound = createPlayerSound(track, {
+		audioSource,
+		imageSource,
+		boardName: board?.name || "Sound library",
+		boardId: board?.id || "library",
+		sourceKind: "library",
+	});
 	return (
 		<article className={styles.soundCard}>
 			<div className={styles.soundArtwork}>
@@ -1390,14 +1404,7 @@ function LibraryCard({
 				<button
 					className={styles.artworkPlay}
 					type="button"
-					onClick={() =>
-						onPlay({
-							...track,
-							audioSource,
-							imageSource,
-							boardName: board?.name || "Sound library",
-						})
-					}
+					onClick={() => onPlay(playerSound)}
 					disabled={!audioSource}
 					aria-label={`Play ${track.name}`}
 				>
@@ -1457,14 +1464,7 @@ function LibraryCard({
 					<button
 						className={styles.playButton}
 						type="button"
-						onClick={() =>
-							onPlay({
-								...track,
-								audioSource,
-								imageSource,
-								boardName: board?.name || "Sound library",
-							})
-						}
+						onClick={() => onPlay(playerSound)}
 						disabled={!audioSource}
 					>
 						Play now
@@ -1472,14 +1472,7 @@ function LibraryCard({
 					<button
 						className={styles.attachButton}
 						type="button"
-						onClick={() =>
-							useSoundPlayerStore.getState().addToQueue({
-								...track,
-								audioSource,
-								imageSource,
-								boardName: board?.name || "Sound library",
-							})
-						}
+						onClick={() => useSoundPlayerStore.getState().addToQueue(playerSound)}
 						disabled={!audioSource}
 					>
 						Add to queue
@@ -1585,6 +1578,14 @@ function BoardSoundCard({ sound, board, canEdit, onPlay, onQueue, onDelete }) {
 	const imageSource =
 		sound.image_url ||
 		(sound.has_image_upload ? soundMediaUrl(board.id, sound.id, "image") : "");
+	const playerSound = createPlayerSound(sound, {
+		audioSource,
+		imageSource,
+		boardName: board.name,
+		boardId: board.id,
+		sourceKind: sound.library_track_id ? "library" : "direct",
+		sourceId: sound.library_track_id || sound.id,
+	});
 	return (
 		<article className={styles.soundCard}>
 			<div className={styles.soundArtwork}>
@@ -1596,14 +1597,7 @@ function BoardSoundCard({ sound, board, canEdit, onPlay, onQueue, onDelete }) {
 				<button
 					className={styles.artworkPlay}
 					type="button"
-					onClick={() =>
-						onPlay({
-							...sound,
-							audioSource,
-							imageSource,
-							boardName: board.name,
-						})
-					}
+					onClick={() => onPlay(playerSound)}
 					disabled={!audioSource}
 					aria-label={`Play ${sound.name}`}
 				>
@@ -1634,14 +1628,7 @@ function BoardSoundCard({ sound, board, canEdit, onPlay, onQueue, onDelete }) {
 					<button
 						className={styles.playButton}
 						type="button"
-						onClick={() =>
-							onPlay({
-								...sound,
-								audioSource,
-								imageSource,
-								boardName: board.name,
-							})
-						}
+						onClick={() => onPlay(playerSound)}
 						disabled={!audioSource}
 					>
 						Play now
@@ -1649,14 +1636,7 @@ function BoardSoundCard({ sound, board, canEdit, onPlay, onQueue, onDelete }) {
 					<button
 						className={styles.attachButton}
 						type="button"
-						onClick={() =>
-							onQueue({
-								...sound,
-								audioSource,
-								imageSource,
-								boardName: board.name,
-							})
-						}
+						onClick={() => onQueue(playerSound)}
 						disabled={!audioSource}
 					>
 						Add to queue

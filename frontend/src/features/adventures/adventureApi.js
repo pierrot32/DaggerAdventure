@@ -59,3 +59,58 @@ export const deleteAdventureNote = (adventureId, noteId) =>
 	request(`/api/adventures/${adventureId}/notes/${noteId}`, {
 		method: "DELETE",
 	});
+
+export const getAdventureStory = (id) =>
+	request(`/api/adventures/${id}/story`);
+export const generateStory = (id, payload) =>
+	request(`/api/adventures/${id}/story/generate`, {
+		method: "POST",
+		body: JSON.stringify(payload),
+	});
+export const applyStoryProposal = (id, applyKey, proposal) =>
+	request(`/api/adventures/${id}/story/apply`, {
+		method: "POST",
+		body: JSON.stringify({ ...proposal, apply_key: applyKey }),
+	});
+export const createStoryGoal = (id, payload) =>
+	request(`/api/adventures/${id}/story/goals`, {
+		method: "POST",
+		body: JSON.stringify(payload),
+	});
+export const updateStoryGoal = (adventureId, goalId, payload) =>
+	request(`/api/adventures/${adventureId}/story/goals/${goalId}`, {
+		method: "PUT",
+		body: JSON.stringify(payload),
+	});
+export const deleteStoryGoal = (adventureId, goalId) =>
+	request(`/api/adventures/${adventureId}/story/goals/${goalId}`, {
+		method: "DELETE",
+	});
+export const createStoryMilestone = (id, payload) =>
+	request(`/api/adventures/${id}/story/milestones`, {
+		method: "POST",
+		body: JSON.stringify(payload),
+	});
+export const updateStoryMilestone = (adventureId, milestoneId, payload) =>
+	request(`/api/adventures/${adventureId}/story/milestones/${milestoneId}`, {
+		method: "PUT",
+		body: JSON.stringify(payload),
+	});
+export const deleteStoryMilestone = (adventureId, milestoneId) =>
+	request(`/api/adventures/${adventureId}/story/milestones/${milestoneId}`, {
+		method: "DELETE",
+	});
+export const createStoryEvent = (adventureId, milestoneId, payload) =>
+	request(`/api/adventures/${adventureId}/story/milestones/${milestoneId}/events`, {
+		method: "POST",
+		body: JSON.stringify(payload),
+	});
+export const updateStoryEvent = (adventureId, eventId, payload) =>
+	request(`/api/adventures/${adventureId}/story/events/${eventId}`, {
+		method: "PUT",
+		body: JSON.stringify(payload),
+	});
+export const deleteStoryEvent = (adventureId, eventId) =>
+	request(`/api/adventures/${adventureId}/story/events/${eventId}`, {
+		method: "DELETE",
+	});

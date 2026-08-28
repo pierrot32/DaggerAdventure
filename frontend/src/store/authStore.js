@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import * as authApi from "../api/authApi";
+import { useSoundPlayerStore } from "../features/soundboards/soundboardStore";
 
 // Central auth state: shared across pages instead of prop-drilling user/setUser
 export const useAuthStore = create((set) => ({
@@ -36,6 +37,7 @@ export const useAuthStore = create((set) => ({
 
 	logout: async () => {
 		await authApi.logout();
+		useSoundPlayerStore.getState().clear();
 		set({ user: null });
 	},
 
@@ -50,6 +52,7 @@ export const useAuthStore = create((set) => ({
 		try {
 			await authApi.logout();
 		} catch {}
+		useSoundPlayerStore.getState().clear();
 		set({ user: null, status: "ready" });
 	},
 }));

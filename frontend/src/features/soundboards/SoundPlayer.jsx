@@ -1,12 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSoundPlayerStore } from "./soundboardStore";
+import {
+	audioElement,
+	beginPlayAttempt,
+	getLoadedPlayback,
+	hasActivePlayAttempt,
+	invalidatePlayAttempt,
+	isCurrentPlayAttempt,
+	setLoadedPlayback,
+} from "./playbackController";
 import styles from "./SoundPlayer.module.css";
 
-const audioElement = typeof Audio === "undefined" ? null : new Audio();
 let appliedPlaybackVersion = null;
-let playAttempt = 0;
-let activePlayAttempt = null;
 
 function isCurrentMedia(mediaIdentity) {
 	const state = useSoundPlayerStore.getState();
@@ -27,24 +33,18 @@ function formatTime(value) {
 }
 
 function requestPlay(version, source) {
-	const attempt = ++playAttempt;
-	activePlayAttempt = attempt;
+	const attempt = beginPlayAttempt();
 	audioElement?.play().catch(() => {
 		const state = useSoundPlayerStore.getState();
 		if (
-			attempt === playAttempt &&
+			isCurrentPlayAttempt(attempt) &&
 			state.playbackVersion === version &&
 			state.current?.audioSource === source
 		) {
-			activePlayAttempt = null;
+			invalidatePlayAttempt();
 			state.setPlaying(false);
 		}
 	});
-}
-
-function invalidatePlayAttempt() {
-	playAttempt += 1;
-	activePlayAttempt = null;
 }
 
 export default function SoundPlayer() {
@@ -64,6 +64,7 @@ export default function SoundPlayer() {
 	const getRepeatMode = useSoundPlayerStore((state) => state.getRepeatMode);
 	const removeFromQueue = useSoundPlayerStore((state) => state.removeFromQueue);
 	const clearQueue = useSoundPlayerStore((state) => state.clearQueue);
+	const stop = useSoundPlayerStore((state) => state.stop);
 	const clear = useSoundPlayerStore((state) => state.clear);
 	const navigate = useNavigate();
 	const [currentTime, setCurrentTime] = useState(0);
@@ -71,14 +72,14 @@ export default function SoundPlayer() {
 	const [queueVisible, setQueueVisible] = useState(false);
 	const [playerVisible, setPlayerVisible] = useState(true);
 	const seeking = useRef(false);
-	const mediaIdentity = useRef({ version: null, source: null });
+	const mediaIdentity = useRef(getLoadedPlayback());
 	const seekSequence = useRef(0);
 	const seekRequest = useRef(null);
 	useEffect(() => {
 		if (!audioElement) return undefined;
 		const handlePlay = () => {
 			if (
-				activePlayAttempt === playAttempt &&
+				hasActivePlayAttempt() &&
 				!audioElement.paused &&
 				isCurrentMedia(mediaIdentity)
 			)
@@ -163,6 +164,7 @@ export default function SoundPlayer() {
 				version: playbackVersion,
 				source: current.audioSource,
 			};
+			setLoadedPlayback(playbackVersion, current.audioSource);
 			audioElement.src = current.audioSource;
 			audioElement.load();
 			appliedPlaybackVersion = playbackVersion;
@@ -171,6 +173,11 @@ export default function SoundPlayer() {
 			seeking.current = false;
 			setCurrentTime(0);
 			setDuration(0);
+		} else {
+			setCurrentTime(audioElement.currentTime);
+			setDuration(
+				Number.isFinite(audioElement.duration) ? audioElement.duration : 0,
+			);
 		}
 		if (playing) requestPlay(playbackVersion, current.audioSource);
 		else audioElement.pause();
@@ -184,6 +191,11 @@ export default function SoundPlayer() {
 		} else if (current) {
 			requestPlay(playbackVersion, current.audioSource);
 		}
+	};
+	const stopPlaying = () => {
+		invalidatePlayAttempt();
+		audioElement?.pause();
+		stop();
 	};
 	const seek = (event) => {
 		const nextTime = Number(event.currentTarget.value);
@@ -273,8 +285,18 @@ export default function SoundPlayer() {
 					type="button"
 					onClick={togglePlaying}
 					aria-label={playing ? "Pause sound" : "Play sound"}
+					title={playing ? "Pause sound" : "Play sound"}
 				>
-					{playing ? "Pause" : "Play"}
+					<span aria-hidden="true">{playing ? "❚❚" : "▶"}</span>
+				</button>
+				<button
+					className={styles.stopButton}
+					type="button"
+					onClick={stopPlaying}
+					aria-label="Stop sound"
+					title="Stop sound"
+				>
+					<span aria-hidden="true">■</span>
 				</button>
 				<button
 					className={styles.navButton}
@@ -313,7 +335,11 @@ export default function SoundPlayer() {
 				aria-label={`Repeat mode: ${repeatLabels[repeatMode]}. Activate to change.`}
 				title="Cycle repeat mode"
 			>
-				Repeat: {repeatLabels[repeatMode]}
+				{repeatMode === "off" ? (
+					<span aria-hidden="true">↻̸</span>
+				) : (
+					<>↻ {repeatLabels[repeatMode]}</>
+				)}
 			</button>
 			<button
 				className={styles.queueToggle}

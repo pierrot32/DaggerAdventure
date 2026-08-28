@@ -1,0 +1,304 @@
+.panel {
+	max-width: 980px;
+	margin-top: var(--space-6);
+}
+.heading,
+.sectionHeading,
+.subheading,
+.proposalHeading,
+.eventHeading,
+.titleLine {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--space-3);
+}
+.heading {
+	align-items: end;
+	margin-bottom: var(--space-5);
+}
+.heading h3,
+.sectionHeading h4,
+.subheading h4,
+.eventHeading h5,
+.proposalHeading h4 {
+	margin: 0;
+}
+.message {
+	color: var(--color-accent);
+	font-size: 13px;
+}
+.error {
+	color: #ffb4ac;
+}
+.description {
+	max-width: 820px;
+	padding: var(--space-4);
+	border-left: 2px solid var(--color-accent);
+	background: rgba(201, 157, 99, 0.08);
+}
+.description h4 {
+	margin: 0 0 var(--space-2);
+	color: var(--color-accent);
+}
+.description p,
+.summary p,
+.publicItem p {
+	margin: 0;
+	color: var(--color-muted-inverse);
+	line-height: 1.6;
+	white-space: pre-line;
+}
+.section {
+	display: grid;
+	gap: var(--space-4);
+	margin-top: var(--space-7);
+	padding-top: var(--space-5);
+	border-top: 1px solid rgba(244, 238, 228, 0.16);
+}
+.sectionHeading {
+	align-items: end;
+}
+.sectionHeading > span {
+	display: grid;
+	place-items: center;
+	min-width: 25px;
+	height: 25px;
+	border: 1px solid var(--color-accent);
+	border-radius: 50%;
+	color: var(--color-accent);
+	font-size: 12px;
+}
+.subheading {
+	align-items: end;
+}
+.subheading button,
+.sectionHeading > button,
+.eventHeading button,
+.inlineActions button,
+.formActions button,
+.proposalHeading button {
+	padding: 7px 10px;
+	border: 1px solid var(--color-border);
+	background: transparent;
+	color: var(--color-text-inverse);
+	cursor: pointer;
+	font: inherit;
+	font-size: 12px;
+}
+.subheading button:hover,
+.sectionHeading > button:hover,
+.eventHeading button:hover,
+.inlineActions button:hover,
+.formActions button:hover,
+.proposalHeading button:hover {
+	border-color: var(--color-accent);
+	color: var(--color-accent);
+}
+.subheading button:disabled,
+.sectionHeading > button:disabled,
+.eventHeading button:disabled,
+.inlineActions button:disabled,
+.formActions button:disabled,
+.proposalHeading button:disabled {
+	cursor: not-allowed;
+	opacity: 0.5;
+}
+.goalGroup {
+	display: grid;
+	gap: var(--space-3);
+}
+.goalGroup + .goalGroup {
+	margin-top: var(--space-4);
+}
+.itemList,
+.milestones,
+.publicPlan {
+	display: grid;
+	gap: var(--space-3);
+}
+.item,
+.milestone,
+.generator,
+.proposal {
+	padding: var(--space-4);
+	border: 1px solid rgba(244, 238, 228, 0.16);
+	background: rgba(244, 238, 228, 0.04);
+}
+.summary {
+	display: flex;
+	align-items: start;
+	justify-content: space-between;
+	gap: var(--space-4);
+}
+.summary > div:first-child {
+	display: grid;
+	gap: 5px;
+	min-width: 0;
+}
+.summary strong,
+.publicItem strong {
+	color: var(--color-text-inverse);
+}
+.summary small,
+.publicItem small {
+	color: var(--color-accent);
+	font-size: 12px;
+}
+.titleLine {
+	justify-content: start;
+	flex-wrap: wrap;
+}
+.status {
+	padding: 3px 7px;
+	border: 1px solid rgba(201, 157, 99, 0.55);
+	color: var(--color-accent);
+	font-size: 11px;
+	text-transform: uppercase;
+}
+.inlineActions,
+.formActions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--space-2);
+}
+.inlineActions {
+	flex-shrink: 0;
+}
+.inlineActions button:last-child {
+	color: var(--color-danger);
+}
+.form {
+	display: grid;
+	gap: var(--space-3);
+}
+.form label,
+.generatorForm label,
+.proposalItem label {
+	display: grid;
+	gap: 6px;
+	color: var(--color-text-inverse);
+	font-size: 12px;
+}
+.form input,
+.form textarea,
+.form select,
+.generatorForm input,
+.generatorForm textarea,
+.proposalItem input,
+.proposalItem textarea,
+.proposalItem select {
+	width: 100%;
+	padding: 9px 10px;
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-sm);
+	background: var(--color-surface);
+	color: var(--color-text);
+	font: inherit;
+}
+.form textarea,
+.generatorForm textarea,
+.proposalItem textarea {
+	resize: vertical;
+}
+.formGrid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--space-3);
+}
+.milestone {
+	display: grid;
+	gap: var(--space-4);
+}
+.eventHeading {
+	align-items: end;
+	padding-top: var(--space-3);
+	border-top: 1px solid rgba(244, 238, 228, 0.12);
+}
+.event {
+	padding: var(--space-3);
+	border-left: 2px solid rgba(201, 157, 99, 0.5);
+	background: rgba(244, 238, 228, 0.03);
+}
+.generator {
+	display: grid;
+	gap: var(--space-4);
+	margin-top: var(--space-7);
+	border-color: var(--color-accent);
+	background: rgba(201, 157, 99, 0.08);
+}
+.generatorForm {
+	display: grid;
+	grid-template-columns: minmax(0, 1.5fr) minmax(180px, 0.8fr) auto;
+	align-items: end;
+	gap: var(--space-3);
+}
+.proposal {
+	display: grid;
+	gap: var(--space-4);
+	border-color: rgba(201, 157, 99, 0.6);
+	background: rgba(23, 33, 38, 0.3);
+}
+.proposalHeading {
+	align-items: end;
+}
+.proposalItem {
+	display: grid;
+	gap: var(--space-3);
+	padding: var(--space-3);
+	border: 1px solid rgba(244, 238, 228, 0.14);
+}
+.proposalItem > strong {
+	color: var(--color-accent);
+}
+.proposalMilestone {
+	display: grid;
+	gap: var(--space-3);
+	padding-left: var(--space-3);
+	border-left: 2px solid rgba(201, 157, 99, 0.45);
+}
+.proposalMilestone h5 {
+	margin: 0;
+	color: var(--color-text-inverse);
+}
+.publicPlan {
+	margin-top: var(--space-6);
+}
+.publicSection {
+	display: grid;
+	gap: var(--space-3);
+}
+.publicSection h4 {
+	margin: 0;
+	color: var(--color-accent);
+}
+.publicItem {
+	display: grid;
+	gap: 5px;
+	padding: var(--space-3);
+	border-left: 2px solid rgba(201, 157, 99, 0.45);
+	background: rgba(244, 238, 228, 0.04);
+}
+.publicEvent {
+	display: grid;
+	gap: 5px;
+	margin-top: var(--space-2);
+	padding: var(--space-2) 0 0 var(--space-3);
+	border-top: 1px solid rgba(244, 238, 228, 0.12);
+}
+@media (max-width: 720px) {
+	.generatorForm {
+		grid-template-columns: 1fr;
+	}
+}
+@media (max-width: 560px) {
+	.summary,
+	.heading,
+	.proposalHeading {
+		align-items: start;
+		flex-direction: column;
+	}
+	.formGrid {
+		grid-template-columns: 1fr;
+	}
+}

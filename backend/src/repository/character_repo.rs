@@ -1,7 +1,9 @@
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::models::{Character, CharacterSummary, CreateCharacterRequest};
+use crate::models::{
+    Character, CharacterSummary, CreateCharacterRequest, StoryCharacterContext,
+};
 
 const CHARACTER_FIELDS: &str = "id, user_id, adventure_id, name, pronouns, description, size,
     height, weight, eye_color, hair_color, skin_color, look_description, portrait_url, level,
@@ -126,6 +128,23 @@ pub async fn list_for_adventure(
         .bind(adventure_id)
         .fetch_all(pool)
         .await
+}
+
+pub async fn list_for_story_context(
+    pool: &PgPool,
+    adventure_id: Uuid,
+) -> Result<Vec<StoryCharacterContext>, sqlx::Error> {
+    sqlx::query_as::<_, StoryCharacterContext>(
+        "SELECT id, name, pronouns, description, look_description,
+                class_id, subclass_id, ancestry_id, secondary_ancestry_id,
+                community_id, background_story
+         FROM characters
+         WHERE adventure_id = $1
+         ORDER BY updated_at DESC, id",
+    )
+    .bind(adventure_id)
+    .fetch_all(pool)
+    .await
 }
 
 pub async fn link_to_adventure(

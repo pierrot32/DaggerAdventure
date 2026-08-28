@@ -1,0 +1,1 @@
+DROP TABLE adventure_story_applies;

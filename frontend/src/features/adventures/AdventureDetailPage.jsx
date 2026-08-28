@@ -19,9 +19,13 @@ import {
 	listSoundBoards,
 	soundMediaUrl,
 } from "../soundboards/soundboardApi";
-import { useSoundPlayerStore } from "../soundboards/soundboardStore";
+import {
+	createPlayerSound,
+	useSoundPlayerStore,
+} from "../soundboards/soundboardStore";
 import { FrameDraftForm } from "./CreateAdventurePage";
 import NoteManager from "../notes/NoteManager";
+import StoryPanel from "./StoryPanel";
 import styles from "./AdventureDetailPage.module.css";
 
 const tabs = [
@@ -825,7 +829,12 @@ export default function AdventureDetailPage() {
 				/>
 			)}
 			{activeTab === "story" && (
-				<StoryPanel description={current.description} />
+				<StoryPanel
+					adventureId={adventureId}
+					isCreator={isCreator}
+					user={user}
+					description={current.description}
+				/>
 			)}
 			{activeTab === "players" && (
 				<PlayersPanel
@@ -1146,24 +1155,6 @@ function PlayersPanel({
 	);
 }
 
-function StoryPanel({ description }) {
-	return (
-		<section className={styles.workspacePanel}>
-			<div className={styles.panelHeading}>
-				<div>
-					<p className="eyebrow">CAMPAIGN STORY</p>
-					<h3>Story</h3>
-				</div>
-			</div>
-			{description ? (
-				<p className={styles.storyText}>{description}</p>
-			) : (
-				<p className="muted">The GM has not added a story description yet.</p>
-			)}
-		</section>
-	);
-}
-
 function AdventureSoundsPanel({
 	boards,
 	selectedBoardId,
@@ -1361,12 +1352,14 @@ function AdventureSoundCard({ sound, board, onPlay, onQueue }) {
 	const imageSource =
 		sound.image_url ||
 		(sound.has_image_upload ? soundMediaUrl(board.id, sound.id, "image") : "");
-	const playerSound = {
-		...sound,
+	const playerSound = createPlayerSound(sound, {
 		audioSource,
 		imageSource,
 		boardName: board.name,
-	};
+		boardId: board.id,
+		sourceKind: sound.library_track_id ? "library" : "direct",
+		sourceId: sound.library_track_id || sound.id,
+	});
 	return (
 		<article className={styles.adventureSoundCard}>
 			<div className={styles.adventureSoundArtwork}>

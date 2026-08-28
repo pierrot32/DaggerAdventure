@@ -7,6 +7,7 @@ pub mod frame;
 pub mod note;
 pub mod notification;
 pub mod soundboard;
+pub mod story;
 pub mod user;
 
 pub use admin::{
@@ -45,6 +46,12 @@ pub use soundboard::{
     SoundLabelRequest, SoundLibraryTrack, SoundPlaylist, SoundPlaylistRequest,
     SoundPlaylistTrack, SoundRecord, SoundSource, SoundSourceRequest,
     UpdateSoundBoardRequest, UpdateSoundLabelsRequest,
+};
+pub use story::{
+    GenerateStoryRequest, StoryCharacterContext, StoryEvent, StoryEventRequest,
+    StoryGoal, StoryGoalRequest, StoryMilestone, StoryMilestoneRequest,
+    StoryPlan, StoryProposal, StoryProposalApplyRequest, StoryProposalItem,
+    StoryProposalMilestone, validate_apply_key,
 };
 pub use user::{
     AccessLevel, LoginRequest, MessageResponse, RegisterRequest,

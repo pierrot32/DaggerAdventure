@@ -8,6 +8,7 @@ pub mod frames;
 pub mod notes;
 pub mod notifications;
 pub mod soundboards;
+pub mod story;
 pub mod users;
 
 use axum::{
@@ -156,6 +157,45 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/adventures/:adventure_id/character-context",
             get(frames::character_context),
+        )
+        .route(
+            "/api/adventures/:adventure_id/story",
+            get(story::get),
+        )
+        .route(
+            "/api/adventures/:adventure_id/story/generate",
+            post(story::generate),
+        )
+        .route(
+            "/api/adventures/:adventure_id/story/apply",
+            post(story::apply),
+        )
+        .route(
+            "/api/adventures/:adventure_id/story/goals",
+            post(story::create_goal),
+        )
+        .route(
+            "/api/adventures/:adventure_id/story/goals/:goal_id",
+            axum::routing::put(story::update_goal)
+                .delete(story::delete_goal),
+        )
+        .route(
+            "/api/adventures/:adventure_id/story/milestones",
+            post(story::create_milestone),
+        )
+        .route(
+            "/api/adventures/:adventure_id/story/milestones/:milestone_id",
+            axum::routing::put(story::update_milestone)
+                .delete(story::delete_milestone),
+        )
+        .route(
+            "/api/adventures/:adventure_id/story/milestones/:milestone_id/events",
+            post(story::create_event),
+        )
+        .route(
+            "/api/adventures/:adventure_id/story/events/:event_id",
+            axum::routing::put(story::update_event)
+                .delete(story::delete_event),
         )
         .route(
             "/api/adventures/:adventure_id/notes",

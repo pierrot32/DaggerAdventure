@@ -1,9 +1,59 @@
 import { create } from "zustand";
+import { resetPlayback } from "./playbackController";
 
 let queueSequence = 0;
+let fallbackPlaybackSequence = 0;
+const fallbackPlaybackIds = new WeakMap();
+const MAX_HISTORY_ENTRIES = 50;
+
+function appendHistory(history, sound) {
+	return [...history, sound].slice(-MAX_HISTORY_ENTRIES);
+}
+
+function fallbackPlaybackId(sound) {
+	if (sound && typeof sound === "object") {
+		if (!fallbackPlaybackIds.has(sound))
+			fallbackPlaybackIds.set(sound, `object:${++fallbackPlaybackSequence}`);
+		return fallbackPlaybackIds.get(sound);
+	}
+	return `value:${String(sound)}`;
+}
+
+export function getSoundPlaybackId(sound, options = {}) {
+	if (sound?.playbackId) return sound.playbackId;
+	const sourceKind =
+		options.sourceKind || (sound?.library_track_id ? "library" : "direct");
+	const sourceId =
+		options.sourceId ?? sound?.library_track_id ?? sound?.id;
+	const boardId =
+		options.boardId ?? sound?.board_id ?? sound?.boardId ?? "unknown";
+	if (sourceId != null)
+		return `${sourceKind}:${sourceId}:board:${boardId}`;
+	return fallbackPlaybackId(sound);
+}
+
+export function createPlayerSound(sound, options = {}) {
+	const playerSound = {
+		...sound,
+		playbackId: getSoundPlaybackId(sound, options),
+	};
+	if (options.audioSource !== undefined)
+		playerSound.audioSource = options.audioSource;
+	if (options.imageSource !== undefined)
+		playerSound.imageSource = options.imageSource;
+	if (options.boardName !== undefined)
+		playerSound.boardName = options.boardName;
+	return playerSound;
+}
+
+function ensurePlaybackId(sound) {
+	return sound?.playbackId
+		? sound
+		: { ...sound, playbackId: getSoundPlaybackId(sound) };
+}
 
 const createQueueEntry = (sound) => ({
-	...sound,
+	...ensurePlaybackId(sound),
 	queueId: `queue-${++queueSequence}`,
 });
 
@@ -17,23 +67,27 @@ export const useSoundPlayerStore = create((set, get) => ({
 	playbackVersion: 0,
 	repeatMode: "off",
 	play: (sound) =>
-		set((state) => ({
-			current: sound,
-			playing: true,
-			sequence: [],
-			sequenceIndex: -1,
-			history:
-				state.current && state.current.audioSource !== sound.audioSource
-					? [...state.history, state.current]
-					: state.history,
-			playbackVersion: state.playbackVersion + 1,
-		})),
+		set((state) => {
+			const nextSound = ensurePlaybackId(sound);
+			const current = state.current && ensurePlaybackId(state.current);
+			return {
+				current: nextSound,
+				playing: true,
+				sequence: [],
+				sequenceIndex: -1,
+				history:
+					current && current.playbackId !== nextSound.playbackId
+						? appendHistory(state.history, current)
+						: state.history,
+				playbackVersion: state.playbackVersion + 1,
+			};
+		}),
 	addToQueue: (sound) =>
 		set((state) =>
 			state.current
 				? { queue: [...state.queue, createQueueEntry(sound)] }
 				: {
-						current: sound,
+						current: ensurePlaybackId(sound),
 						playing: true,
 						sequence: [],
 						sequenceIndex: -1,
@@ -44,10 +98,11 @@ export const useSoundPlayerStore = create((set, get) => ({
 	launchSequence: (sounds) =>
 		set((state) => {
 			if (sounds.length === 0) return state;
+			const sequence = sounds.map(ensurePlaybackId);
 			return {
-				sequence: sounds,
+				sequence,
 				sequenceIndex: 0,
-				current: sounds[0],
+				current: sequence[0],
 				playing: true,
 				history: [],
 				playbackVersion: state.playbackVersion + 1,
@@ -93,11 +148,14 @@ export const useSoundPlayerStore = create((set, get) => ({
 			const [next, ...remaining] = state.queue;
 			return {
 				current: next,
-				queue: mode === "queue" ? [...remaining, state.current] : remaining,
+				queue:
+					mode === "queue"
+						? [...remaining, createQueueEntry(state.current)]
+						: remaining,
 				sequence: [],
 				sequenceIndex: -1,
 				history: state.current
-					? [...state.history, state.current]
+					? appendHistory(state.history, state.current)
 					: state.history,
 				playing: true,
 				playbackVersion: state.playbackVersion + 1,
@@ -147,13 +205,24 @@ export const useSoundPlayerStore = create((set, get) => ({
 		})),
 	getRepeatMode: () => get().repeatMode,
 	setPlaying: (playing) => set({ playing }),
-	clear: () =>
+	stop: () =>
 		set({
+			current: null,
+			playing: false,
+			sequence: [],
+			sequenceIndex: -1,
+			history: [],
+		}),
+	clear: () => {
+		resetPlayback();
+		set((state) => ({
 			current: null,
 			playing: false,
 			queue: [],
 			sequence: [],
 			sequenceIndex: -1,
 			history: [],
-		}),
+			playbackVersion: state.playbackVersion + 1,
+		}));
+	},
 }));
